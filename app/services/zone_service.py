@@ -9,6 +9,7 @@ from app.models.zone_model import (
     insert_zone,
     select_zone,
     select_zones,
+    select_zones_by_site_id,
     update_zone_record,
     soft_delete_zone,
 )
@@ -114,11 +115,13 @@ def get_zone_by_id(zone_id):
     row = select_zone(zone_id)
     return format_zone(row)
 
+def get_zones_by_site_id(site_id):
+    rows = select_zones_by_site_id(site_id)
+    return [format_zone_summary(row) for row in rows]
 
 def get_all_zones():
     rows = select_zones()
     return [format_zone_summary(row) for row in rows]
-
 
 def update_zone(zone_id, data):
     error = validate_zone_payload(data)

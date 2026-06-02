@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from app.services.zone_service import get_zones_by_site_id
 
 from app.services.site_service import (
     create_site,
@@ -47,6 +48,14 @@ def get_site_route(site_id):
 
     return jsonify(site)
 
+@sites_bp.route("/api/sites/<site_id>/zones", methods=["GET"])
+def get_site_zones_route(site_id):
+    zones = get_zones_by_site_id(site_id)
+
+    return jsonify({
+        "site_id": site_id,
+        "zones": zones
+    })
 
 @sites_bp.route("/api/sites/<site_id>", methods=["PUT"])
 def update_site_route(site_id):
