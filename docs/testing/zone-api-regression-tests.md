@@ -47,7 +47,7 @@ Expected:
 curl -X POST https://api.dronenav.org/api/zones \
   -H "Content-Type: application/json" \
   -d '{
-    "authority_id": "019e886f-5110-7067-90f9-17e73143a30a",
+    "site_id": "019e8a1d-b1a9-7c1f-87b0-3fd426c2f7bc",
     "zone_name": "Regression Test Zone",
     "zone_type": "restricted",
     "created_by": "dronenav",
