@@ -1,0 +1,6 @@
+ALTER TABLE sites
+ADD COLUMN deleted_at TIMESTAMPTZ;
+
+ALTER TABLE sites
+ADD COLUMN deleted_by VARCHAR(100);
+
