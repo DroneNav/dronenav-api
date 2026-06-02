@@ -53,4 +53,13 @@ SURVEY_STATUS_SURVEYED = "surveyed"
 
 DEFAULT_SURVEY_STATUS = SURVEY_STATUS_NOT_SURVEYED
 
+# -----------------------------------------------------------------
+# Authority Statuses
+# -----------------------------------------------------------------
+
+AUTHORITY_STATUS_ACTIVE = "active"
+AUTHORITY_STATUS_INACTIVE = "inactive"
+AUTHORITY_STATUS_DELETED = "deleted"
+
+DEFAULT_AUTHORITY_STATUS = AUTHORITY_STATUS_ACTIVE
 

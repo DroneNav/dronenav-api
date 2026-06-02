@@ -1,12 +1,13 @@
 from flask import Flask, jsonify
 
 from app.config.database import check_database
+from app.routes.authorities import authorities_bp
 from app.routes.sites import sites_bp
 
 app = Flask(__name__)
 
+app.register_blueprint(authorities_bp)
 app.register_blueprint(sites_bp)
-
 
 @app.route("/health")
 def health():
