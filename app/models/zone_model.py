@@ -106,6 +106,7 @@ def select_zones():
 
         return result.mappings().all()
 
+
 def select_zones_by_site_id(site_id):
     with engine.connect() as connection:
         result = connection.execute(
@@ -128,11 +129,13 @@ def select_zones_by_site_id(site_id):
                 ORDER BY created_at DESC
             """),
             {
+                "site_id": site_id,
                 "deleted_status": ZONE_STATUS_DELETED,
             }
         )
 
         return result.mappings().all()
+
 
 def update_zone_record(zone_id, data):
     with engine.begin() as connection:
