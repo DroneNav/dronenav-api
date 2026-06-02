@@ -1,0 +1,19 @@
+# Environment / Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual Environments
+venv/
+.venv/
+virtualenv/
+
+tmp/
+public/
+cgi-bin/
+startenv
+.htaccess
+.well-known/
