@@ -43,6 +43,25 @@ SITE_STATUS_DELETED = "deleted"
 
 DEFAULT_OPERATIONAL_STATUS = SITE_STATUS_INACTIVE
 
+# ------------------------------------------------------------------
+# Zone Types
+# ------------------------------------------------------------------
+
+ZONE_TYPE_RESTRICTED = "restricted"
+ZONE_TYPE_OPEN = "open"
+ZONE_TYPE_CAUTION = "caution"
+ZONE_TYPE_EMERGENCY = "emergency"
+ZONE_TYPE_CLOSED = "closed"
+
+# ------------------------------------------------------------------
+# Zone Statuses
+# ------------------------------------------------------------------
+
+ZONE_STATUS_ACTIVE = "active"
+ZONE_STATUS_INACTIVE = "inactive"
+ZONE_STATUS_DELETED = "deleted"
+
+DEFAULT_ZONE_STATUS = ZONE_STATUS_INACTIVE
 
 # ------------------------------------------------------------------
 # Survey Statuses
