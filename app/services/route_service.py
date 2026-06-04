@@ -1,10 +1,9 @@
 from app.config.constants import (
-    DEFAULT_MINIMUM_SEGMENT_ALTITUDE_FT,
-    DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT,
     DEFAULT_MINIMUM_AIRCRAFT_WEIGHT_LBS,
     DEFAULT_MAXIMUM_AIRCRAFT_WEIGHT_LBS,
-    DEFAULT_ROUTE_SPEED_LIMIT_MPH,
-    DEFAULT_ROUTE_WIDTH_FT,
+    DEFAULT_MINIMUM_SEGMENT_COUNT,
+    DEFAULT_ROUTE_DIRECTION,
+    DEFAULT_ROUTE_BUFFERED,
     DEFAULT_ROUTE_STATUS,
     DEFAULT_SURVEY_STATUS,
 )
@@ -14,7 +13,6 @@ from app.models.route_model import (
     select_route,
     select_routes,
     select_routes_by_site_id,
-    select_routes_by_droneport_id,
     update_route_record,
     soft_delete_route,
 )
@@ -22,28 +20,55 @@ from app.models.route_model import (
 
 def validate_route_payload(data):
     required_fields = [
+        "origin_site_id",
+        "destination_site_id",
         "origin_droneport_id",
         "destination_droneport_id",
         "route_name",
         "route_type",
         "created_by",
         "geometry",
+        "segment_attributes",
     ]
 
     for field in required_fields:
         if field not in data or data[field] in ("", None):
             return f"Missing required field: {field}"
 
+    if not isinstance(data["segment_attributes"], list):
+        return "segment_attributes must be an array"
+
     geometry = data["geometry"]
 
     if geometry.get("type") != "LineString":
         return "Route geometry must be a LineString"
+
+    coordinates = geometry.get("coordinates", [])
+
+    if not isinstance(coordinates, list):
+        return "Route coordinates must be an array"
+
+    segment_count = len(coordinates) - 1
+
+    if segment_count < DEFAULT_MINIMUM_SEGMENT_COUNT:
+        return (
+            f"Route must contain at least "
+            f"{DEFAULT_MINIMUM_SEGMENT_COUNT} segments"
+        )
+
+    if len(data["segment_attributes"]) != segment_count:
+        return (
+            f"segment_attributes must contain "
+            f"{segment_count} entries"
+        )
 
     return None
 
 
 def normalize_route_payload(data):
     return {
+        "origin_site_id": data["origin_site_id"],
+        "destination_site_id": data["destination_site_id"],
         "origin_droneport_id": data["origin_droneport_id"],
         "destination_droneport_id": data["destination_droneport_id"],
         "route_name": data["route_name"],
@@ -51,11 +76,24 @@ def normalize_route_payload(data):
         "created_by": data["created_by"],
         "operational_status": DEFAULT_ROUTE_STATUS,
         "survey_status": DEFAULT_SURVEY_STATUS,
-        "minimum_aircraft_weight_lbs": data["minimum_aircraft_weight_lbs"],
-        "maximum_aircraft_weight_lbs": data["maximum_aircraft_weight_lbs"],
-        "direction": data["direction"],
-        "buffered": data["buffered"],
-        "geometry": data["geometry"],
+	"minimum_aircraft_weight_lbs": data.get(
+	    "minimum_aircraft_weight_lbs",
+	    DEFAULT_MINIMUM_AIRCRAFT_WEIGHT_LBS
+	),
+	"maximum_aircraft_weight_lbs": data.get(
+	    "maximum_aircraft_weight_lbs",
+	    DEFAULT_MAXIMUM_AIRCRAFT_WEIGHT_LBS
+	),
+	"direction": data.get(
+	    "direction",
+	    DEFAULT_ROUTE_DIRECTION
+	),
+	"buffered": data.get(
+	    "buffered",
+	    DEFAULT_ROUTE_BUFFERED
+	),
+	"geometry": data["geometry"],
+	"segment_attributes": data["segment_attributes"],
     }
 
 
@@ -65,6 +103,8 @@ def format_route(row):
 
     return {
         "route_id": str(row["route_id"]),
+        "origin_site_id": str(row["origin_site_id"]),
+        "destination_site_id": str(row["destination_site_id"]),
         "origin_droneport_id": str(row["origin_droneport_id"]),
         "destination_droneport_id": str(row["destination_droneport_id"]),
         "route_name": row["route_name"],
@@ -82,12 +122,15 @@ def format_route(row):
         "direction": row["direction"],
         "buffered": row["buffered"],
         "geometry": row["geometry"],
+        "segment_attributes": row["segment_attributes"],
     }
 
 
 def format_route_summary(row):
     return {
         "route_id": str(row["route_id"]),
+        "origin_site_id": str(row["origin_site_id"]),
+        "destination_site_id": str(row["destination_site_id"]),
         "origin_droneport_id": str(row["origin_droneport_id"]),
         "destination_droneport_id": str(row["destination_droneport_id"]),
         "route_name": row["route_name"],
@@ -101,6 +144,7 @@ def format_route_summary(row):
         "direction": row["direction"],
         "buffered": row["buffered"],
         "geometry": row["geometry"],
+        "segment_attributes": row["segment_attributes"],
     }
 
 
@@ -127,11 +171,6 @@ def get_route_by_id(route_id):
 
 def get_routes_by_site_id(site_id):
     rows = select_routes_by_site_id(site_id)
-    return [format_route_summary(row) for row in rows]
-
-
-def get_routes_by_droneport_id(droneport_id):
-    rows = select_routes_by_droneport_id(droneport_id)
     return [format_route_summary(row) for row in rows]
 
 

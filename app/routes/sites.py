@@ -9,6 +9,7 @@ from app.services.site_service import (
 )
 from app.services.zone_service import get_zones_by_site_id
 from app.services.droneport_service import get_droneports_by_site_id
+from app.services.route_service import get_routes_by_site_id
 
 
 sites_bp = Blueprint("sites", __name__)
@@ -71,16 +72,15 @@ def get_site_droneports_route(site_id):
     })
 
 
-"""
 @sites_bp.route("/api/sites/<site_id>/routes", methods=["GET"])
 def get_site_routes_route(site_id):
-    zones = get_routes_by_site_id(site_id)
+    routes = get_routes_by_site_id(site_id)
 
     return jsonify({
         "site_id": site_id,
         "routes": routes
     })
-"""
+
 
 @sites_bp.route("/api/sites/<site_id>", methods=["PUT"])
 def update_site_route(site_id):

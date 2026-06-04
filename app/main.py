@@ -5,6 +5,7 @@ from app.routes.authorities import authorities_bp
 from app.routes.sites import sites_bp
 from app.routes.zones import zones_bp
 from app.routes.droneports import droneports_bp
+from app.routes.routes import routes_bp
 
 app = Flask(__name__)
 
@@ -12,6 +13,8 @@ app.register_blueprint(authorities_bp)
 app.register_blueprint(sites_bp)
 app.register_blueprint(zones_bp)
 app.register_blueprint(droneports_bp)
+app.register_blueprint(routes_bp)
+
 
 @app.route("/health")
 def health():

@@ -2,44 +2,57 @@ import json
 
 from sqlalchemy import text
 
-from app.config.constants import DEFAULT_SRID, ZONE_STATUS_DELETED
+from app.config.constants import DEFAULT_SRID, ROUTE_STATUS_DELETED
 from app.config.database import engine
 
 
-def insert_zone(data):
+def insert_route(data):
     with engine.begin() as connection:
         result = connection.execute(
             text("""
-                INSERT INTO zones (
-                    site_id,
-                    zone_name,
-                    zone_type,
+                INSERT INTO routes (
+                    origin_site_id,
+                    destination_site_id,
+                    origin_droneport_id,
+                    destination_droneport_id,
+                    route_name,
+                    route_type,
                     created_by,
                     operational_status,
                     survey_status,
-                    minimum_altitude_ft,
-                    maximum_altitude_ft,
-                    geometry
+                    minimum_aircraft_weight_lbs,
+                    maximum_aircraft_weight_lbs,
+                    direction,
+                    buffered,
+                    geometry,
+                    segment_attributes
                 )
                 VALUES (
-                    :site_id,
-                    :zone_name,
-                    :zone_type,
+                    :origin_site_id,
+                    :destination_site_id,
+                    :origin_droneport_id,
+                    :destination_droneport_id,
+                    :route_name,
+                    :route_type,
                     :created_by,
                     :operational_status,
                     :survey_status,
-                    :minimum_altitude_ft,
-                    :maximum_altitude_ft,
+                    :minimum_aircraft_weight_lbs,
+                    :maximum_aircraft_weight_lbs,
+                    :direction,
+                    :buffered,
                     ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
-                    )
+                    ),
+                    CAST(:segment_attributes AS jsonb)
                 )
-                RETURNING zone_id
+                RETURNING route_id
             """),
             {
                 **data,
                 "geometry": json.dumps(data["geometry"]),
+                "segment_attributes": json.dumps(data["segment_attributes"]),
                 "srid": DEFAULT_SRID,
             }
         )
@@ -47,15 +60,18 @@ def insert_zone(data):
         return str(result.scalar())
 
 
-def select_zone(zone_id):
+def select_route(route_id):
     with engine.connect() as connection:
         result = connection.execute(
             text("""
                 SELECT
-                    zone_id,
-                    site_id,
-                    zone_name,
-                    zone_type,
+                    route_id,
+                    origin_site_id,
+                    destination_site_id,
+                    origin_droneport_id,
+                    destination_droneport_id,
+                    route_name,
+                    route_type,
                     created_by,
                     created_at,
                     operational_status,
@@ -63,103 +79,125 @@ def select_zone(zone_id):
                     last_surveyed_at,
                     surveyed_by,
                     approved_by,
-                    minimum_altitude_ft,
-                    maximum_altitude_ft,
-                    ST_AsGeoJSON(geometry)::json AS geometry
-                FROM zones 
-                WHERE zone_id = :zone_id
+                    minimum_aircraft_weight_lbs,
+                    maximum_aircraft_weight_lbs,
+                    direction,
+                    buffered,
+                    ST_AsGeoJSON(geometry)::json AS geometry,
+                    segment_attributes
+                FROM routes 
+                WHERE route_id = :route_id
                   AND operational_status <> :deleted_status
             """),
             {
-                "zone_id": zone_id,
-                "deleted_status": ZONE_STATUS_DELETED,
+                "route_id": route_id,
+                "deleted_status": ROUTE_STATUS_DELETED,
             }
         )
 
         return result.mappings().first()
 
 
-def select_zones():
+def select_routes():
     with engine.connect() as connection:
         result = connection.execute(
             text("""
                 SELECT
-                    zone_id,
-                    site_id,
-                    zone_name,
-                    zone_type,
+                    route_id,
+                    origin_site_id,
+                    destination_site_id,
+                    origin_droneport_id,
+                    destination_droneport_id,
+                    route_name,
+                    route_type,
                     created_by,
                     created_at,
                     operational_status,
                     survey_status,
-                    minimum_altitude_ft,
-                    maximum_altitude_ft,
-                    ST_AsGeoJSON(geometry)::json AS geometry
-                FROM zones
+                    minimum_aircraft_weight_lbs,
+                    maximum_aircraft_weight_lbs,
+                    direction,
+                    buffered,
+                    ST_AsGeoJSON(geometry)::json AS geometry,
+                    segment_attributes
+                FROM routes
                 WHERE operational_status <> :deleted_status
                 ORDER BY created_at DESC
             """),
             {
-                "deleted_status": ZONE_STATUS_DELETED,
+                "deleted_status": ROUTE_STATUS_DELETED,
             }
         )
 
         return result.mappings().all()
 
 
-def select_zones_by_site_id(site_id):
+def select_routes_by_site_id(site_id):
     with engine.connect() as connection:
         result = connection.execute(
             text("""
                 SELECT
-                    zone_id,
-                    site_id,
-                    zone_name,
-                    zone_type,
+                    route_id,
+                    origin_site_id,
+                    destination_site_id,
+                    origin_droneport_id,
+                    destination_droneport_id,
+                    route_name,
+                    route_type,
                     created_by,
                     created_at,
                     operational_status,
                     survey_status,
-                    minimum_altitude_ft,
-                    maximum_altitude_ft,
-                    ST_AsGeoJSON(geometry)::json AS geometry
-                FROM zones
+                    minimum_aircraft_weight_lbs,
+                    maximum_aircraft_weight_lbs,
+                    direction,
+                    buffered,
+                    ST_AsGeoJSON(geometry)::json AS geometry,
+                    segment_attributes
+                FROM routes
                 WHERE operational_status <> :deleted_status
-                  AND site_id = :site_id
+                  AND (origin_site_id = :site_id OR destination_site_id = :site_id)
                 ORDER BY created_at DESC
             """),
             {
                 "site_id": site_id,
-                "deleted_status": ZONE_STATUS_DELETED,
+                "deleted_status": ROUTE_STATUS_DELETED,
             }
         )
 
         return result.mappings().all()
 
 
-def update_zone_record(zone_id, data):
+def update_route_record(route_id, data):
     with engine.begin() as connection:
         result = connection.execute(
             text("""
-                UPDATE zones
+                UPDATE routes
                 SET
-                    site_id = :site_id,
-                    zone_name = :zone_name,
-                    zone_type = :zone_type,
+                    origin_site_id = :origin_site_id,
+                    destination_site_id = :destination_site_id,
+                    origin_droneport_id = :origin_droneport_id,
+                    destination_droneport_id = :destination_droneport_id,
+                    route_name = :route_name,
+                    route_type = :route_type,
                     created_by = :created_by,
-                    minimum_altitude_ft = :minimum_altitude_ft,
-                    maximum_altitude_ft = :maximum_altitude_ft,
+                    minimum_aircraft_weight_lbs = :minimum_aircraft_weight_lbs,
+                    maximum_aircraft_weight_lbs = :maximum_aircraft_weight_lbs,
+                    direction = :direction,
+                    buffered = :buffered,
                     geometry = ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
-                    )
-                WHERE zone_id = :zone_id
-                RETURNING zone_id, zone_name
+                    ),
+                    segment_attributes = CAST(:segment_attributes AS jsonb)
+                WHERE route_id = :route_id
+                RETURNING route_id, route_name
             """),
             {
                 **data,
-                "zone_id": zone_id,
+                "route_id": route_id,
                 "geometry": json.dumps(data["geometry"]),
+                "segment_attributes": json.dumps(data["segment_attributes"]),
                 "srid": DEFAULT_SRID,
             }
         )
@@ -167,21 +205,21 @@ def update_zone_record(zone_id, data):
         return result.mappings().first()
 
 
-def soft_delete_zone(zone_id, deleted_by):
+def soft_delete_route(route_id, deleted_by):
     with engine.begin() as connection:
         result = connection.execute(
             text("""
-                UPDATE zones
+                UPDATE routes
                 SET
                     operational_status = :status,
                     deleted_at = now(),
                     deleted_by = :deleted_by
-                WHERE zone_id = :zone_id
-                RETURNING zone_id
+                WHERE route_id = :route_id
+                RETURNING route_id
             """),
             {
-                "zone_id": zone_id,
-                "status": ZONE_STATUS_DELETED,
+                "route_id": route_id,
+                "status": ROUTE_STATUS_DELETED,
                 "deleted_by": deleted_by,
             }
         )
