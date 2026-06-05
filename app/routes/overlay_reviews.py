@@ -89,7 +89,7 @@ def get_overlay_review_route(review_id):
     return jsonify(review)
 
 
-@overlay_reviews_bp.route("/api/governance/overlays/<type_id>/<overlay_id>", methods=["GET"])
+@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>", methods=["GET"])
 def get_overlay_route(overlay_type, overlay_id):
     overlay = get_overlay_by_type_and_id(overlay_type, overlay_id)
 
