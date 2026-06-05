@@ -60,6 +60,7 @@ from app.models.route_model import (
     select_routes_by_site_id,
     update_route_record,
     soft_delete_route,
+    insert_overlay_review,
 )
 
 
@@ -201,6 +202,12 @@ def create_route(data):
 
     normalized_data = normalize_route_payload(data)
     route_id = insert_route(normalized_data)
+
+    insert_overlay_review({
+        "overlay_type": "route",
+        "overlay_id": route_id,
+        "submitted_by": normalized_data["created_by"],
+    })
 
     return {
         "status": "created",

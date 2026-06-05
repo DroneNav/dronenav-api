@@ -180,3 +180,35 @@ DEFAULT_MINIMUM_SEGMENT_COUNT = 3
 DEFAULT_MINIMUM_SEGMENT_ALTITUDE_FT = DEFAULT_MINIMUM_ALTITUDE_FT
 DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT = DEFAULT_MAXIMUM_ALTITUDE_FT
 
+# -----------------------------------------------------------------
+# Overlay Review Status
+# -----------------------------------------------------------------
+REVIEW_STATUS_PENDING = "pending"
+REVIEW_STATUS_APPROVED = "approved"
+REVIEW_STATUS_REJECTED = "rejected"
+REVIEW_STATUS_REVISIONS_REQUESTED = "revisions_requested"
+
+VALID_REVIEW_STATUSES = {
+    REVIEW_STATUS_PENDING,
+    REVIEW_STATUS_APPROVED,
+    REVIEW_STATUS_REJECTED,
+    REVIEW_STATUS_REVISIONS_REQUESTED
+}
+
+DEFAULT_REVIEW_STATUS = REVIEW_STATUS_PENDING
+
+# -----------------------------------------------------------------
+# Valid Overlay Types
+# -----------------------------------------------------------------
+OVERLAY_TYPE_SITE = "site"
+OVERLAY_TYPE_ZONE = "zone"
+OVERLAY_TYPE_DRONEPORT = "droneport"
+OVERLAY_TYPE_ROUTE = "route"
+
+VALID_OVERLAY_TYPES = {
+    OVERLAY_TYPE_SITE,
+    OVERLAY_TYPE_ZONE,
+    OVERLAY_TYPE_DRONEPORT,
+    OVERLAY_TYPE_ROUTE,
+}
+

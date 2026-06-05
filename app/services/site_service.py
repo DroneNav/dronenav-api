@@ -48,6 +48,7 @@ from app.config.constants import (
     DEFAULT_MAXIMUM_ALTITUDE_FT,
     DEFAULT_OPERATIONAL_STATUS,
     DEFAULT_SURVEY_STATUS,
+    DEFAULT_REVIEW_STATUS,
 )
 
 from app.models.site_model import (
@@ -56,6 +57,7 @@ from app.models.site_model import (
     select_sites,
     update_site_record,
     soft_delete_site,
+    insert_overlay_review,
 )
 
 
@@ -147,6 +149,12 @@ def create_site(data):
 
     normalized_data = normalize_site_payload(data)
     site_id = insert_site(normalized_data)
+
+    insert_overlay_review({
+        "overlay_type": "site",
+        "overlay_id": site_id,
+        "submitted_by": normalized_data["created_by"],
+    })
 
     return {
         "status": "created",

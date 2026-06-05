@@ -57,6 +57,7 @@ from app.models.zone_model import (
     select_zones_by_site_id,
     update_zone_record,
     soft_delete_zone,
+    insert_overlay_review,
 )
 
 
@@ -148,6 +149,12 @@ def create_zone(data):
 
     normalized_data = normalize_zone_payload(data)
     zone_id = insert_zone(normalized_data)
+
+    insert_overlay_review({
+        "overlay_type": "zone",
+        "overlay_id": zone_id,
+        "submitted_by": normalized_data["created_by"],
+    })
 
     return {
         "status": "created",

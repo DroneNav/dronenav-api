@@ -92,6 +92,28 @@ def insert_site(data):
         return str(result.scalar())
 
 
+def insert_overlay_review(data):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                INSERT INTO overlay_reviews (
+                    overlay_type,
+                    overlay_id,
+                    submitted_by
+                )
+                VALUES (
+                    :overlay_type,
+                    :overlay_id,
+                    :submitted_by
+                )
+                RETURNING review_id
+            """),
+            data
+        )
+
+        return str(result.scalar())
+
+
 def select_site(site_id):
     with engine.connect() as connection:
         result = connection.execute(

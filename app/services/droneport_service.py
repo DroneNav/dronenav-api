@@ -56,6 +56,7 @@ from app.models.droneport_model import (
     select_droneports_by_site_id,
     update_droneport_record,
     soft_delete_droneport,
+    insert_overlay_review,
 )
 
 
@@ -141,6 +142,12 @@ def create_droneport(data):
 
     normalized_data = normalize_droneport_payload(data)
     droneport_id = insert_droneport(normalized_data)
+
+    insert_overlay_review({
+        "overlay_type": "droneport",
+        "overlay_id": droneport_id,
+        "submitted_by": normalized_data["created_by"],
+    })
 
     return {
         "status": "created",
