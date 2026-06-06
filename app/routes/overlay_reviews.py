@@ -50,6 +50,7 @@ from app.services.overlay_review_service import (
     get_overlay_reviews,
     get_overlay_by_type_and_id,
     get_overlay_history,
+    get_governance_metrics,
     approve_overlay,
     reject_overlay,
     request_changes_to_overlay,
@@ -118,6 +119,20 @@ def get_overlay_history_route(overlay_id):
         }), 404
 
     return jsonify(history)
+
+
+@overlay_reviews_bp.route("/api/governance/dashboard", methods=["GET"])
+def get_governance_dashboard_route():
+    
+    metrics = get_governance_metrics()
+
+    if metrics is None:
+        return jsonify({
+            "status": "error",
+            "message": "Governance metrics not available"
+        }), 404
+
+    return jsonify(metrics)
 
 
 @overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/approve", methods=["POST"])

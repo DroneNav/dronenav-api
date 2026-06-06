@@ -76,6 +76,14 @@ from app.models.overlay_review_model import (
     reject_overlay_review,
     request_overlay_review_changes,
     submit_overlay_review,
+    select_pending_reviews_count,
+    select_approved_reviews_count,
+    select_rejected_reviews_count,
+    select_revision_requested_count,
+    select_site_count,
+    select_zone_count,
+    select_droneport_count,
+    select_route_count,
 )
 
 from app.services.site_service import get_site_by_id
@@ -167,6 +175,33 @@ def format_overlay_review_summary(row):
             if row.get("created_at") else None,
         "updated_at": row.get("updated_at").isoformat()
             if row.get("updated_at") else None,
+    }
+
+
+def get_governance_metrics():
+    pending = select_pending_reviews_count()
+    approved = select_approved_reviews_count()
+    rejected = select_rejected_reviews_count()
+    requested = select_revision_requested_count()
+
+    sites = select_site_count()
+    zones = select_zone_count()
+    droneports = select_droneport_count()
+    routes = select_route_count()
+
+    return {
+        "review_counts": {
+            "pending_review": pending,
+            "approved": approved,
+            "rejected": rejected,
+            "revisions_requested": requested,
+        },
+        "overlay_counts": {
+            "site": sites,
+            "zone": zones,
+            "droneport": droneports,
+            "route": routes,
+        }
     }
 
 

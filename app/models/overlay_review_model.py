@@ -278,3 +278,108 @@ def submit_overlay_review(review_id, submitted_by, new_comment):
 
         return result.mappings().first()
 
+
+def select_pending_reviews_count():
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT count(*)
+                FROM overlay_reviews
+                WHERE review_status = "pending_review"
+                  OR review_status = "submitted"
+            """)
+        )
+
+        return result.scalar_one()
+
+
+def select_approved_reviews_count():
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT count(*)
+                FROM overlay_reviews
+                WHERE review_status = "approved"
+            """)
+        )
+
+        return result.scalar_one()
+
+
+def select_rejected_reviews_count():
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT count(*)
+                FROM overlay_reviews
+                WHERE review_status = "rejected"
+            """)
+        )
+
+        return result.scalar_one()
+
+
+def select_revision_requested_count():
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT count(*)
+                FROM overlay_reviews
+                WHERE review_status = "revisions_requested"
+            """)
+        )
+
+        return result.scalar_one()
+
+
+def select_site_count():
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT count(*)
+                FROM sites
+                WHERE operational_status <> "deleted"
+            """)
+        )
+
+        return result.scalar_one()
+
+
+def select_zone_count():
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT count(*)
+                FROM zones
+                WHERE operational_status <> "deleted"
+            """)
+        )
+
+        return result.scalar_one()
+
+
+def select_droneport_count():
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT count(*)
+                FROM droneports
+                WHERE operational_status <> "deleted"
+            """)
+        )
+
+        return result.scalar_one()
+
+
+def select_route_count():
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT count(*)
+                FROM routes
+                WHERE operational_status <> "deleted"
+            """)
+        )
+
+        return result.scalar_one()
+
