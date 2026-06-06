@@ -47,7 +47,13 @@ import json
 
 from sqlalchemy import text
 
-from app.config.constants import DEFAULT_SRID, ZONE_STATUS_DELETED
+from app.config.constants import (
+    DEFAULT_SRID,
+    ZONE_STATUS_DELETED,
+    ZONE_STATUS_INACTIVE,
+    ZONE_STATUS_ACTIVE
+)
+
 from app.config.database import engine
 
 
@@ -254,4 +260,49 @@ def soft_delete_zone(zone_id, deleted_by):
         )
 
         return result.mappings().first()
+
+
+def approve_zone(zone_id, approved_by):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE zones
+                SET
+                    operational_status = :status,
+                    approved_by = :approved_by
+                WHERE zone_id = :zone_id
+                RETURNING zone_id, approved_by
+            """),
+            {
+                "zone_id": zone_id,
+                "approved_by": approved_by,
+                "status": ZONE_STATUS_ACTIVE
+            }
+        )
+
+        return result.mappings().first()
+
+
+def reject_zone(zone_id):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE zones 
+                SET
+                    operational_status = :status,
+                    approved_by = NULL
+                WHERE zone_id = :zone_id
+                RETURNING zone_id
+            """),
+            {
+                "zone_id": zone_id,
+                "status": ZONE_STATUS_INACTIVE
+            }
+        )
+
+        return result.mappings().first()
+
+
+def request_changes_to_zone(zone_id):
+    return reject_zone(zone_id)
 

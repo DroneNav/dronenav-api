@@ -183,7 +183,7 @@ DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT = DEFAULT_MAXIMUM_ALTITUDE_FT
 # -----------------------------------------------------------------
 # Overlay Review Status
 # -----------------------------------------------------------------
-REVIEW_STATUS_PENDING = "pending"
+REVIEW_STATUS_PENDING = "pending_review"
 REVIEW_STATUS_APPROVED = "approved"
 REVIEW_STATUS_REJECTED = "rejected"
 REVIEW_STATUS_REVISIONS_REQUESTED = "revisions_requested"

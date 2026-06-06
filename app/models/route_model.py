@@ -47,7 +47,13 @@ import json
 
 from sqlalchemy import text
 
-from app.config.constants import DEFAULT_SRID, ROUTE_STATUS_DELETED
+from app.config.constants import (
+    DEFAULT_SRID,
+    ROUTE_STATUS_DELETED,
+    ROUTE_STATUS_INACTIVE,
+    ROUTE_STATUS_ACTIVE
+)
+
 from app.config.database import engine
 
 
@@ -292,4 +298,49 @@ def soft_delete_route(route_id, deleted_by):
         )
 
         return result.mappings().first()
+
+
+def approve_route(route_id, approved_by):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE routes
+                SET
+                    operational_status = :status,
+                    approved_by = :approved_by
+                WHERE route_id = :route_id
+                RETURNING route_id, approved_by
+            """),
+            {
+                "route_id": route_id,
+                "approved_by": approved_by,
+                "status": ROUTE_STATUS_ACTIVE
+            }
+        )
+
+        return result.mappings().first()
+
+
+def reject_route(route_id):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE routes
+                SET
+                    operational_status = :status,
+                    approved_by = NULL
+                WHERE route_id = :route_id
+                RETURNING route_id
+            """),
+            {
+                "route_id": route_id,
+                "status": ROUTE_STATUS_INACTIVE
+            }
+        )
+
+        return result.mappings().first()
+
+
+def request_changes_to_route(route_id):
+    return reject_route(route_id)
 

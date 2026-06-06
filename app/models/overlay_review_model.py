@@ -44,8 +44,34 @@ of the aircraft operator and applicable regulatory authorities.
 
 
 from sqlalchemy import text
+from datetime import datetime
 
 from app.config.database import engine
+
+from app.config.constants import (
+    REVIEW_STATUS_APPROVED,
+    REVIEW_STATUS_REJECTED,
+    REVIEW_STATUS_PENDING,
+    REVIEW_STATUS_REVISIONS_REQUESTED
+)
+
+
+def get_overlay_review_id(overlay_type, overlay_id):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT review_id
+                FROM overlay_reviews
+                WHERE overlay_type = :overlay_type
+                  AND overlay_id = :overlay_id
+            """),
+            {
+                "overlay_type": overlay_type,
+                "overlay_id": overlay_id
+            }
+        )
+
+        return str(result.scalar_one())
 
 
 def select_overlay_review(review_id):
@@ -103,4 +129,105 @@ def select_overlay_reviews(overlay_type=None, review_status=None):
         )
 
         return result.mappings().all()
+
+
+def get_overlay_review_prior_comments(review_id):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT review_comments
+                FROM overlay_reviews
+                WHERE review_id = :review_id
+            """),
+            {
+                "review_id": review_id
+            }
+        )
+
+        return str(result.scalar_one())
+
+
+def approve_overlay_review(review_id, reviewed_by, new_comment):
+
+    prior_comments = get_overlay_review_prior_comments(review_id)
+    updated_comments = datetime.now().isoformat() + "  " + new_comment + "\n\n" + prior_comments
+
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE overlay_reviews 
+                SET
+                    review_status = :status,
+                    reviewed_by = :reviewed_by,
+                    reviewed_at = now(),
+                    review_comments = :updated_comments
+                WHERE review_id = :review_id
+                RETURNING review_id, review_by
+            """),
+            {
+                "review_id": review_id,
+                "reviewed_by": reviewed_by,
+                "status": REVIEW_STATUS_APPROVED,
+                "updated_comments": updated_comments
+            }
+        )
+
+        return result.mappings().first()
+
+
+def reject_overlay_review(review_id, reviewed_by, new_comment):
+
+    prior_comments = get_overlay_review_prior_comments(review_id)
+    updated_comments = datetime.now().isoformat() + "  " + new_comment + "\n\n" + prior_comments
+
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE overlay_reviews
+                SET
+                    review_status = :status,
+                    reviewed_by = :reviewed_by,
+                    reviewed_at = now(),
+                    review_comments = :updated_comments
+                WHERE review_id = :review_id
+                RETURNING review_id, review_by
+            """),
+            {
+                "review_id": review_id,
+                "reviewed_by": reviewed_by,
+                "status": REVIEW_STATUS_REJECTED,
+                "updated_comments": updated_comments
+            }
+        )
+
+        return result.mappings().first()
+
+
+def request_overlay_review_changes(review_id, reviewed_by, new_comment):
+
+    prior_comments = get_overlay_review_prior_comments(review_id)
+    updated_comments = datetime.now().isoformat() + "  " + new_comment + "\n\n" + prior_comments
+
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE overlay_reviews
+                SET
+                    review_status = :status,
+                    reviewed_by = :reviewed_by,
+                    reviewed_at = now(),
+                    review_comments = :updated_comments
+                WHERE review_id = :review_id
+                RETURNING review_id, review_by
+            """),
+            {
+                "review_id": review_id,
+                "reviewed_by": reviewed_by,
+                "status": REVIEW_STATUS_REVISIONS_REQUESTED,
+                "updated_comments": updated_comments
+            }
+        )
+
+        return result.mappings().first()
+
 

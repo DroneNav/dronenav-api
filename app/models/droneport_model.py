@@ -47,9 +47,14 @@ import json
 
 from sqlalchemy import text
 
-from app.config.constants import DEFAULT_SRID, DRONEPORT_STATUS_DELETED
-from app.config.database import engine
+from app.config.constants import (
+    DEFAULT_SRID,
+    DRONEPORT_STATUS_DELETED,
+    DRONEPORT_STATUS_INACTIVE,
+    DRONEPORT_STATUS_ACTIVE
+)
 
+from app.config.database import engine 
 
 def insert_droneport(data):
     with engine.begin() as connection:
@@ -248,4 +253,49 @@ def soft_delete_droneport(droneport_id, deleted_by):
         )
 
         return result.mappings().first()
+
+
+def approve_droneport(droneport_id, approved_by):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE droneports
+                SET
+                    operational_status = :status,
+                    approved_by = :approved_by
+                WHERE droneport_id = :droneport_id
+                RETURNING droneport_id, approved_by
+            """),
+            {
+                "droneport_id": droneport_id,
+                "approved_by": approved_by,
+                "status": DRONEPORT_STATUS_ACTIVE
+            }
+        )
+
+        return result.mappings().first()
+
+
+def reject_droneport(droneport_id):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE droneports
+                SET
+                    operational_status = :status,
+                    approved_by = NULL
+                WHERE droneport_id = :droneport_id
+                RETURNING droneport_id
+            """),
+            {
+                "droneport_id": droneport_id,
+                "status": DRONEPORT_STATUS_INACTIVE
+            }
+        )
+
+        return result.mappings().first()
+
+
+def request_changes_to_droneport(droneport_id):
+    return reject_droneport(droneport_id)
 

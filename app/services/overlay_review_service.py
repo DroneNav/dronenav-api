@@ -43,9 +43,37 @@ of the aircraft operator and applicable regulatory authorities.
 """
 
 
+from app.models.site_model import (
+    approve_site,
+    reject_site,
+    request_site_changes,
+)
+
+from app.models.zone_model import (
+    approve_zone,
+    reject_zone,
+    request_zone_changes,
+)
+
+from app.models.droneport_model import (
+    approve_droneport,
+    reject_droneport,
+    request_droneport_changes,
+)
+
+from app.models.route_model import (
+    approve_route,
+    reject_route,
+    request_route_changes,
+)
+
 from app.models.overlay_review_model import (
     select_overlay_review,
     select_overlay_reviews,
+    get_overlay_review_id,
+    approve_overlay_review,
+    reject_overlay_review,
+    request_overlay_review_changes,
 )
 
 from app.services.site_service import get_site_by_id
@@ -53,7 +81,14 @@ from app.services.zone_service import get_zone_by_id
 from app.services.droneport_service import get_droneport_by_id
 from app.services.route_service import get_route_by_id
 
-from app.config.constants import VALID_OVERLAY_TYPES, VALID_REVIEW_STATUSES
+from app.config.constants import (
+    VALID_OVERLAY_TYPES,
+    VALID_REVIEW_STATUSES,
+    REVIEW_STATUS_REVISIONS_REQUESTED,
+    REVIEW_STATUS_APPROVED,
+    REVIEW_STATUS_REJECTED
+)
+
 from app.config.constants import (
     OVERLAY_TYPE_SITE,
     OVERLAY_TYPE_ZONE,
@@ -169,5 +204,152 @@ def get_overlay_by_type_and_id(overlay_type, overlay_id):
         return format_route(row)
     else:
         return None
+
+
+def approve_overlay(overlay_type, overlay_id, data):
+
+    if overlay_type not in VALID_OVERLAY_TYPES:
+        return None, "Invalid overlay type"
+
+    if data is None:
+        data = {}
+
+    approved_by = data.get("approved_by")
+
+    if approved_by in ("", None):
+        return None, "Missing required field: approved_by"
+
+    review_comments = data.get("review_comments", "Approved review")
+
+    review_id = get_overlay_review_id(overlay_type, overlay_id)
+
+    if review_id is None:
+        return None, "Overlay review not found"
+
+    if overlay_type == OVERLAY_TYPE_SITE:
+        result = approve_site(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_ZONE:
+        result = approve_zone(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_DRONEPORT:
+        result = approve_droneport(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_ROUTE:
+        result = approve_route(overlay_id)
+    else:
+        return None, "Invalid overlay type"
+
+    if result is None:
+        return None, "Overlay not found"
+
+    approve_overlay_review(
+        review_id,
+        approved_by,
+        review_comments
+    )
+
+    return {
+        "status": REVIEW_STATUS_APPROVED,
+        "overlay_type": overlay_type,
+        "overlay_id": overlay_id,
+        "review_id": review_id,
+        "approved_by": approved_by,
+    }, None
+
+
+def reject_overlay(overlay_type, overlay_id, data):
+
+    if overlay_type not in VALID_OVERLAY_TYPES:
+        return None, "Invalid overlay type"
+
+    if data is None:
+        data = {}
+
+    rejected_by = data.get("rejected_by")
+
+    if rejected_by in ("", None):
+        return None, "Missing required field: rejected_by"
+
+    review_comments = data.get("review_comments", "Approved review")
+
+    review_id = get_overlay_review_id(overlay_type, overlay_id)
+
+    if review_id is None:
+        return None, "Overlay review not found"
+
+    if overlay_type == OVERLAY_TYPE_SITE:
+        result = reject_site(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_ZONE:
+        result = reject_zone(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_DRONEPORT:
+        result = reject_droneport(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_ROUTE:
+        result = reject_route(overlay_id)
+    else:
+        return None, "Invalid overlay type"
+
+    if result is None:
+        return None, "Overlay not found"
+
+    reject_overlay_review(
+        review_id,
+        rejected_by,
+        review_comments
+    )
+
+    return {
+        "status": REVIEW_STATUS_REJECTED,
+        "overlay_type": overlay_type,
+        "overlay_id": overlay_id,
+        "review_id": review_id,
+        "rejected_by": rejected_by,
+    }, None
+
+
+def request_changes_to_overlay(overlay_type, overlay_id, data):
+
+    if overlay_type not in VALID_OVERLAY_TYPES:
+        return None, "Invalid overlay type"
+
+    if data is None:
+        data = {}
+
+    requested_by = data.get("requested_by")
+
+    if requested_by in ("", None):
+        return None, "Missing required field: requested_by"
+
+    review_comments = data.get("review_comments", "Additional revisions requested")
+
+    review_id = get_overlay_review_id(overlay_type, overlay_id)
+
+    if review_id is None:
+        return None, "Overlay review not found"
+
+    if overlay_type == OVERLAY_TYPE_SITE:
+        result = request_site_changes(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_ZONE:
+        result = request_zone_changes(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_DRONEPORT:
+        result = request_droneport_changes(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_ROUTE:
+        result = request_route_changes(overlay_id)
+    else:
+        return None, "Invalid overlay type"
+
+    if result is None:
+        return None, "Overlay not found"
+
+    approve_overlay_review(
+        review_id,
+        requested_by,
+        review_comments
+    )
+
+    return {
+        "status": REVIEW_STATUS_REVISIONS_REQUESTED,
+        "overlay_type": overlay_type,
+        "overlay_id": overlay_id,
+        "review_id": review_id,
+        "requested_by": requested_by,
+    }, None
 
 

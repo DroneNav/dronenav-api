@@ -49,6 +49,9 @@ from app.services.overlay_review_service import (
     get_overlay_review_by_id,
     get_overlay_reviews,
     get_overlay_by_type_and_id,
+    approve_overlay,
+    reject_overlay,
+    request_changes_to_overlay,
 )
 
 
@@ -100,5 +103,53 @@ def get_overlay_route(overlay_type, overlay_id):
         }), 404
 
     return jsonify(overlay)
+
+
+@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/approve", methods=["POST"])
+def approve_overlay_route():
+
+    data = request.get_json()
+
+    result, error = approve_overlay(overlay_type, overlay_id, data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify(result), 200
+
+
+@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/reject", methods=["POST"])
+def reject_overlay_route():
+
+    data = request.get_json()
+
+    result, error = reject_overlay(overlay_type, overlay_id, data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify(result), 200
+
+
+@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/request-changes", methods=["POST"])
+def request_changes_overlay_route():
+
+    data = request.get_json()
+
+    result, error = request_changes_to_overlay(overlay_id, overlay_id, data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify(result), 200
 
 
