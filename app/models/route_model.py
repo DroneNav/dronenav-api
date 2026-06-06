@@ -344,3 +344,7 @@ def reject_route(route_id):
 def request_changes_to_route(route_id):
     return reject_route(route_id)
 
+
+def submit_route(route_id):
+    return reject_route(route_id)
+

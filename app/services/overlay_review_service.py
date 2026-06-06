@@ -74,6 +74,7 @@ from app.models.overlay_review_model import (
     approve_overlay_review,
     reject_overlay_review,
     request_overlay_review_changes,
+    submit_overlay_review,
 )
 
 from app.services.site_service import get_site_by_id
@@ -86,7 +87,8 @@ from app.config.constants import (
     VALID_REVIEW_STATUSES,
     REVIEW_STATUS_REVISIONS_REQUESTED,
     REVIEW_STATUS_APPROVED,
-    REVIEW_STATUS_REJECTED
+    REVIEW_STATUS_REJECTED,
+    REVIEW_STATUS_SUBMITTED
 )
 
 from app.config.constants import (
@@ -268,7 +270,7 @@ def reject_overlay(overlay_type, overlay_id, data):
     if rejected_by in ("", None):
         return None, "Missing required field: rejected_by"
 
-    review_comments = data.get("review_comments", "Approved review")
+    review_comments = data.get("review_comments", "Rejected review")
 
     review_id = get_overlay_review_id(overlay_type, overlay_id)
 
@@ -352,4 +354,52 @@ def request_changes_to_overlay(overlay_type, overlay_id, data):
         "requested_by": requested_by,
     }, None
 
+
+def submit_overlay(overlay_type, overlay_id, data):
+
+    if overlay_type not in VALID_OVERLAY_TYPES:
+        return None, "Invalid overlay type"
+
+    if data is None:
+        data = {}
+
+    submitted_by = data.get("submitted_by")
+
+    if submitted_by in ("", None):
+        return None, "Missing required field: submitted_by"
+
+    review_comments = data.get("review_comments", "Submitted review")
+
+    review_id = get_overlay_review_id(overlay_type, overlay_id)
+
+    if review_id is None:
+        return None, "Overlay review not found"
+
+    if overlay_type == OVERLAY_TYPE_SITE:
+        result = submit_site(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_ZONE:
+        result = submit_zone(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_DRONEPORT:
+        result = submit_droneport(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_ROUTE:
+        result = submit_route(overlay_id)
+    else:
+        return None, "Invalid overlay type"
+
+    if result is None:
+        return None, "Overlay not found"
+
+    submit_overlay_review(
+        review_id,
+        submitted_by,
+        review_comments
+    )
+
+    return {
+        "status": REVIEW_STATUS_SUBMITTED,
+        "overlay_type": overlay_type,
+        "overlay_id": overlay_id,
+        "review_id": review_id,
+        "submitted_by": submitted_by,
+    }, None
 

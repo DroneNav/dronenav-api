@@ -306,3 +306,7 @@ def reject_zone(zone_id):
 def request_changes_to_zone(zone_id):
     return reject_zone(zone_id)
 
+
+def submit_zone(zone_id):
+    return reject_zone(zone_id)
+

@@ -52,6 +52,7 @@ from app.services.overlay_review_service import (
     approve_overlay,
     reject_overlay,
     request_changes_to_overlay,
+    submit_overlay,
 )
 
 
@@ -152,4 +153,19 @@ def request_changes_overlay_route():
 
     return jsonify(result), 200
 
+
+@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/submit", methods=["POST"])
+def submit_overlay_route():
+
+    data = request.get_json()
+
+    result, error = submit_overlay(overlay_id, overlay_id, data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify(result), 200
 

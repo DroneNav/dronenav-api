@@ -277,3 +277,7 @@ def request_changes_to_site(site_id):
     return reject_site(site_id)
 
 
+def submit_site(site_id):
+    return reject_site(site_id)
+
+

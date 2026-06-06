@@ -52,6 +52,7 @@ from app.config.constants import (
     REVIEW_STATUS_APPROVED,
     REVIEW_STATUS_REJECTED,
     REVIEW_STATUS_PENDING,
+    REVIEW_STATUS_SUBMITTED,
     REVIEW_STATUS_REVISIONS_REQUESTED
 )
 
@@ -150,7 +151,7 @@ def get_overlay_review_prior_comments(review_id):
 def approve_overlay_review(review_id, reviewed_by, new_comment):
 
     prior_comments = get_overlay_review_prior_comments(review_id)
-    updated_comments = datetime.now().isoformat() + "  " + new_comment + "\n\n" + prior_comments
+    updated_comments = datetime.now().isoformat() + "  " + reviewed_by + "  " + new_comment + "\n\n" + prior_comments
 
     with engine.begin() as connection:
         result = connection.execute(
@@ -178,7 +179,7 @@ def approve_overlay_review(review_id, reviewed_by, new_comment):
 def reject_overlay_review(review_id, reviewed_by, new_comment):
 
     prior_comments = get_overlay_review_prior_comments(review_id)
-    updated_comments = datetime.now().isoformat() + "  " + new_comment + "\n\n" + prior_comments
+    updated_comments = datetime.now().isoformat() + "  " + reviewed_by + "  " + new_comment + "\n\n" + prior_comments
 
     with engine.begin() as connection:
         result = connection.execute(
@@ -206,7 +207,7 @@ def reject_overlay_review(review_id, reviewed_by, new_comment):
 def request_overlay_review_changes(review_id, reviewed_by, new_comment):
 
     prior_comments = get_overlay_review_prior_comments(review_id)
-    updated_comments = datetime.now().isoformat() + "  " + new_comment + "\n\n" + prior_comments
+    updated_comments = datetime.now().isoformat() + "  " + reviewed_by + "  " + new_comment + "\n\n" + prior_comments
 
     with engine.begin() as connection:
         result = connection.execute(
@@ -230,4 +231,34 @@ def request_overlay_review_changes(review_id, reviewed_by, new_comment):
 
         return result.mappings().first()
 
+
+def submit_overlay_review(review_id, submitted_by, new_comment):
+
+    prior_comments = get_overlay_review_prior_comments(review_id)
+    updated_comments = datetime.now().isoformat() + "  " + submitted_by + "  " + new_comment + "\n\n" + prior_comments
+
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE overlay_reviews
+                SET
+                    review_status = :status,
+                    submitted_by = :submitted_by,
+                    submitted_at = now(),
+                    reviewed_by = NULL,
+                    reviewed_at = NULL,
+                    updated_at = now(),
+                    review_comments = :updated_comments
+                WHERE review_id = :review_id
+                RETURNING review_id, submitted_by
+            """),
+            {
+                "review_id": review_id,
+                "submitted_by": submitted_by,
+                "status": REVIEW_STATUS_SUBMITTED,
+                "updated_comments": updated_comments
+            }
+        )
+
+        return result.mappings().first()
 

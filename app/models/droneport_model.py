@@ -299,3 +299,7 @@ def reject_droneport(droneport_id):
 def request_changes_to_droneport(droneport_id):
     return reject_droneport(droneport_id)
 
+
+def submit_droneport(droneport_id):
+    return reject_droneport(droneport_id)
+
