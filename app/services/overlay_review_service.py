@@ -70,6 +70,7 @@ from app.models.route_model import (
 from app.models.overlay_review_model import (
     select_overlay_review,
     select_overlay_reviews,
+    select_overlay_notes,
     get_overlay_review_id,
     approve_overlay_review,
     reject_overlay_review,
@@ -188,6 +189,10 @@ def get_overlay_reviews(filters):
     rows = select_overlay_reviews(overlay_type, review_status)
 
     return [format_overlay_review_summary(row) for row in rows], None
+
+
+def get_overlay_history(overlay_id):
+    return select_overlay_notes(overlay_id)
 
 
 def get_overlay_by_type_and_id(overlay_type, overlay_id):

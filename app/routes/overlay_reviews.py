@@ -49,6 +49,7 @@ from app.services.overlay_review_service import (
     get_overlay_review_by_id,
     get_overlay_reviews,
     get_overlay_by_type_and_id,
+    get_overlay_history,
     approve_overlay,
     reject_overlay,
     request_changes_to_overlay,
@@ -104,6 +105,19 @@ def get_overlay_route(overlay_type, overlay_id):
         }), 404
 
     return jsonify(overlay)
+
+
+@overlay_reviews_bp.route("/api/governance/overlays/<overlay_id>/history", methods=["GET"])
+def get_overlay_history_route(overlay_id):
+    history = get_overlay_history(overlay_id)
+
+    if history is None:
+        return jsonify({
+            "status": "error",
+            "message": "History not found"
+        }), 404
+
+    return jsonify(history)
 
 
 @overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/approve", methods=["POST"])

@@ -132,6 +132,22 @@ def select_overlay_reviews(overlay_type=None, review_status=None):
         return result.mappings().all()
 
 
+def select_overlay_notes(overlay_id):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT review_comments
+                FROM overlay_reviews
+                WHERE overlay_id = :overlay_id
+            """),
+            {
+                "overlay_id": overlay_id
+            }
+        )
+
+        return str(result.scalar_one())
+
+
 def get_overlay_review_prior_comments(review_id):
     with engine.connect() as connection:
         result = connection.execute(
