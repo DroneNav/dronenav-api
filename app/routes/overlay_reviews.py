@@ -53,7 +53,7 @@ from app.services.overlay_review_service import (
     get_governance_metrics,
     approve_overlay,
     reject_overlay,
-    request_changes_to_overlay,
+    request_overlay_review_changes,
     submit_overlay,
 )
 
@@ -115,7 +115,7 @@ def get_overlay_history_route(overlay_id):
     if history is None:
         return jsonify({
             "status": "error",
-            "message": "History not found"
+            "message": "Overlay history not found"
         }), 404
 
     return jsonify(history)
@@ -136,7 +136,7 @@ def get_governance_dashboard_route():
 
 
 @overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/approve", methods=["POST"])
-def approve_overlay_route():
+def approve_overlay_route(overlay_type, overlay_id):
 
     data = request.get_json()
 
@@ -152,7 +152,7 @@ def approve_overlay_route():
 
 
 @overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/reject", methods=["POST"])
-def reject_overlay_route():
+def reject_overlay_route(overlay_type, overlay_id):
 
     data = request.get_json()
 
@@ -168,11 +168,11 @@ def reject_overlay_route():
 
 
 @overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/request-changes", methods=["POST"])
-def request_changes_overlay_route():
+def request_changes_overlay_route(overlay_type, overlay_id):
 
     data = request.get_json()
 
-    result, error = request_changes_to_overlay(overlay_id, overlay_id, data)
+    result, error = request_overlay_review_changes(overlay_type, overlay_id, data)
 
     if error:
         return jsonify({
@@ -184,11 +184,11 @@ def request_changes_overlay_route():
 
 
 @overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/submit", methods=["POST"])
-def submit_overlay_route():
+def submit_overlay_route(overlay_type, overlay_id):
 
     data = request.get_json()
 
-    result, error = submit_overlay(overlay_id, overlay_id, data)
+    result, error = submit_overlay(overlay_type, overlay_id, data)
 
     if error:
         return jsonify({

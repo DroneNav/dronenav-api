@@ -303,7 +303,7 @@ def reject_zone(zone_id):
         return result.mappings().first()
 
 
-def request_changes_to_zone(zone_id):
+def request_zone_changes(zone_id):
     return reject_zone(zone_id)
 
 

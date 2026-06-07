@@ -145,7 +145,7 @@ def select_overlay_notes(overlay_id):
             }
         )
 
-        return str(result.scalar_one())
+        return result.scalar_one()
 
 
 def get_overlay_review_prior_comments(review_id):
@@ -166,7 +166,7 @@ def get_overlay_review_prior_comments(review_id):
 
 def approve_overlay_review(review_id, reviewed_by, new_comment):
 
-    prior_comments = get_overlay_review_prior_comments(review_id)
+    prior_comments = get_overlay_review_prior_comments(review_id) or ""
     updated_comments = datetime.now().isoformat() + "  " + reviewed_by + "  " + new_comment + "\n\n" + prior_comments
 
     with engine.begin() as connection:
@@ -179,7 +179,7 @@ def approve_overlay_review(review_id, reviewed_by, new_comment):
                     reviewed_at = now(),
                     review_comments = :updated_comments
                 WHERE review_id = :review_id
-                RETURNING review_id, review_by
+                RETURNING review_id, reviewed_by
             """),
             {
                 "review_id": review_id,
@@ -194,7 +194,7 @@ def approve_overlay_review(review_id, reviewed_by, new_comment):
 
 def reject_overlay_review(review_id, reviewed_by, new_comment):
 
-    prior_comments = get_overlay_review_prior_comments(review_id)
+    prior_comments = get_overlay_review_prior_comments(review_id) or ""
     updated_comments = datetime.now().isoformat() + "  " + reviewed_by + "  " + new_comment + "\n\n" + prior_comments
 
     with engine.begin() as connection:
@@ -207,7 +207,7 @@ def reject_overlay_review(review_id, reviewed_by, new_comment):
                     reviewed_at = now(),
                     review_comments = :updated_comments
                 WHERE review_id = :review_id
-                RETURNING review_id, review_by
+                RETURNING review_id, reviewed_by
             """),
             {
                 "review_id": review_id,
@@ -222,7 +222,7 @@ def reject_overlay_review(review_id, reviewed_by, new_comment):
 
 def request_overlay_review_changes(review_id, reviewed_by, new_comment):
 
-    prior_comments = get_overlay_review_prior_comments(review_id)
+    prior_comments = get_overlay_review_prior_comments(review_id) or ""
     updated_comments = datetime.now().isoformat() + "  " + reviewed_by + "  " + new_comment + "\n\n" + prior_comments
 
     with engine.begin() as connection:
@@ -235,7 +235,7 @@ def request_overlay_review_changes(review_id, reviewed_by, new_comment):
                     reviewed_at = now(),
                     review_comments = :updated_comments
                 WHERE review_id = :review_id
-                RETURNING review_id, review_by
+                RETURNING review_id, reviewed_by
             """),
             {
                 "review_id": review_id,
@@ -250,7 +250,7 @@ def request_overlay_review_changes(review_id, reviewed_by, new_comment):
 
 def submit_overlay_review(review_id, submitted_by, new_comment):
 
-    prior_comments = get_overlay_review_prior_comments(review_id)
+    prior_comments = get_overlay_review_prior_comments(review_id) or ""
     updated_comments = datetime.now().isoformat() + "  " + submitted_by + "  " + new_comment + "\n\n" + prior_comments
 
     with engine.begin() as connection:
@@ -285,9 +285,13 @@ def select_pending_reviews_count():
             text("""
                 SELECT count(*)
                 FROM overlay_reviews
-                WHERE review_status = "pending_review"
-                  OR review_status = "submitted"
-            """)
+                WHERE review_status = :pending_status
+                  OR review_status = :submitted_status
+            """),
+            {
+                "pending_status": "pending_review",
+                "submitted_status": "submitted"
+            }
         )
 
         return result.scalar_one()
@@ -299,8 +303,11 @@ def select_approved_reviews_count():
             text("""
                 SELECT count(*)
                 FROM overlay_reviews
-                WHERE review_status = "approved"
-            """)
+                WHERE review_status = :approved_status
+            """),
+            {
+                "approved_status": "approved"
+            }
         )
 
         return result.scalar_one()
@@ -312,8 +319,11 @@ def select_rejected_reviews_count():
             text("""
                 SELECT count(*)
                 FROM overlay_reviews
-                WHERE review_status = "rejected"
-            """)
+                WHERE review_status = :rejected_status
+            """),
+            {
+                "rejected_status": "rejected"
+            }
         )
 
         return result.scalar_one()
@@ -325,8 +335,11 @@ def select_revision_requested_count():
             text("""
                 SELECT count(*)
                 FROM overlay_reviews
-                WHERE review_status = "revisions_requested"
-            """)
+                WHERE review_status = :requested_status
+            """),
+            {
+                "requested_status": "revisions_requested"
+            }
         )
 
         return result.scalar_one()
@@ -338,8 +351,11 @@ def select_site_count():
             text("""
                 SELECT count(*)
                 FROM sites
-                WHERE operational_status <> "deleted"
-            """)
+                WHERE operational_status <> :deleted_status
+            """),
+            {
+                "deleted_status": "deleted"
+            }
         )
 
         return result.scalar_one()
@@ -351,8 +367,11 @@ def select_zone_count():
             text("""
                 SELECT count(*)
                 FROM zones
-                WHERE operational_status <> "deleted"
-            """)
+                WHERE operational_status <> :deleted_status
+            """),
+            {
+                "deleted_status": "deleted"
+            }
         )
 
         return result.scalar_one()
@@ -364,8 +383,11 @@ def select_droneport_count():
             text("""
                 SELECT count(*)
                 FROM droneports
-                WHERE operational_status <> "deleted"
-            """)
+                WHERE operational_status <> :deleted_status
+            """),
+            {
+                "deleted_status": "deleted"
+            }
         )
 
         return result.scalar_one()
@@ -377,8 +399,11 @@ def select_route_count():
             text("""
                 SELECT count(*)
                 FROM routes
-                WHERE operational_status <> "deleted"
-            """)
+                WHERE operational_status <> :deleted_status
+            """),
+            {
+                "deleted_status": "deleted"
+            }
         )
 
         return result.scalar_one()

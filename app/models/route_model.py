@@ -341,7 +341,7 @@ def reject_route(route_id):
         return result.mappings().first()
 
 
-def request_changes_to_route(route_id):
+def request_route_changes(route_id):
     return reject_route(route_id)
 
 

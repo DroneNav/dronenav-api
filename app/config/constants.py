@@ -67,6 +67,7 @@ SITE_TYPE_PARK = "park"
 SITE_TYPE_COMMERCIAL = "commercial"
 SITE_TYPE_GOVERNMENT = "government"
 SITE_TYPE_PRIVATE = "private"
+SITE_TYPE_RESIDENTIAL = "residential"
 
 # -----------------------------------------------------------------
 # Authority Types
@@ -90,6 +91,11 @@ SITE_STATUS_DELETED = "deleted"
 
 DEFAULT_OPERATIONAL_STATUS = SITE_STATUS_INACTIVE
 
+SITE_OVERLAY_LINE_TYPE = "site-overlay-line-type"
+SITE_OVERLAY_LINE_COLOR = "site-overlay-line-color"
+SITE_OVERLAY_FILL_PATTERN = "site-overlay-fill-pattern"
+SITE_OVERLAY_FILL_COLOR = "site-overlay-fill-color"
+
 # ------------------------------------------------------------------
 # Zone Types
 # ------------------------------------------------------------------
@@ -98,7 +104,8 @@ ZONE_TYPE_RESTRICTED = "restricted"
 ZONE_TYPE_OPEN = "open"
 ZONE_TYPE_CAUTION = "caution"
 ZONE_TYPE_EMERGENCY = "emergency"
-ZONE_TYPE_CLOSED = "closed"
+ZONE_TYPE_PRIVATE = "private"
+ZONE_TYPE_INCLUSION = "inclusion"
 
 # ------------------------------------------------------------------
 # Zone Statuses
@@ -109,6 +116,11 @@ ZONE_STATUS_INACTIVE = "inactive"
 ZONE_STATUS_DELETED = "deleted"
 
 DEFAULT_ZONE_STATUS = ZONE_STATUS_INACTIVE
+
+ZONE_OVERLAY_LINE_TYPE = "zone-overlay-line-type"
+ZONE_OVERLAY_LINE_COLOR = "zone-overlay-line-color"
+ZONE_OVERLAY_FILL_PATTERN = "zone-overlay-fill-pattern"
+ZONE_OVERLAY_FILL_COLOR = "zone-overlay-fill-color"
 
 # ------------------------------------------------------------------
 # Survey Statuses
@@ -152,6 +164,12 @@ DRONEPORT_STATUS_DELETED = "deleted"
 DEFAULT_DRONEPORT_STATUS = DRONEPORT_STATUS_INACTIVE
 DEFAULT_DRONEPORT_DIAMETER_FT = 25
 
+DRONEPORT_OVERLAY_LINE_TYPE = "droneport-overlay-line-type"
+DRONEPORT_OVERLAY_LINE_COLOR = "droneport-overlay-line-color"
+DRONEPORT_OVERLAY_FILL_PATTERN = "droneport-overlay-fill-pattern"
+DRONEPORT_OVERLAY_FILL_COLOR = "droneport-overlay-fill-color"
+
+
 # ------------------------------------------------------------------
 # Route Statuses
 # ------------------------------------------------------------------
@@ -179,6 +197,10 @@ DEFAULT_ROUTE_SPEED_LIMIT_MPH = 15
 DEFAULT_MINIMUM_SEGMENT_COUNT = 3
 DEFAULT_MINIMUM_SEGMENT_ALTITUDE_FT = DEFAULT_MINIMUM_ALTITUDE_FT
 DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT = DEFAULT_MAXIMUM_ALTITUDE_FT
+
+ROUTE_OVERLAY_LINE_TYPE = "route-overlay-line-type"
+ROUTE_OVERLAY_LINE_COLOR = "route-overlay-line-color"
+
 
 # -----------------------------------------------------------------
 # Overlay Review Status

@@ -296,7 +296,7 @@ def reject_droneport(droneport_id):
         return result.mappings().first()
 
 
-def request_changes_to_droneport(droneport_id):
+def request_droneport_changes(droneport_id):
     return reject_droneport(droneport_id)
 
 
