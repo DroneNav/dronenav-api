@@ -44,6 +44,7 @@ of the aircraft operator and applicable regulatory authorities.
 
 
 from flask import Blueprint, jsonify, request
+from flask_cors import CORS
 
 from app.services.authority_service import (
     create_authority,
@@ -55,9 +56,27 @@ from app.services.authority_service import (
 
 authorities_bp = Blueprint("authorities", __name__)
 
+CORS(
+    authorities_bp,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+        }
+    },
+)
 
-@authorities_bp.route("/api/authorities", methods=["POST"])
+
+@authorities_bp.route("/api/authorities", methods=["POST", "OPTIONS"])
 def create_authority_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     data = request.get_json()
 
     result, error = create_authority(data)
@@ -71,8 +90,12 @@ def create_authority_route():
     return jsonify(result), 201
 
 
-@authorities_bp.route("/api/authorities", methods=["GET"])
+@authorities_bp.route("/api/authorities", methods=["GET", "OPTIONS"])
 def get_authorities_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     authorities = get_all_authorities()
 
     return jsonify({
@@ -80,8 +103,12 @@ def get_authorities_route():
     })
 
 
-@authorities_bp.route("/api/authorities/<authority_id>", methods=["GET"])
+@authorities_bp.route("/api/authorities/<authority_id>", methods=["GET", "OPTIONS"])
 def get_authority_route(authority_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     authority = get_authority_by_id(authority_id)
 
     if authority is None:
@@ -93,8 +120,12 @@ def get_authority_route(authority_id):
     return jsonify(authority)
 
 
-@authorities_bp.route("/api/authorities/<authority_id>", methods=["PUT"])
+@authorities_bp.route("/api/authorities/<authority_id>", methods=["PUT", "OPTIONS"])
 def update_authority_route(authority_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     data = request.get_json()
 
     result, error = update_authority(authority_id, data)
@@ -110,8 +141,12 @@ def update_authority_route(authority_id):
     return jsonify(result)
 
 
-@authorities_bp.route("/api/authorities/<authority_id>", methods=["DELETE"])
+@authorities_bp.route("/api/authorities/<authority_id>", methods=["DELETE", "OPTIONS"])
 def delete_authority_route(authority_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     result = delete_authority(authority_id)
 
     if result is None:

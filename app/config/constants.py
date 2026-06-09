@@ -91,18 +91,13 @@ SITE_STATUS_DELETED = "deleted"
 
 DEFAULT_OPERATIONAL_STATUS = SITE_STATUS_INACTIVE
 
-SITE_OVERLAY_LINE_TYPE = "site-overlay-line-type"
-SITE_OVERLAY_LINE_COLOR = "site-overlay-line-color"
-SITE_OVERLAY_FILL_PATTERN = "site-overlay-fill-pattern"
-SITE_OVERLAY_FILL_COLOR = "site-overlay-fill-color"
-
 # ------------------------------------------------------------------
 # Zone Types
 # ------------------------------------------------------------------
 
 ZONE_TYPE_RESTRICTED = "restricted"
 ZONE_TYPE_OPEN = "open"
-ZONE_TYPE_CAUTION = "caution"
+ZONE_TYPE_CAUTION = "hazardous"
 ZONE_TYPE_EMERGENCY = "emergency"
 ZONE_TYPE_PRIVATE = "private"
 ZONE_TYPE_INCLUSION = "inclusion"
@@ -116,11 +111,6 @@ ZONE_STATUS_INACTIVE = "inactive"
 ZONE_STATUS_DELETED = "deleted"
 
 DEFAULT_ZONE_STATUS = ZONE_STATUS_INACTIVE
-
-ZONE_OVERLAY_LINE_TYPE = "zone-overlay-line-type"
-ZONE_OVERLAY_LINE_COLOR = "zone-overlay-line-color"
-ZONE_OVERLAY_FILL_PATTERN = "zone-overlay-fill-pattern"
-ZONE_OVERLAY_FILL_COLOR = "zone-overlay-fill-color"
 
 # ------------------------------------------------------------------
 # Survey Statuses
@@ -164,12 +154,6 @@ DRONEPORT_STATUS_DELETED = "deleted"
 DEFAULT_DRONEPORT_STATUS = DRONEPORT_STATUS_INACTIVE
 DEFAULT_DRONEPORT_DIAMETER_FT = 25
 
-DRONEPORT_OVERLAY_LINE_TYPE = "droneport-overlay-line-type"
-DRONEPORT_OVERLAY_LINE_COLOR = "droneport-overlay-line-color"
-DRONEPORT_OVERLAY_FILL_PATTERN = "droneport-overlay-fill-pattern"
-DRONEPORT_OVERLAY_FILL_COLOR = "droneport-overlay-fill-color"
-
-
 # ------------------------------------------------------------------
 # Route Statuses
 # ------------------------------------------------------------------
@@ -187,6 +171,7 @@ DEFAULT_ROUTE_STATUS = ROUTE_STATUS_INACTIVE
 ROUTE_TYPE_COMMERCIAL = "commercial"
 ROUTE_TYPE_OPEN = "open"
 ROUTE_TYPE_EMERGENCY = "emergency"
+ROUTE_TYPE_RACEWAY = "raceway"
 
 DEFAULT_MINIMUM_AIRCRAFT_WEIGHT_LBS = 1
 DEFAULT_MAXIMUM_AIRCRAFT_WEIGHT_LBS = 50
@@ -197,9 +182,6 @@ DEFAULT_ROUTE_SPEED_LIMIT_MPH = 15
 DEFAULT_MINIMUM_SEGMENT_COUNT = 3
 DEFAULT_MINIMUM_SEGMENT_ALTITUDE_FT = DEFAULT_MINIMUM_ALTITUDE_FT
 DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT = DEFAULT_MAXIMUM_ALTITUDE_FT
-
-ROUTE_OVERLAY_LINE_TYPE = "route-overlay-line-type"
-ROUTE_OVERLAY_LINE_COLOR = "route-overlay-line-color"
 
 
 # -----------------------------------------------------------------
@@ -233,6 +215,102 @@ VALID_OVERLAY_TYPES = {
     OVERLAY_TYPE_SITE,
     OVERLAY_TYPE_ZONE,
     OVERLAY_TYPE_DRONEPORT,
-    OVERLAY_TYPE_ROUTE,
+    OVERLAY_TYPE_ROUTE
 }
+
+
+OVERLAY_TYPES = {
+  OVERLAY_TYPE_SITE: "Site",
+  OVERLAY_TYPE_ZONE: "Zone",
+  OVERLAY_TYPE_DRONEPORT: "Droneport",
+  OVERLAY_TYPE_ROUTE: "Route"
+},
+
+SITE_OPERATIONAL_STATUSES = {
+    SITE_STATUS_ACTIVE: "Active",
+    SITE_STATUS_INACTIVE: "Inactive",
+    SITE_STATUS_DELETED: "Deleted"
+}
+ 
+ZONE_OPERATIONAL_STATUSES = {
+    ZONE_STATUS_ACTIVE: "Active",
+    ZONE_STATUS_INACTIVE: "Inactive",
+    ZONE_STATUS_DELETED: "Deleted"
+}
+
+DRONEPORT_OPERATIONAL_STATUSES = {
+    DRONEPORT_STATUS_ACTIVE: "Active",
+    DRONEPORT_STATUS_INACTIVE: "Inactive",
+    DRONEPORT_STATUS_DELETED: "Deleted"
+}
+
+ROUTE_OPERATIONAL_STATUSES = {
+    ROUTE_STATUS_ACTIVE: "Active",
+    ROUTE_STATUS_INACTIVE: "Inactive",
+    ROUTE_STATUS_DELETED: "Deleted"
+}
+
+SITE_TYPES = {
+    SITE_TYPE_SCHOOL: "School",
+    SITE_TYPE_PARK: "Park",
+    SITE_TYPE_COMMERCIAL: "Commercial",
+    SITE_TYPE_GOVERNMENT: "Government",
+    SITE_TYPE_PRIVATE: "Private",
+    SITE_TYPE_RESIDENTIAL: "Residential"
+}
+
+ZONE_TYPES = {
+  ZONE_TYPE_RESTRICTED: "Restricted",
+  ZONE_TYPE_OPEN: "Open",
+  ZONE_TYPE_CAUTION: "Hazardous",
+  ZONE_TYPE_EMERGENCY: "Emergency",
+  ZONE_TYPE_PRIVATE: "Private",
+  ZONE_TYPE_INCLUSION: "Inclusion"
+}
+
+SURVEY_STATUSES = {
+  SURVEY_STATUS_SURVEYED: "Surveyed",
+  SURVEY_STATUS_NOT_SURVEYED: "Not surveyed"
+}
+
+OVERLAY_REVIEW_STATUSES = {
+  REVIEW_STATUS_PENDING: "Pending review",
+  REVIEW_STATUS_APPROVED: "Approved",
+  REVIEW_STATUS_REJECTED: "Rejected",
+  REVIEW_STATUS_SUBMITTED: "Submitted",
+  REVIEW_STATUS_REVISIONS_REQUESTED: "Revisions requested"
+}
+
+DRONEPORT_TYPES = {
+  DRONEPORT_TYPE_CIVIL: "Civil",
+  DRONEPORT_TYPE_EDUCATION: "Educational",
+  DRONEPORT_TYPE_RECREATION: "Recreation",
+  DRONEPORT_TYPE_EMERGENCY: "Emergency",
+  DRONEPORT_TYPE_COMMERCIAL: "Commercial",
+  DRONEPORT_TYPE_MILITARY: "Military",
+  DRONEPORT_TYPE_GOVERNMENT: "Government"
+}
+
+ROUTE_TYPES = {
+  ROUTE_TYPE_OPEN: "Open",
+  ROUTE_TYPE_COMMERCIAL: "Commercial",
+  ROUTE_TYPE_EMERGENCY: "Emergency",
+  ROUTE_TYPE_RACEWAY: "Raceway"
+}
+
+def load_reference_data():
+
+    return {
+        "overlay_type": OVERLAY_TYPES,
+        "site_type": SITE_TYPES,
+        "zone_type": ZONE_TYPES,
+        "droneport_type": DRONEPORT_TYPES,
+        "route_type":  ROUTE_TYPES,
+        "site_operational_status": SITE_OPERATIONAL_STATUSES,
+        "zone_operational_status": ZONE_OPERATIONAL_STATUSES,
+        "droneport_operational_status": DRONEPORT_OPERATIONAL_STATUSES,
+        "route_operational_status": ROUTE_OPERATIONAL_STATUSES,
+        "survey_status": SURVEY_STATUSES,
+        "overlay_review_status": OVERLAY_REVIEW_STATUSES,
+    } # end...return
 

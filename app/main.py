@@ -43,8 +43,10 @@ of the aircraft operator and applicable regulatory authorities.
 """
 
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 
+from app.config.constants import load_reference_data
 from app.config.database import check_database
 from app.routes.authorities import authorities_bp
 from app.routes.sites import sites_bp
@@ -53,7 +55,23 @@ from app.routes.droneports import droneports_bp
 from app.routes.routes import routes_bp
 from app.routes.overlay_reviews import overlay_reviews_bp
 
+
 app = Flask(__name__)
+
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+        }
+    },
+)
+
 
 app.register_blueprint(authorities_bp)
 app.register_blueprint(sites_bp)
@@ -63,14 +81,30 @@ app.register_blueprint(routes_bp)
 app.register_blueprint(overlay_reviews_bp) 
 
 
-@app.route("/health")
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    return response
+
+
+@app.route("/api/cors-test", methods=["GET", "OPTIONS"])
+def cors_test():
+    return jsonify({"message": "cors test ok"})
+
+
+@app.route("/api/health", methods=["GET", "OPTIONS"])
 def health():
-    return jsonify({
-        "status": "ok"
-    })
+    return jsonify({"status": "ok"})
 
 
-@app.route("/api/system/database")
+@app.route("/api/system/database", methods=["GET", "OPTIONS"])
 def database_status():
     return jsonify(check_database())
+
+
+@app.route("/api/reference_data", methods=["GET", "OPTIONS"])
+def reference_data():
+    return jsonify(load_reference_data())
 

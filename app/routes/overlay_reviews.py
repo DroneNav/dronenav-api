@@ -44,6 +44,7 @@ of the aircraft operator and applicable regulatory authorities.
 
 
 from flask import Blueprint, jsonify, request
+from flask_cors import CORS
 
 from app.services.overlay_review_service import (
     get_overlay_review_by_id,
@@ -60,9 +61,26 @@ from app.services.overlay_review_service import (
 
 overlay_reviews_bp = Blueprint("overlay_reviews", __name__)
 
+CORS(
+    overlay_reviews_bp,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+        }
+    },
+)
 
-@overlay_reviews_bp.route("/api/governance/overlay-reviews", methods=["GET"])
+
+@overlay_reviews_bp.route("/api/governance/overlay-reviews", methods=["GET", "OPTIONS"])
 def get_overlay_reviews_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
 
     filters = {
         "overlay_type": request.args.get("type"),
@@ -82,8 +100,12 @@ def get_overlay_reviews_route():
     })
 
 
-@overlay_reviews_bp.route("/api/governance/overlay-reviews/<review_id>", methods=["GET"])
+@overlay_reviews_bp.route("/api/governance/overlay-reviews/<review_id>", methods=["GET", "OPTIONS"])
 def get_overlay_review_route(review_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+ 
     review = get_overlay_review_by_id(review_id)
 
     if review is None:
@@ -95,8 +117,12 @@ def get_overlay_review_route(review_id):
     return jsonify(review)
 
 
-@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>", methods=["GET"])
+@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>", methods=["GET", "OPTIONS"])
 def get_overlay_route(overlay_type, overlay_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     overlay = get_overlay_by_type_and_id(overlay_type, overlay_id)
 
     if overlay is None:
@@ -108,8 +134,12 @@ def get_overlay_route(overlay_type, overlay_id):
     return jsonify(overlay)
 
 
-@overlay_reviews_bp.route("/api/governance/overlays/<overlay_id>/history", methods=["GET"])
+@overlay_reviews_bp.route("/api/governance/overlays/<overlay_id>/history", methods=["GET", "OPTIONS"])
 def get_overlay_history_route(overlay_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     history = get_overlay_history(overlay_id)
 
     if history is None:
@@ -121,9 +151,12 @@ def get_overlay_history_route(overlay_id):
     return jsonify(history)
 
 
-@overlay_reviews_bp.route("/api/governance/dashboard", methods=["GET"])
+@overlay_reviews_bp.route("/api/governance/dashboard", methods=["GET", "OPTIONS"])
 def get_governance_dashboard_route():
     
+    if request.method == "OPTIONS":
+        return "", 204
+
     metrics = get_governance_metrics()
 
     if metrics is None:
@@ -135,8 +168,11 @@ def get_governance_dashboard_route():
     return jsonify(metrics)
 
 
-@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/approve", methods=["POST"])
+@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/approve", methods=["POST", "OPTIONS"])
 def approve_overlay_route(overlay_type, overlay_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
 
     data = request.get_json()
 
@@ -151,10 +187,13 @@ def approve_overlay_route(overlay_type, overlay_id):
     return jsonify(result), 200
 
 
-@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/reject", methods=["POST"])
+@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/reject", methods=["POST", "OPTIONS"])
 def reject_overlay_route(overlay_type, overlay_id):
 
-    data = request.get_json()
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() 
 
     result, error = reject_overlay(overlay_type, overlay_id, data)
 
@@ -167,8 +206,11 @@ def reject_overlay_route(overlay_type, overlay_id):
     return jsonify(result), 200
 
 
-@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/request-changes", methods=["POST"])
+@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/request-changes", methods=["POST", "OPTIONS"])
 def request_changes_overlay_route(overlay_type, overlay_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
 
     data = request.get_json()
 
@@ -183,8 +225,11 @@ def request_changes_overlay_route(overlay_type, overlay_id):
     return jsonify(result), 200
 
 
-@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/submit", methods=["POST"])
+@overlay_reviews_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/submit", methods=["POST", "OPTIONS"])
 def submit_overlay_route(overlay_type, overlay_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
 
     data = request.get_json()
 

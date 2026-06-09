@@ -44,6 +44,7 @@ of the aircraft operator and applicable regulatory authorities.
 
 
 from flask import Blueprint, jsonify, request
+from flask_cors import CORS
 
 from app.services.zone_service import (
     create_zone,
@@ -55,9 +56,27 @@ from app.services.zone_service import (
 
 zones_bp = Blueprint("zones", __name__)
 
+CORS(
+    zones_bp,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+        }
+    },
+)
 
-@zones_bp.route("/api/zones", methods=["POST"])
+
+@zones_bp.route("/api/zones", methods=["POST", "OPTIONS"])
 def create_zone_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     data = request.get_json()
 
     result, error = create_zone(data)
@@ -71,8 +90,12 @@ def create_zone_route():
     return jsonify(result), 201
 
 
-@zones_bp.route("/api/zones", methods=["GET"])
+@zones_bp.route("/api/zones", methods=["GET", "OPTIONS"])
 def get_zones_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     zones = get_all_zones()
 
     return jsonify({
@@ -80,8 +103,12 @@ def get_zones_route():
     })
 
 
-@zones_bp.route("/api/zones/<zone_id>", methods=["GET"])
+@zones_bp.route("/api/zones/<zone_id>", methods=["GET", "OPTIONS"])
 def get_zone_route(zone_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     zone = get_zone_by_id(zone_id)
 
     if zone is None:
@@ -93,8 +120,12 @@ def get_zone_route(zone_id):
     return jsonify(zone)
 
 
-@zones_bp.route("/api/zones/<zone_id>", methods=["PUT"])
+@zones_bp.route("/api/zones/<zone_id>", methods=["PUT", "OPTIONS"])
 def update_zone_route(zone_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     data = request.get_json()
 
     result, error = update_zone(zone_id, data)
@@ -110,8 +141,12 @@ def update_zone_route(zone_id):
     return jsonify(result)
 
 
-@zones_bp.route("/api/zones/<zone_id>", methods=["DELETE"])
+@zones_bp.route("/api/zones/<zone_id>", methods=["DELETE", "OPTIONS"])
 def delete_zone_route(zone_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     deleted_by = request.args.get("deleted_by", "dronenav")
 
     result = delete_zone(zone_id, deleted_by)

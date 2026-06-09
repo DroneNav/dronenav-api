@@ -44,6 +44,7 @@ of the aircraft operator and applicable regulatory authorities.
 
 
 from flask import Blueprint, jsonify, request
+from flask_cors import CORS
 
 from app.services.site_service import (
     create_site,
@@ -59,9 +60,27 @@ from app.services.route_service import get_routes_by_site_id
 
 sites_bp = Blueprint("sites", __name__)
 
+CORS(
+    sites_bp,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+        }
+    },
+)
 
-@sites_bp.route("/api/sites", methods=["POST"])
+
+@sites_bp.route("/api/sites", methods=["POST", "OPTIONS"])
 def create_site_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     data = request.get_json()
 
     result, error = create_site(data)
@@ -75,8 +94,12 @@ def create_site_route():
     return jsonify(result), 201
 
 
-@sites_bp.route("/api/sites", methods=["GET"])
+@sites_bp.route("/api/sites", methods=["GET", "OPTIONS"])
 def get_sites_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     sites = get_all_sites()
 
     return jsonify({
@@ -84,8 +107,12 @@ def get_sites_route():
     })
 
 
-@sites_bp.route("/api/sites/<site_id>", methods=["GET"])
+@sites_bp.route("/api/sites/<site_id>", methods=["GET", "OPTIONS"])
 def get_site_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     site = get_site_by_id(site_id)
 
     if site is None:
@@ -97,8 +124,12 @@ def get_site_route(site_id):
     return jsonify(site)
 
 
-@sites_bp.route("/api/sites/<site_id>/zones", methods=["GET"])
+@sites_bp.route("/api/sites/<site_id>/zones", methods=["GET", "OPTIONS"])
 def get_site_zones_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     zones = get_zones_by_site_id(site_id)
 
     return jsonify({
@@ -107,8 +138,12 @@ def get_site_zones_route(site_id):
     })
 
 
-@sites_bp.route("/api/sites/<site_id>/droneports", methods=["GET"])
+@sites_bp.route("/api/sites/<site_id>/droneports", methods=["GET", "OPTIONS"])
 def get_site_droneports_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     droneports = get_droneports_by_site_id(site_id)
 
     return jsonify({
@@ -117,8 +152,12 @@ def get_site_droneports_route(site_id):
     })
 
 
-@sites_bp.route("/api/sites/<site_id>/routes", methods=["GET"])
+@sites_bp.route("/api/sites/<site_id>/routes", methods=["GET", "OPTIONS"])
 def get_site_routes_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     routes = get_routes_by_site_id(site_id)
 
     return jsonify({
@@ -127,8 +166,12 @@ def get_site_routes_route(site_id):
     })
 
 
-@sites_bp.route("/api/sites/<site_id>", methods=["PUT"])
+@sites_bp.route("/api/sites/<site_id>", methods=["PUT", "OPTIONS"])
 def update_site_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     data = request.get_json()
 
     result, error = update_site(site_id, data)
@@ -144,8 +187,12 @@ def update_site_route(site_id):
     return jsonify(result)
 
 
-@sites_bp.route("/api/sites/<site_id>", methods=["DELETE"])
+@sites_bp.route("/api/sites/<site_id>", methods=["DELETE", "OPTIONS"])
 def delete_site_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     deleted_by = request.args.get("deleted_by", "dronenav")
 
     result = delete_site(site_id, deleted_by)

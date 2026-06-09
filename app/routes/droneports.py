@@ -44,6 +44,7 @@ of the aircraft operator and applicable regulatory authorities.
 
 
 from flask import Blueprint, jsonify, request
+from flask_cors import CORS
 
 from app.services.droneport_service import (
     create_droneport,
@@ -55,9 +56,27 @@ from app.services.droneport_service import (
 
 droneports_bp = Blueprint("droneports", __name__)
 
+CORS(
+    droneports_bp,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+        }
+    },
+)
 
-@droneports_bp.route("/api/droneports", methods=["POST"])
+
+@droneports_bp.route("/api/droneports", methods=["POST", "OPTIONS"])
 def create_droneport_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     data = request.get_json()
 
     result, error = create_droneport(data)
@@ -71,8 +90,12 @@ def create_droneport_route():
     return jsonify(result), 201
 
 
-@droneports_bp.route("/api/droneports", methods=["GET"])
+@droneports_bp.route("/api/droneports", methods=["GET", "OPTIONS"])
 def get_droneports_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     droneports = get_all_droneports()
 
     return jsonify({
@@ -80,8 +103,12 @@ def get_droneports_route():
     })
 
 
-@droneports_bp.route("/api/droneports/<droneport_id>", methods=["GET"])
+@droneports_bp.route("/api/droneports/<droneport_id>", methods=["GET", "OPTIONS"])
 def get_droneport_route(droneport_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     droneport = get_droneport_by_id(droneport_id)
 
     if droneport is None:
@@ -93,8 +120,12 @@ def get_droneport_route(droneport_id):
     return jsonify(droneport)
 
 
-@droneports_bp.route("/api/droneports/<droneport_id>", methods=["PUT"])
+@droneports_bp.route("/api/droneports/<droneport_id>", methods=["PUT", "OPTIONS"])
 def update_droneport_route(droneport_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     data = request.get_json()
 
     result, error = update_droneport(droneport_id, data)
@@ -110,8 +141,12 @@ def update_droneport_route(droneport_id):
     return jsonify(result)
 
 
-@droneports_bp.route("/api/droneports/<droneport_id>", methods=["DELETE"])
+@droneports_bp.route("/api/droneports/<droneport_id>", methods=["DELETE", "OPTIONS"])
 def delete_droneport_route(droneport_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     deleted_by = request.args.get("deleted_by", "dronenav")
 
     result = delete_droneport(droneport_id, deleted_by)

@@ -44,6 +44,7 @@ of the aircraft operator and applicable regulatory authorities.
 
 
 from flask import Blueprint, jsonify, request
+from flask_cors import CORS
 
 from app.services.route_service import (
     create_route,
@@ -55,9 +56,27 @@ from app.services.route_service import (
 
 routes_bp = Blueprint("routes", __name__)
 
+CORS(
+    routes_bp,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+        }
+    },
+)
 
-@routes_bp.route("/api/routes", methods=["POST"])
+
+@routes_bp.route("/api/routes", methods=["POST", "OPTIONS"])
 def create_route_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     data = request.get_json()
 
     result, error = create_route(data)
@@ -71,8 +90,12 @@ def create_route_route():
     return jsonify(result), 201
 
 
-@routes_bp.route("/api/routes", methods=["GET"])
+@routes_bp.route("/api/routes", methods=["GET", "OPTIONS"])
 def get_routes_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     routes = get_all_routes()
 
     return jsonify({
@@ -80,8 +103,12 @@ def get_routes_route():
     })
 
 
-@routes_bp.route("/api/routes/<route_id>", methods=["GET"])
+@routes_bp.route("/api/routes/<route_id>", methods=["GET", "OPTIONS"])
 def get_route_route(route_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     route = get_route_by_id(route_id)
 
     if route is None:
@@ -93,8 +120,12 @@ def get_route_route(route_id):
     return jsonify(route)
 
 
-@routes_bp.route("/api/routes/<route_id>", methods=["PUT"])
+@routes_bp.route("/api/routes/<route_id>", methods=["PUT", "OPTIONS"])
 def update_route_route(route_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     data = request.get_json()
 
     result, error = update_route(route_id, data)
@@ -110,8 +141,12 @@ def update_route_route(route_id):
     return jsonify(result)
 
 
-@routes_bp.route("/api/routes/<route_id>", methods=["DELETE"])
+@routes_bp.route("/api/routes/<route_id>", methods=["DELETE", "OPTIONS"])
 def delete_route_route(route_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
     deleted_by = request.args.get("deleted_by", "dronenav")
 
     result = delete_route(route_id, deleted_by)
