@@ -70,6 +70,7 @@ def insert_site(data):
                     survey_status,
                     minimum_altitude_ft,
                     maximum_altitude_ft,
+                    description,
                     geometry
                 )
                 VALUES (
@@ -81,6 +82,7 @@ def insert_site(data):
                     :survey_status,
                     :minimum_altitude_ft,
                     :maximum_altitude_ft,
+                    :description,
                     ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
@@ -138,6 +140,7 @@ def select_site(site_id):
                     approved_by,
                     minimum_altitude_ft,
                     maximum_altitude_ft,
+                    description,
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM sites
                 WHERE site_id = :site_id
@@ -167,6 +170,7 @@ def select_sites():
                     survey_status,
                     minimum_altitude_ft,
                     maximum_altitude_ft,
+                    description,
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM sites
                 WHERE operational_status <> :deleted_status
@@ -192,6 +196,7 @@ def update_site_record(site_id, data):
                     created_by = :created_by,
                     minimum_altitude_ft = :minimum_altitude_ft,
                     maximum_altitude_ft = :maximum_altitude_ft,
+                    description = :description,
                     geometry = ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid

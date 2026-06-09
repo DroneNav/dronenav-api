@@ -90,6 +90,7 @@ def normalize_site_payload(data):
         "created_by": data["created_by"],
         "operational_status": DEFAULT_OPERATIONAL_STATUS,
         "survey_status": DEFAULT_SURVEY_STATUS,
+        "description": data.get("description", None),
         "minimum_altitude_ft": data.get(
             "minimum_altitude_ft",
             DEFAULT_MINIMUM_ALTITUDE_FT
@@ -114,6 +115,7 @@ def format_site(row):
         "created_by": row["created_by"],
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,
         "operational_status": row["operational_status"],
+        "description": row["description"] if row["description"] else None,
         "survey_status": row["survey_status"],
         "last_surveyed_at": row.get("last_surveyed_at").isoformat()
             if row.get("last_surveyed_at") else None,
@@ -134,6 +136,7 @@ def format_site_summary(row):
         "created_by": row["created_by"],
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,
         "operational_status": row["operational_status"],
+        "description": row["description"] if row["description"] else None,
         "survey_status": row["survey_status"],
         "minimum_altitude_ft": row["minimum_altitude_ft"],
         "maximum_altitude_ft": row["maximum_altitude_ft"],
