@@ -215,6 +215,27 @@ def update_site_record(site_id, data):
         return result.mappings().first()
 
 
+def patch_site_record(site_id, data):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE sites
+                SET
+                    description = :description,
+                    minimum_altitude_ft = :minimum_altitude_ft,
+                    maximum_altitude_ft = :maximum_altitude_ft
+                WHERE site_id = :site_id
+                RETURNING site_id, site_name
+            """),
+            {
+                **data,
+                "site_id": site_id,
+            }
+        )
+
+        return result.mappings().first()
+
+
 def soft_delete_site(site_id, deleted_by):
     with engine.begin() as connection:
         result = connection.execute(

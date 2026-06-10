@@ -278,6 +278,29 @@ def update_route_record(route_id, data):
         return result.mappings().first()
 
 
+def patch_route_record(route_id, data):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE routes
+                SET
+                    route_name = :route_name,
+                    route_type = :route_type,
+                    minimum_aircraft_weight_lbs = :minimum_aircraft_weight_lbs,
+                    maximum_aircraft_weight_lbs = :maximum_aircraft_weight_lbs,
+                    buffered = :buffered
+                WHERE route_id = :route_id
+                RETURNING route_id, route_name
+            """),
+            {
+                **data,
+                "route_id": route_id,
+            }
+        )
+
+        return result.mappings().first()
+
+
 def soft_delete_route(route_id, deleted_by):
     with engine.begin() as connection:
         result = connection.execute(

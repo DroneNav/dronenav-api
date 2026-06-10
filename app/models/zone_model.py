@@ -240,6 +240,28 @@ def update_zone_record(zone_id, data):
         return result.mappings().first()
 
 
+def patch_zone_record(zone_id, data):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE zones
+                SET
+                    zone_name = :zone_name,
+                    zone_type = :zone_type,
+                    minimum_altitude_ft = :minimum_altitude_ft,
+                    maximum_altitude_ft = :maximum_altitude_ft
+                WHERE zone_id = :zone_id
+                RETURNING zone_id, zone_name
+            """),
+            {
+                **data,
+                "zone_id": zone_id,
+            }
+        )
+
+        return result.mappings().first()
+
+
 def soft_delete_zone(zone_id, deleted_by):
     with engine.begin() as connection:
         result = connection.execute(

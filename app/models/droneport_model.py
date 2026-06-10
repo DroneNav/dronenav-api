@@ -233,6 +233,27 @@ def update_droneport_record(droneport_id, data):
         return result.mappings().first()
 
 
+def patch_droneport_record(droneport_id, data):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE droneports
+                SET
+                    droneport_name = :droneport_name,
+                    droneport_type = :droneport_type,
+                    droneport_diameter_ft = :droneport_diameter_ft
+                WHERE droneport_id = :droneport_id
+                RETURNING droneport_id, droneport_name
+            """),
+            {
+                **data,
+                "droneport_id": droneport_id,
+            }
+        )
+
+        return result.mappings().first()
+
+
 def soft_delete_droneport(droneport_id, deleted_by):
     with engine.begin() as connection:
         result = connection.execute(
