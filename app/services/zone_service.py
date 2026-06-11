@@ -56,6 +56,7 @@ from app.models.zone_model import (
     select_zones,
     select_zones_by_site_id,
     update_zone_record,
+    patch_zone_record,
     soft_delete_zone,
     insert_overlay_review,
 )
@@ -82,6 +83,21 @@ def validate_zone_payload(data):
     return None
 
 
+def validate_zone_patch(data):
+    required_fields = [
+        "zone_name",
+        "zone_type",
+        "minimum_altitude_ft",
+        "maximum_altitude_ft",
+    ]
+
+    for field in required_fields:
+        if field not in data or data[field] in ("", None):
+            return f"Missing required field: {field}"
+
+    return None
+
+
 def normalize_zone_payload(data):
     return {
         "site_id": data["site_id"],
@@ -99,6 +115,21 @@ def normalize_zone_payload(data):
             DEFAULT_MAXIMUM_ALTITUDE_FT
         ),
         "geometry": data["geometry"],
+    }
+
+
+def normalize_zone_patch(data):
+    return {
+        "zone_name": data["zone_name"],
+        "zone_type": data["zone_type"],
+        "minimum_altitude_ft": data.get(
+            "minimum_altitude_ft",
+            DEFAULT_MINIMUM_ALTITUDE_FT
+        ),
+        "maximum_altitude_ft": data.get(
+            "maximum_altitude_ft",
+            DEFAULT_MAXIMUM_ALTITUDE_FT
+        ),
     }
 
 
@@ -186,6 +217,25 @@ def update_zone(zone_id, data):
 
     normalized_data = normalize_zone_payload(data)
     row = update_zone_record(zone_id, normalized_data)
+
+    if row is None:
+        return None, "Zone not found"
+
+    return {
+        "status": "updated",
+        "zone_id": str(row["zone_id"]),
+        "zone_name": row["zone_name"],
+    }, None
+
+
+def patch_zone(zone_id, data):
+    error = validate_zone_patch(data)
+
+    if error:
+        return None, error
+
+    normalized_data = normalize_zone_patch(data)
+    row = patch_zone_record(zone_id, normalized_data)
 
     if row is None:
         return None, "Zone not found"

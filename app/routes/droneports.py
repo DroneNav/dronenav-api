@@ -51,6 +51,7 @@ from app.services.droneport_service import (
     get_droneport_by_id,
     get_all_droneports,
     update_droneport,
+    patch_droneport,
     delete_droneport,
 )
 
@@ -64,7 +65,7 @@ CORS(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
             ],
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
         }
     },
@@ -129,6 +130,27 @@ def update_droneport_route(droneport_id):
     data = request.get_json()
 
     result, error = update_droneport(droneport_id, data)
+
+    if error:
+        status_code = 404 if error == "DronePort not found" else 400
+
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), status_code
+
+    return jsonify(result)
+
+
+@droneports_bp.route("/api/droneports/<droneport_id>", methods=["PATCH", "OPTIONS"])
+def patch_droneport_route(droneport_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json()
+
+    result, error = patch_droneport(droneport_id, data)
 
     if error:
         status_code = 404 if error == "DronePort not found" else 400

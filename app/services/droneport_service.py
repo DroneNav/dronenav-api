@@ -55,6 +55,7 @@ from app.models.droneport_model import (
     select_droneports,
     select_droneports_by_site_id,
     update_droneport_record,
+    patch_droneport_record,
     soft_delete_droneport,
     insert_overlay_review,
 )
@@ -81,6 +82,20 @@ def validate_droneport_payload(data):
     return None
 
 
+def validate_droneport_patch(data):
+    required_fields = [
+        "droneport_name",
+        "droneport_type",
+        "droneport_diameter_ft"
+    ]
+
+    for field in required_fields:
+        if field not in data or data[field] in ("", None):
+            return f"Missing required field: {field}"
+
+    return None
+
+
 def normalize_droneport_payload(data):
     return {
         "site_id": data["site_id"],
@@ -94,6 +109,17 @@ def normalize_droneport_payload(data):
             DEFAULT_DRONEPORT_DIAMETER_FT
         ),
         "geometry": data["geometry"],
+    }
+
+
+def normalize_droneport_patch(data):
+    return {
+        "droneport_name": data["droneport_name"],
+        "droneport_type": data["droneport_type"],
+        "droneport_diameter_ft": data.get(
+            "droneport_diameter_ft",
+            DEFAULT_DRONEPORT_DIAMETER_FT
+        ),
     }
 
 
@@ -179,6 +205,25 @@ def update_droneport(droneport_id, data):
 
     normalized_data = normalize_droneport_payload(data)
     row = update_droneport_record(droneport_id, normalized_data)
+
+    if row is None:
+        return None, "DronePort not found"
+
+    return {
+        "status": "updated",
+        "droneport_id": str(row["droneport_id"]),
+        "droneport_name": row["droneport_name"],
+    }, None
+
+
+def patch_droneport(droneport_id, data):
+    error = validate_droneport_patch(data)
+
+    if error:
+        return None, error
+
+    normalized_data = normalize_droneport_patch(data)
+    row = patch_droneport_record(droneport_id, normalized_data)
 
     if row is None:
         return None, "DronePort not found"

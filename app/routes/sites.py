@@ -51,6 +51,7 @@ from app.services.site_service import (
     get_site_by_id,
     get_all_sites,
     update_site,
+    patch_site,
     delete_site,
 )
 from app.services.zone_service import get_zones_by_site_id
@@ -68,7 +69,7 @@ CORS(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
             ],
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
         }
     },
@@ -175,6 +176,27 @@ def update_site_route(site_id):
     data = request.get_json()
 
     result, error = update_site(site_id, data)
+
+    if error:
+        status_code = 404 if error == "Site not found" else 400
+
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), status_code
+
+    return jsonify(result)
+
+
+@sites_bp.route("/api/sites/<site_id>", methods=["PATCH", "OPTIONS"])
+def patch_site_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json()
+
+    result, error = patch_site(site_id, data)
 
     if error:
         status_code = 404 if error == "Site not found" else 400

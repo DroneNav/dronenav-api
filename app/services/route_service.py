@@ -59,6 +59,7 @@ from app.models.route_model import (
     select_routes,
     select_routes_by_site_id,
     update_route_record,
+    patch_route_record,
     soft_delete_route,
     insert_overlay_review,
 )
@@ -140,6 +141,41 @@ def normalize_route_payload(data):
 	),
 	"geometry": data["geometry"],
 	"segment_attributes": data["segment_attributes"],
+    }
+
+
+def validate_route_patch(data):
+    required_fields = [
+        "route_name",
+        "route_type",
+        "minimum_aircraft_weight_lbs",
+        "maximum_aircraft_weight_lbs",
+        "buffered",
+    ]
+
+    for field in required_fields:
+        if field not in data or data[field] in ("", None):
+            return f"Missing required field: {field}"
+
+    return None
+
+
+def normalize_route_patch(data):
+    return {
+        "route_name": data["route_name"],
+        "route_type": data["route_type"],
+        "minimum_aircraft_weight_lbs": data.get(
+            "minimum_aircraft_weight_lbs",
+            DEFAULT_MINIMUM_AIRCRAFT_WEIGHT_LBS
+        ),
+        "maximum_aircraft_weight_lbs": data.get(
+            "maximum_aircraft_weight_lbs",
+            DEFAULT_MAXIMUM_AIRCRAFT_WEIGHT_LBS
+        ),
+        "buffered": data.get(
+            "buffered",
+            DEFAULT_ROUTE_BUFFERED
+        ),
     }
 
 
@@ -239,6 +275,25 @@ def update_route(route_id, data):
 
     normalized_data = normalize_route_payload(data)
     row = update_route_record(route_id, normalized_data)
+
+    if row is None:
+        return None, "Route not found"
+
+    return {
+        "status": "updated",
+        "route_id": str(row["route_id"]),
+        "route_name": row["route_name"],
+    }, None
+
+
+def patch_route(route_id, data):
+    error = validate_route_patch(data)
+
+    if error:
+        return None, error
+
+    normalized_data = normalize_route_patch(data)
+    row = patch_route_record(route_id, normalized_data)
 
     if row is None:
         return None, "Route not found"

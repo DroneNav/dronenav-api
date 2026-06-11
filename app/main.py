@@ -54,7 +54,7 @@ from app.routes.zones import zones_bp
 from app.routes.droneports import droneports_bp
 from app.routes.routes import routes_bp
 from app.routes.overlay_reviews import overlay_reviews_bp
-
+from app.routes.overlay_package import overlay_package_bp
 
 app = Flask(__name__)
 
@@ -66,7 +66,7 @@ CORS(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
             ],
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
         }
     },
@@ -78,14 +78,15 @@ app.register_blueprint(sites_bp)
 app.register_blueprint(zones_bp)
 app.register_blueprint(droneports_bp)
 app.register_blueprint(routes_bp)
-app.register_blueprint(overlay_reviews_bp) 
+app.register_blueprint(overlay_reviews_bp)
+app.register_blueprint(overlay_package_bp)
 
 
 @app.after_request
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
     return response
 
 

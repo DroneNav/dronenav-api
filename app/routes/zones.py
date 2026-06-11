@@ -51,6 +51,7 @@ from app.services.zone_service import (
     get_zone_by_id,
     get_all_zones,
     update_zone,
+    patch_zone,
     delete_zone,
 )
 
@@ -64,7 +65,7 @@ CORS(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
             ],
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
         }
     },
@@ -129,6 +130,27 @@ def update_zone_route(zone_id):
     data = request.get_json()
 
     result, error = update_zone(zone_id, data)
+
+    if error:
+        status_code = 404 if error == "Zone not found" else 400
+
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), status_code
+
+    return jsonify(result)
+
+
+@zones_bp.route("/api/zones/<zone_id>", methods=["PATCH", "OPTIONS"])
+def patch_zone_route(zone_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json()
+
+    result, error = patch_zone(zone_id, data)
 
     if error:
         status_code = 404 if error == "Zone not found" else 400

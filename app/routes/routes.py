@@ -51,6 +51,7 @@ from app.services.route_service import (
     get_route_by_id,
     get_all_routes,
     update_route,
+    patch_route,
     delete_route,
 )
 
@@ -64,7 +65,7 @@ CORS(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
             ],
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
         }
     },
@@ -129,6 +130,27 @@ def update_route_route(route_id):
     data = request.get_json()
 
     result, error = update_route(route_id, data)
+
+    if error:
+        status_code = 404 if error == "Route not found" else 400
+
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), status_code
+
+    return jsonify(result)
+
+
+@routes_bp.route("/api/routes/<route_id>", methods=["PATCH", "OPTIONS"])
+def patch_route_route(route_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json()
+
+    result, error = patch_route(route_id, data)
 
     if error:
         status_code = 404 if error == "Route not found" else 400

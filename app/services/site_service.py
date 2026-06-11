@@ -56,6 +56,7 @@ from app.models.site_model import (
     select_site,
     select_sites,
     update_site_record,
+    patch_site_record,
     soft_delete_site,
     insert_overlay_review,
 )
@@ -82,6 +83,20 @@ def validate_site_payload(data):
     return None
 
 
+def validate_site_patch(data):
+    required_fields = [
+        "description",
+        "minimum_altitude_ft",
+        "maximum_altitude_ft",
+    ]
+
+    for field in required_fields:
+        if field not in data or data[field] in ("", None):
+            return f"Missing required field: {field}"
+
+    return None
+
+
 def normalize_site_payload(data):
     return {
         "authority_id": data["authority_id"],
@@ -100,6 +115,20 @@ def normalize_site_payload(data):
             DEFAULT_MAXIMUM_ALTITUDE_FT
         ),
         "geometry": data["geometry"],
+    }
+
+
+def normalize_site_patch(data):
+    return {
+        "description": data.get("description", None),
+        "minimum_altitude_ft": data.get(
+            "minimum_altitude_ft",
+            DEFAULT_MINIMUM_ALTITUDE_FT
+        ),
+        "maximum_altitude_ft": data.get(
+            "maximum_altitude_ft",
+            DEFAULT_MAXIMUM_ALTITUDE_FT
+        ),
     }
 
 
@@ -184,6 +213,25 @@ def update_site(site_id, data):
 
     normalized_data = normalize_site_payload(data)
     row = update_site_record(site_id, normalized_data)
+
+    if row is None:
+        return None, "Site not found"
+
+    return {
+        "status": "updated",
+        "site_id": str(row["site_id"]),
+        "site_name": row["site_name"],
+    }, None
+
+
+def patch_site(site_id, data):
+    error = validate_site_patch(data)
+
+    if error:
+        return None, error
+
+    normalized_data = normalize_site_patch(data)
+    row = patch_site_record(site_id, normalized_data)
 
     if row is None:
         return None, "Site not found"
