@@ -69,7 +69,7 @@ CORS(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
             ],
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
         }
     },
@@ -84,7 +84,8 @@ def get_overlay_reviews_route():
 
     filters = {
         "overlay_type": request.args.get("type"),
-        "review_status": request.args.get("status"),
+        "review_status": request.args.get("review_status"),
+        "survey_status": request.args.get("survey_status"),
     }
 
     reviews, error = get_overlay_reviews(filters)

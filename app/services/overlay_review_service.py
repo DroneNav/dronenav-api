@@ -85,6 +85,7 @@ from app.models.overlay_review_model import (
     request_overlay_review_changes,
     submit_overlay_review,
     select_pending_reviews_count,
+    select_pending_surveys_count,
     select_approved_reviews_count,
     select_rejected_reviews_count,
     select_revision_requested_count,
@@ -102,6 +103,7 @@ from app.services.route_service import get_route_by_id, format_route
 from app.config.constants import (
     VALID_OVERLAY_TYPES,
     VALID_REVIEW_STATUSES,
+    VALID_SURVEY_STATUSES,
     REVIEW_STATUS_REVISIONS_REQUESTED,
     REVIEW_STATUS_APPROVED,
     REVIEW_STATUS_REJECTED,
@@ -140,6 +142,8 @@ def normalize_overlay_review_payload(data):
         "submitted_by": data["submitted_by"],
         "reviewed_by": data["reviewed_by"],
         "review_comments": data["review_comments"],
+        "survey_status": data["survey_status"],
+        "surveyed_by": data["surveyed_by"],
     }
 
 
@@ -152,6 +156,10 @@ def format_overlay_review(row):
         "overlay_id": str(row["overlay_id"]),
         "overlay_type": row["overlay_type"],
         "review_status": row["review_status"],
+        "survey_status": row["survey_status"],
+        "surveyed_by": row["surveyed_by"],
+        "surveyed_at": row["surveyed_at"].isoformat()
+            if row["surveyed_at"] else None,
         "submitted_by": row["submitted_by"],
         "submitted_at": row["submitted_at"].isoformat()
             if row["submitted_at"] else None,
@@ -172,6 +180,10 @@ def format_overlay_review_summary(row):
         "overlay_id": str(row["overlay_id"]),
         "overlay_type": row["overlay_type"],
         "review_status": row["review_status"],
+        "survey_status": row["survey_status"],
+        "surveyed_by": row["surveyed_by"],
+        "surveyed_at": row["surveyed_at"].isoformat()
+            if row["surveyed_at"] else None,
         "submitted_by": row["submitted_by"],
         "submitted_at": row["submitted_at"].isoformat()
             if row["submitted_at"] else None,
@@ -191,6 +203,7 @@ def get_governance_metrics():
     approved = select_approved_reviews_count()
     rejected = select_rejected_reviews_count()
     requested = select_revision_requested_count()
+    not_surveyed = select_pending_surveys_count()
 
     sites = select_site_count()
     zones = select_zone_count()
@@ -200,6 +213,7 @@ def get_governance_metrics():
     return {
         "review_counts": {
             "pending_review": pending,
+            "not_surveyed": not_surveyed,
             "approved": approved,
             "rejected": rejected,
             "revisions_requested": requested,
@@ -222,6 +236,7 @@ def get_overlay_reviews(filters):
 
     overlay_type = filters.get("overlay_type")
     review_status = filters.get("review_status")
+    survey_status = filters.get("survey_status")
 
     if overlay_type and overlay_type not in VALID_OVERLAY_TYPES:
         return None, "Invalid overlay type"
@@ -229,7 +244,10 @@ def get_overlay_reviews(filters):
     if review_status and review_status not in VALID_REVIEW_STATUSES:
         return None, "Invalid review status"
 
-    rows = select_overlay_reviews(overlay_type, review_status)
+    if survey_status and survey_status not in VALID_SURVEY_STATUSES:
+        return None, "Invalid survey status"
+
+    rows = select_overlay_reviews(overlay_type, review_status, survey_status)
 
     return [format_overlay_review_summary(row) for row in rows], None
 
@@ -272,6 +290,11 @@ def approve_overlay(overlay_type, overlay_id, data):
 
     if approved_by in ("", None):
         return None, "Missing required field: approved_by"
+
+    survey_status = data.get("survey_status")
+
+    if (survey_status != SURVEY_STATUS_SURVEYED)
+        return None, "Overlay not surveyed"
 
     review_comments = data.get("review_comments", "Approved review")
 
@@ -419,6 +442,11 @@ def submit_overlay(overlay_type, overlay_id, data):
 
     if reviewed_by in ("", None):
         return None, "Missing required field: reviewed_by"
+
+    survey_status = data.get("survey_status")
+
+    if (survey_status != SURVEY_STATUS_SURVEYED)
+        return None, "Overlay not surveyed"
 
     review_comments = data.get("review_comments", "Submitted review")
 

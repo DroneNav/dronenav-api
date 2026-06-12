@@ -121,6 +121,11 @@ SURVEY_STATUS_SURVEYED = "surveyed"
 
 DEFAULT_SURVEY_STATUS = SURVEY_STATUS_NOT_SURVEYED
 
+VALID_SURVEY_STATUSES = {
+    SURVEY_STATUS_SURVEYED,
+    SURVEY_STATUS_NOT_SURVEYED
+}
+
 # -----------------------------------------------------------------
 # Authority Statuses
 # -----------------------------------------------------------------

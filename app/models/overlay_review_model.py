@@ -84,6 +84,9 @@ def select_overlay_review(review_id):
                     overlay_type,
                     overlay_id,
                     review_status,
+                    survey_status,
+                    surveyed_by,
+                    surveyed_at,
                     submitted_by,
                     submitted_at,
                     reviewed_by,
@@ -102,7 +105,7 @@ def select_overlay_review(review_id):
         return result.mappings().first()
 
 
-def select_overlay_reviews(overlay_type=None, review_status=None):
+def select_overlay_reviews(overlay_type=None, review_status=None, survey_status=None):
     with engine.connect() as connection:
         result = connection.execute(
             text("""
@@ -111,6 +114,9 @@ def select_overlay_reviews(overlay_type=None, review_status=None):
                     overlay_type,
                     overlay_id,
                     review_status,
+                    survey_status,
+                    surveyed_by,
+                    surveyed_at,
                     submitted_by,
                     submitted_at,
                     reviewed_by,
@@ -121,11 +127,13 @@ def select_overlay_reviews(overlay_type=None, review_status=None):
                 FROM overlay_reviews
                 WHERE (:overlay_type IS NULL OR overlay_type = :overlay_type)
                   AND (:review_status IS NULL OR review_status = :review_status)
+                  AND (:survey_status IS NULL OR survey_status = :survey_status)
                 ORDER BY created_at DESC
             """),
             {
                 "overlay_type": overlay_type,
                 "review_status": review_status,
+                "survey_status": survey_status,
             }
         )
 
@@ -291,6 +299,24 @@ def select_pending_reviews_count():
             {
                 "pending_status": "pending_review",
                 "submitted_status": "submitted"
+            }
+        )
+
+        return result.scalar_one()
+
+
+def select_pending_surveys_count():
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT count(*)
+                FROM overlay_reviews
+                WHERE survey_status = :pending_survey_status
+                  OR survey_status IS NULL
+                  OR surveyed_by IS NULL
+            """),
+            {
+                "pending_survey_status": "not_surveyed"
             }
         )
 
