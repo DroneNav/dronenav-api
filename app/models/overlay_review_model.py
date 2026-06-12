@@ -293,12 +293,15 @@ def select_pending_reviews_count():
             text("""
                 SELECT count(*)
                 FROM overlay_reviews
-                WHERE review_status = :pending_status
-                  OR review_status = :submitted_status
+                WHERE (review_status = :pending_status
+                   OR review_status = :submitted_status)
+                  AND survey_status = :surveyed 
+                  AND survey_by IS NOT NULL
             """),
             {
                 "pending_status": "pending_review",
-                "submitted_status": "submitted"
+                "submitted_status": "submitted",
+                "surveyed": "surveyed"
             }
         )
 
