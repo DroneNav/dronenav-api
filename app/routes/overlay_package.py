@@ -60,6 +60,9 @@ from app.services.route_service import (
 )
 from app.services.overlay_package_service import (
     survey_overlay_package,
+    survey_overlay,
+    expire_survey_overlay_package,
+    expire_survey_overlay,
 )
 
 
@@ -106,15 +109,67 @@ def get_overlay_package_route(site_id):
     })
 
 
-@overlay_package_bp.route("/api/governance/overlays/<site_id>/survey", methods=["POST", "OPTIONS"])
+@overlay_package_bp.route("/api/governance/overlays/<site_id>/survey-package", methods=["POST", "OPTIONS"])
 def survey_package_route(site_id):
 
     if request.method == "OPTIONS":
         return "", 204
 
-    package = request.get_json() or {}
+    data = request.get_json() or {}
 
-    result, error = survey_overlay_package(site_id, package)
+    result, error = survey_overlay_package(site_id, data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify(result), 200
+
+
+@overlay_package_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/survey", methods=["POST", "OPTIONS"])
+def survey_overlay_route(overlay_type, overlay_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    result, error = survey_overlay(overlay_type, overlay_id, data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify(result), 200
+
+@overlay_package_bp.route("/api/governance/overlays/<site_id>/expire-survey-package", methods=["POST", "OPTIONS"])
+def expire_survey_package_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    result, error = expire_survey_overlay_package(site_id)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify(result), 200
+
+
+@overlay_package_bp.route("/api/governance/overlays/<overlay_type>/<overlay_id>/expire-survey", methods=["POST", "OPTIONS"])
+def expire_survey_overlay_route(overlay_type, overlay_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    result, error = expire_survey_overlay(overlay_type, overlay_id)
 
     if error:
         return jsonify({
