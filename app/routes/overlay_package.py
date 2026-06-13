@@ -58,6 +58,9 @@ from app.services.droneport_service import (
 from app.services.route_service import (
     get_routes_by_site_id,
 )
+from app.services.overlay_package_service import (
+    survey_overlay_package,
+)
 
 
 overlay_package_bp = Blueprint("overlay_package", __name__)
@@ -70,7 +73,7 @@ CORS(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
             ],
-            "methods": ["GET", "OPTIONS"],
+            "methods": ["POST", "GET", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
         }
     },
@@ -101,4 +104,24 @@ def get_overlay_package_route(site_id):
         "droneports": droneports or [],
         "routes": routes or [],
     })
+
+
+@overlay_package_bp.route("/api/governance/overlays/<site_id>/survey", methods=["POST", "OPTIONS"])
+def survey_package_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    package = request.get_json() or {}
+
+    result, error = survey_overlay_package(site_id, package)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify(result), 200
+
 
