@@ -32,8 +32,7 @@ Overlay Package API object model implentation source file.
 Author:
 DroneNav Project Contributors
 
-Created:
-2026-06-12
+Created: 2026-06-12 
 
 Notes:
 This software is intended to support drone navigation,
@@ -46,8 +45,14 @@ of the aircraft operator and applicable regulatory authorities.
 from sqlalchemy import text
 
 from app.config.database import engine
-from app.config.constants import SURVEY_STATUS_SURVEYED
-
+from app.config.constants import (
+    SURVEY_STATUS_SURVEYED,
+    OVERLAY_TYPE_SITE,
+    OVERLAY_TYPE_ZONE,
+    OVERLAY_TYPE_DRONEPORT,
+    OVERLAY_TYPE_ROUTE,
+)
+    
 
 def survey_overlay_package_record(site_id, surveyed_by):
 
@@ -74,6 +79,29 @@ def survey_overlay_package_record(site_id, surveyed_by):
                 }
             )
 
+	    route_review_result = connection.execute(
+		text("""
+		       UPDATE overlay_reviews
+		       SET
+			   survey_status = :survey_status,
+			   surveyed_by = :surveyed_by,
+			   surveyed_at = NOW()
+		       WHERE overlay_type = :overlay_type
+			 AND overlay_id IN (
+			     SELECT route_id
+			     FROM routes
+			     WHERE origin_site_id = :site_id
+                               OR destination_site_id = :site_id
+			 )
+		"""),
+		{
+                    "site_id": site_id,
+		    "survey_status": SURVEY_STATUS_SURVEYED,
+		    "surveyed_by": surveyed_by,
+		    "overlay_type": OVERLAY_TYPE_ROUTE,
+		}
+	    )
+
             # --------------------------------------------------------
             # DronePorts for this site
             # --------------------------------------------------------
@@ -90,6 +118,28 @@ def survey_overlay_package_record(site_id, surveyed_by):
                     "site_id": site_id,
                     "survey_status": SURVEY_STATUS_SURVEYED,
                     "surveyed_by": surveyed_by,
+                }
+            )
+
+            droneport_review_result = connection.execute(
+                text("""
+                       UPDATE overlay_reviews
+                       SET
+                           survey_status = :survey_status,
+                           surveyed_by = :surveyed_by,
+                           surveyed_at = NOW()
+                       WHERE overlay_type = :overlay_type
+                         AND overlay_id IN (
+                             SELECT droneport_id
+                             FROM droneports
+                             WHERE site_id = :site_id
+                         )
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_by": surveyed_by,
+                    "overlay_type": OVERLAY_TYPE_DRONEPORT,
                 }
             )
 
@@ -112,6 +162,28 @@ def survey_overlay_package_record(site_id, surveyed_by):
                 }
             )
 
+            zone_review_result = connection.execute(
+                text("""
+                       UPDATE overlay_reviews
+                       SET
+                           survey_status = :survey_status,
+                           surveyed_by = :surveyed_by,
+                           surveyed_at = NOW()
+                       WHERE overlay_type = :overlay_type
+                         AND overlay_id IN (
+                             SELECT zone_id
+                             FROM zones
+                             WHERE site_id = :site_id
+                         )
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_by": surveyed_by,
+                    "overlay_type": OVERLAY_TYPE_ZONE,
+                }
+            )
+
             # --------------------------------------------------------
             # Site itself
             # --------------------------------------------------------
@@ -131,18 +203,52 @@ def survey_overlay_package_record(site_id, surveyed_by):
                 }
             )
 
-            if site_result.rowcount != 1:
-                raise Exception(f"Site not found: {site_id}")
+            site_review_result = connection.execute(
+                text("""
+                       UPDATE overlay_reviews
+                       SET
+                           survey_status = :survey_status,
+                           surveyed_by = :surveyed_by,
+                           surveyed_at = NOW()
+                       WHERE overlay_type = :overlay_type
+                         AND overlay_id = :site_id 
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_by": surveyed_by,
+                    "overlay_type": OVERLAY_TYPE_SITE,
+                }
+            )
 
-            return {
-                "status": "surveyed",
-                "site_id": site_id,
-                "surveyed_by": surveyed_by,
-                "routes_surveyed": route_result.rowcount,
-                "droneports_surveyed": droneport_result.rowcount,
-                "zones_surveyed": zone_result.rowcount,
-                "sites_surveyed": site_result.rowcount,
-            }, None
+	    if site_result.rowcount != 1:
+		raise Exception(f"Site not found: {site_id}")
+"""
+	    if site_review_result.rowcount != 1:
+		raise Exception(f"Site overlay review not found: {site_id}")
+
+	    if route_review_result.rowcount != route_result.rowcount:
+		raise Exception("Route overlay review count mismatch")
+
+	    if droneport_review_result.rowcount != droneport_result.rowcount:
+		raise Exception("DronePort overlay review count mismatch")
+
+	    if zone_review_result.rowcount != zone_result.rowcount:
+		raise Exception("Zone overlay review count mismatch")
+"""
+	    return {
+		"status": "surveyed",
+		"site_id": site_id,
+		"surveyed_by": surveyed_by,
+		"routes_surveyed": route_result.rowcount,
+		"route_reviews_updated": route_review_result.rowcount,
+		"droneports_surveyed": droneport_result.rowcount,
+		"droneport_reviews_updated": droneport_review_result.rowcount,
+		"zones_surveyed": zone_result.rowcount,
+		"zone_reviews_updated": zone_review_result.rowcount,
+		"sites_surveyed": site_result.rowcount,
+		"site_reviews_updated": site_review_result.rowcount,
+	    }, None
 
     except Exception as e:
         return None, str(e)
