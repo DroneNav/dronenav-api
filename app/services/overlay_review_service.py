@@ -293,7 +293,7 @@ def approve_overlay(overlay_type, overlay_id, data):
 
     survey_status = data.get("survey_status")
 
-    if (survey_status != SURVEY_STATUS_SURVEYED)
+    if (survey_status != SURVEY_STATUS_SURVEYED):
         return None, "Overlay not surveyed"
 
     review_comments = data.get("review_comments", "Approved review")
@@ -445,7 +445,7 @@ def submit_overlay(overlay_type, overlay_id, data):
 
     survey_status = data.get("survey_status")
 
-    if (survey_status != SURVEY_STATUS_SURVEYED)
+    if (survey_status != SURVEY_STATUS_SURVEYED):
         return None, "Overlay not surveyed"
 
     review_comments = data.get("review_comments", "Submitted review")

@@ -47,6 +47,7 @@ from sqlalchemy import text
 from app.config.database import engine
 from app.config.constants import (
     SURVEY_STATUS_SURVEYED,
+    SURVEY_STATUS_NOT_SURVEYED,
     OVERLAY_TYPE_SITE,
     OVERLAY_TYPE_ZONE,
     OVERLAY_TYPE_DRONEPORT,
@@ -57,20 +58,23 @@ from app.config.constants import (
 def survey_overlay_package_record(site_id, surveyed_by):
 
     try:
+
         with engine.begin() as connection:
 
             # --------------------------------------------------------
             # Routes where this site is either origin or destination
             # --------------------------------------------------------
+
             route_result = connection.execute(
+
                 text("""
-                    UPDATE routes
-                    SET
-                        survey_status = :survey_status,
-                        surveyed_by = :surveyed_by,
-                        last_surveyed_at = NOW()
-                    WHERE origin_site_id = :site_id
-                       OR destination_site_id = :site_id
+                UPDATE routes
+                SET
+                    survey_status = :survey_status,
+                    surveyed_by = :surveyed_by,
+                    last_surveyed_at = NOW()
+                WHERE origin_site_id = :site_id
+                   OR destination_site_id = :site_id
                 """),
                 {
                     "site_id": site_id,
@@ -79,41 +83,44 @@ def survey_overlay_package_record(site_id, surveyed_by):
                 }
             )
 
-	    route_review_result = connection.execute(
-		text("""
-		       UPDATE overlay_reviews
-		       SET
-			   survey_status = :survey_status,
-			   surveyed_by = :surveyed_by,
-			   surveyed_at = NOW()
-		       WHERE overlay_type = :overlay_type
-			 AND overlay_id IN (
-			     SELECT route_id
-			     FROM routes
-			     WHERE origin_site_id = :site_id
-                               OR destination_site_id = :site_id
-			 )
-		"""),
-		{
+            route_review_result = connection.execute(
+
+                text("""
+                   UPDATE overlay_reviews
+                   SET
+                       survey_status = :survey_status,
+                       surveyed_by = :surveyed_by,
+                       surveyed_at = NOW()
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id IN (
+                    SELECT route_id
+                     FROM routes
+                    WHERE origin_site_id = :site_id
+                       OR destination_site_id = :site_id
+                     )
+                """),
+                {
                     "site_id": site_id,
-		    "survey_status": SURVEY_STATUS_SURVEYED,
-		    "surveyed_by": surveyed_by,
-		    "overlay_type": OVERLAY_TYPE_ROUTE,
-		}
-	    )
+                    "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_by": surveyed_by,
+                    "overlay_type": OVERLAY_TYPE_ROUTE,
+                }
+            )
 
             # --------------------------------------------------------
             # DronePorts for this site
             # --------------------------------------------------------
+
             droneport_result = connection.execute(
+
                 text("""
-                    UPDATE droneports
-                    SET
-                        survey_status = :survey_status,
-                        surveyed_by = :surveyed_by,
-                        last_surveyed_at = NOW()
-                    WHERE site_id = :site_id
-                """),
+                UPDATE droneports
+                SET
+                    survey_status = :survey_status,
+                    surveyed_by = :surveyed_by,
+                    last_surveyed_at = NOW()
+                WHERE site_id = :site_id
+                     """),
                 {
                     "site_id": site_id,
                     "survey_status": SURVEY_STATUS_SURVEYED,
@@ -122,18 +129,19 @@ def survey_overlay_package_record(site_id, surveyed_by):
             )
 
             droneport_review_result = connection.execute(
+
                 text("""
-                       UPDATE overlay_reviews
-                       SET
-                           survey_status = :survey_status,
-                           surveyed_by = :surveyed_by,
-                           surveyed_at = NOW()
-                       WHERE overlay_type = :overlay_type
-                         AND overlay_id IN (
-                             SELECT droneport_id
-                             FROM droneports
-                             WHERE site_id = :site_id
-                         )
+                   UPDATE overlay_reviews
+                   SET
+                   survey_status = :survey_status,
+                   surveyed_by = :surveyed_by,
+                   surveyed_at = NOW()
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id IN (
+                     SELECT droneport_id
+                       FROM droneports
+                      WHERE site_id = :site_id
+                     )
                 """),
                 {
                     "site_id": site_id,
@@ -146,15 +154,17 @@ def survey_overlay_package_record(site_id, surveyed_by):
             # --------------------------------------------------------
             # Zones for this site
             # --------------------------------------------------------
+
             zone_result = connection.execute(
+
                 text("""
-                    UPDATE zones
+                 UPDATE zones
                     SET
-                        survey_status = :survey_status,
-                        surveyed_by = :surveyed_by,
-                        last_surveyed_at = NOW()
-                    WHERE site_id = :site_id
-                """),
+                    survey_status = :survey_status,
+                    surveyed_by = :surveyed_by,
+                    last_surveyed_at = NOW()
+                  WHERE site_id = :site_id
+                 """),
                 {
                     "site_id": site_id,
                     "survey_status": SURVEY_STATUS_SURVEYED,
@@ -163,18 +173,19 @@ def survey_overlay_package_record(site_id, surveyed_by):
             )
 
             zone_review_result = connection.execute(
+
                 text("""
-                       UPDATE overlay_reviews
-                       SET
-                           survey_status = :survey_status,
-                           surveyed_by = :surveyed_by,
-                           surveyed_at = NOW()
-                       WHERE overlay_type = :overlay_type
-                         AND overlay_id IN (
-                             SELECT zone_id
-                             FROM zones
-                             WHERE site_id = :site_id
-                         )
+                UPDATE overlay_reviews
+                   SET
+                       survey_status = :survey_status,
+                       surveyed_by = :surveyed_by,
+                       surveyed_at = NOW()
+                 WHERE overlay_type = :overlay_type
+                   AND overlay_id IN (
+                      SELECT zone_id
+                        FROM zones
+                        WHERE site_id = :site_id
+                     )
                 """),
                 {
                     "site_id": site_id,
@@ -187,14 +198,16 @@ def survey_overlay_package_record(site_id, surveyed_by):
             # --------------------------------------------------------
             # Site itself
             # --------------------------------------------------------
+
             site_result = connection.execute(
+
                 text("""
-                    UPDATE sites
-                    SET
-                        survey_status = :survey_status,
-                        surveyed_by = :surveyed_by,
-                        last_surveyed_at = NOW()
-                    WHERE site_id = :site_id
+                UPDATE sites
+                SET
+                    survey_status = :survey_status,
+                    surveyed_by = :surveyed_by,
+                    last_surveyed_at = NOW()
+                WHERE site_id = :site_id
                 """),
                 {
                     "site_id": site_id,
@@ -204,14 +217,15 @@ def survey_overlay_package_record(site_id, surveyed_by):
             )
 
             site_review_result = connection.execute(
+
                 text("""
-                       UPDATE overlay_reviews
-                       SET
-                           survey_status = :survey_status,
-                           surveyed_by = :surveyed_by,
-                           surveyed_at = NOW()
-                       WHERE overlay_type = :overlay_type
-                         AND overlay_id = :site_id 
+                   UPDATE overlay_reviews
+                   SET
+                       survey_status = :survey_status,
+                       surveyed_by = :surveyed_by,
+                       surveyed_at = NOW()
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id = :site_id 
                 """),
                 {
                     "site_id": site_id,
@@ -221,35 +235,353 @@ def survey_overlay_package_record(site_id, surveyed_by):
                 }
             )
 
-	    if site_result.rowcount != 1:
-		raise Exception(f"Site not found: {site_id}")
-"""
-	    if site_review_result.rowcount != 1:
-		raise Exception(f"Site overlay review not found: {site_id}")
+            if site_result.rowcount != 1:
+                raise Exception(f"Site not found: {site_id}")
 
-	    if route_review_result.rowcount != route_result.rowcount:
-		raise Exception("Route overlay review count mismatch")
-
-	    if droneport_review_result.rowcount != droneport_result.rowcount:
-		raise Exception("DronePort overlay review count mismatch")
-
-	    if zone_review_result.rowcount != zone_result.rowcount:
-		raise Exception("Zone overlay review count mismatch")
-"""
-	    return {
-		"status": "surveyed",
-		"site_id": site_id,
-		"surveyed_by": surveyed_by,
-		"routes_surveyed": route_result.rowcount,
-		"route_reviews_updated": route_review_result.rowcount,
-		"droneports_surveyed": droneport_result.rowcount,
-		"droneport_reviews_updated": droneport_review_result.rowcount,
-		"zones_surveyed": zone_result.rowcount,
-		"zone_reviews_updated": zone_review_result.rowcount,
-		"sites_surveyed": site_result.rowcount,
-		"site_reviews_updated": site_review_result.rowcount,
-	    }, None
+            return {
+                "status": "surveyed",
+                "site_id": site_id,
+                "surveyed_by": surveyed_by,
+                "routes_surveyed": route_result.rowcount,
+                "route_reviews_updated": route_review_result.rowcount,
+                "droneports_surveyed": droneport_result.rowcount,
+                "droneport_reviews_updated": droneport_review_result.rowcount,
+                "zones_surveyed": zone_result.rowcount,
+                "zone_reviews_updated": zone_review_result.rowcount,
+                "sites_surveyed": site_result.rowcount,
+                "site_reviews_updated": site_review_result.rowcount,
+            }, None
 
     except Exception as e:
         return None, str(e)
+
+
+def survey_overlay_record(overlay_type, overlay_id, surveyed_by):
+
+    table_config = {
+        OVERLAY_TYPE_ZONE: {
+            "table": "zones",
+            "id_column": "zone_id",
+        },
+        OVERLAY_TYPE_DRONEPORT: {
+            "table": "droneports",
+            "id_column": "droneport_id",
+        },
+        OVERLAY_TYPE_ROUTE: {
+            "table": "routes",
+            "id_column": "route_id",
+        },
+    }
+
+    if overlay_type not in table_config:
+        return None, "Invalid overlay type for single overlay survey"
+
+    config = table_config[overlay_type]
+
+    try:
+        with engine.begin() as connection:
+
+            overlay_result = connection.execute(
+
+                text(f"""
+                    UPDATE {config["table"]}
+                    SET
+                        survey_status = :survey_status,
+                        surveyed_by = :surveyed_by,
+                        last_surveyed_at = NOW()
+                    WHERE {config["id_column"]} = :overlay_id
+                """),
+                {
+                    "overlay_id": overlay_id,
+                    "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_by": surveyed_by,
+                }
+            )
+
+            if overlay_result.rowcount != 1:
+                raise Exception("Overlay not found")
+
+            review_result = connection.execute(
+
+                text("""
+                    UPDATE overlay_reviews
+                    SET
+                        survey_status = :survey_status,
+                        surveyed_by = :surveyed_by,
+                        surveyed_at = NOW()
+                    WHERE overlay_type = :overlay_type
+                      AND overlay_id = :overlay_id
+                """),
+                {
+                    "overlay_type": overlay_type,
+                    "overlay_id": overlay_id,
+                    "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_by": surveyed_by,
+                }
+            )
+
+            return {
+                "status": "surveyed",
+                "overlay_type": overlay_type,
+                "overlay_id": overlay_id,
+                "surveyed_by": surveyed_by,
+                "overlay_records_updated": overlay_result.rowcount,
+                "review_records_updated": review_result.rowcount,
+            }, None
+
+    except Exception as e:
+        return None, str(e)
+
+
+def expire_survey_overlay_package_record(site_id):
+
+    try:
+        with engine.begin() as connection:
+
+            # --------------------------------------------------------
+            # Routes where this site is either origin or destination
+            # --------------------------------------------------------
+            route_result = connection.execute(
+
+                text("""
+                UPDATE routes
+                SET
+                    survey_status = :survey_status,
+                    surveyed_by = NULL
+                WHERE origin_site_id = :site_id
+                   OR destination_site_id = :site_id
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_NOT_SURVEYED,
+                }
+            )
+
+            route_review_result = connection.execute(
+
+                text("""
+                   UPDATE overlay_reviews
+                   SET
+                       survey_status = :survey_status,
+                       surveyed_by = NULL
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id IN (
+                     SELECT route_id
+                     FROM routes
+                     WHERE origin_site_id = :site_id
+                       OR destination_site_id = :site_id
+                     )
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_NOT_SURVEYED,
+                    "overlay_type": OVERLAY_TYPE_ROUTE,
+                }
+            )
+
+            # --------------------------------------------------------
+            # DronePorts for this site
+            # --------------------------------------------------------
+            droneport_result = connection.execute(
+
+                text("""
+                UPDATE droneports
+                SET
+                    survey_status = :survey_status,
+                    surveyed_by = NULL
+                WHERE site_id = :site_id
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_NOT_SURVEYED,
+                }
+            )
+
+            droneport_review_result = connection.execute(
+
+                text("""
+                   UPDATE overlay_reviews
+                   SET
+                       survey_status = :survey_status,
+                       surveyed_by = NULL
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id IN (
+                     SELECT droneport_id
+                     FROM droneports
+                     WHERE site_id = :site_id
+                     )
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_NOT_SURVEYED,
+                    "overlay_type": OVERLAY_TYPE_DRONEPORT,
+                }
+            )
+
+            # --------------------------------------------------------
+            # Zones for this site
+            # --------------------------------------------------------
+            zone_result = connection.execute(
+
+                text("""
+                UPDATE zones
+                SET
+                    survey_status = :survey_status,
+                    surveyed_by = NULL
+                WHERE site_id = :site_id
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_NOT_SURVEYED,
+                }
+            )
+
+            zone_review_result = connection.execute(
+
+                text("""
+                   UPDATE overlay_reviews
+                   SET
+                       survey_status = :survey_status,
+                       surveyed_by = NULL
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id IN (
+                     SELECT zone_id
+                     FROM zones
+                     WHERE site_id = :site_id
+                     )
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_NOT_SURVEYED,
+                    "overlay_type": OVERLAY_TYPE_ZONE,
+                }
+            )
+
+            # --------------------------------------------------------
+            # Site itself
+            # --------------------------------------------------------
+            site_result = connection.execute(
+
+                text("""
+                UPDATE sites
+                SET
+                    survey_status = :survey_status,
+                    surveyed_by = NULL
+                WHERE site_id = :site_id
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_NOT_SURVEYED,
+                }
+            )
+
+            site_review_result = connection.execute(
+
+                text("""
+                   UPDATE overlay_reviews
+                   SET
+                       survey_status = :survey_status,
+                       surveyed_by = NULL
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id = :site_id
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_NOT_SURVEYED,
+                    "overlay_type": OVERLAY_TYPE_SITE,
+                }
+            )
+
+            if site_result.rowcount != 1:
+                raise Exception(f"Site not found: {site_id}")
+
+            return {
+                "status": "not_surveyed",
+                "site_id": site_id,
+                "routes_expired": route_result.rowcount,
+                "route_reviews_updated": route_review_result.rowcount,
+                "droneports_expired": droneport_result.rowcount,
+                "droneport_reviews_updated": droneport_review_result.rowcount,
+                "zones_expired": zone_result.rowcount,
+                "zone_reviews_updated": zone_review_result.rowcount,
+                "sites_expired": site_result.rowcount,
+                "site_reviews_updated": site_review_result.rowcount,
+            }, None
+
+    except Exception as e:
+        return None, str(e)
+
+
+def expire_survey_overlay_record(overlay_type, overlay_id):
+
+    table_config = {
+        OVERLAY_TYPE_ZONE: {
+            "table": "zones",
+            "id_column": "zone_id",
+        },
+        OVERLAY_TYPE_DRONEPORT: {
+            "table": "droneports",
+            "id_column": "droneport_id",
+        },
+        OVERLAY_TYPE_ROUTE: {
+            "table": "routes",
+            "id_column": "route_id",
+        },
+    }
+
+    if overlay_type not in table_config:
+        return None, "Invalid overlay type for single overlay survey"
+
+    config = table_config[overlay_type]
+
+    try:
+
+        with engine.begin() as connection:
+
+            overlay_result = connection.execute( 
+
+                text(f"""
+                    UPDATE {config["table"]}
+                    SET
+                        survey_status = :survey_status,
+                        surveyed_by = NULL
+                    WHERE {config["id_column"]} = :overlay_id
+                    """),
+                    {
+                        "overlay_id": overlay_id,
+                        "survey_status": SURVEY_STATUS_NOT_SURVEYED,
+                    }
+            )
+
+            if overlay_result.rowcount != 1:
+                raise Exception("Overlay not found")
+
+            review_result = connection.execute(
+
+                text("""
+                UPDATE overlay_reviews
+                SET
+                    survey_status = :survey_status,
+                    surveyed_by = NULL
+                WHERE overlay_type = :overlay_type
+                  AND overlay_id = :overlay_id
+                """),
+                {
+                    "overlay_type": overlay_type,
+                    "overlay_id": overlay_id,
+                    "survey_status": SURVEY_STATUS_NOT_SURVEYED,
+                }
+            )
+
+            return {
+                "status": "not_surveyed",
+                "overlay_type": overlay_type,
+                "overlay_id": overlay_id,
+                "overlay_records_expired": overlay_result.rowcount,
+                "review_records_updated": review_result.rowcount,
+            }, None
+
+    except Exception as e:
+        return None, str(e)
+
 
