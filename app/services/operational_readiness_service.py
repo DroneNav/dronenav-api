@@ -27,13 +27,13 @@ License:
 GNU Affero General Public License v3.0 (AGPL-3.0-or-later)
 
 Purpose:
-Governance overlay package business rules layer implementation source file.
+Governance overlay readiness business rules layer implementation source file.
 
 Author:
 DroneNav Project Contributors
 
 Created:
-2026-06-12
+2026-06-14
 
 Notes:
 This software is intended to support drone navigation,
@@ -42,60 +42,35 @@ operations. All operational use remains the responsibility
 of the aircraft operator and applicable regulatory authorities.
 """
 
-from app.models.overlay_package_model import (
-    survey_overlay_package_record,
-    survey_overlay_record,
-    expire_survey_overlay_package_record,
-    expire_survey_overlay_record,
+from app.models.operational_readiness import (
+    activate_overlay_record,
+    deactivate_overlay_package_record,
+    deactivate_overlay_record,
 )
 
 
-def survey_overlay_package(site_id, data):
-
-    if data is None:
-        data = {}
-
-    if not isinstance(data, dict):
-        return None, "Survey payload must be an object"
-
-    surveyed_by = data.get("surveyed_by")
-
-    if surveyed_by in ("", None):
-        return None, "Missing required field: surveyed_by"
-
-    result, error = survey_overlay_package_record(
-        site_id=site_id,
-        surveyed_by=surveyed_by,
-    )
-
-    if error:
-        return None, error
-
-    return result, None
-
-
-def survey_overlay(overlay_type, overlay_id, data):
-
-    if data is None:
-        data = {}
-
-    if not isinstance(data, dict):
-        return None, "Survey payload must be an object"
-
-    surveyed_by = data.get("surveyed_by")
-
-    if surveyed_by in ("", None):
-        return None, "Missing required field: surveyed_by"
+def activate_overlay(overlay_type, overlay_id, data):
 
     normalized_overlay_type = normalize_overlay_type(overlay_type)
 
     if not normalized_overlay_type:
         return None, "Invalid overlay type"
 
-    result, error = survey_overlay_record(
+    if data is None:
+        data = {}
+
+    if not isinstance(data, dict):
+        return None, "Survey payload must be an object"
+
+    activated_by = data.get("activated_by")
+
+    if activated_by in ("", None):
+        return None, "Missing required field: activated_by"
+
+    result, error = activate_overlay_record(
         overlay_type=normalized_overlay_type,
         overlay_id=overlay_id,
-        surveyed_by=surveyed_by,
+        activated_by=activated_by,
     )
 
     if error:
@@ -104,9 +79,9 @@ def survey_overlay(overlay_type, overlay_id, data):
     return result, None
 
 
-def expire_survey_overlay_package(site_id):
+def deactivate_overlay_package(site_id):
 
-    result, error = expire_survey_overlay_package_record(
+    result, error = deactivate_overlay_package_record(
         site_id=site_id,
     )
 
@@ -116,14 +91,14 @@ def expire_survey_overlay_package(site_id):
     return result, None
 
 
-def expire_survey_overlay(overlay_type, overlay_id):
+def deactivate_overlay(overlay_type, overlay_id):
 
     normalized_overlay_type = normalize_overlay_type(overlay_type)
 
     if not normalized_overlay_type:
         return None, "Invalid overlay type"
 
-    result, error = expire_survey_overlay_record(
+    result, error = deactivate_overlay_record(
         overlay_type=normalized_overlay_type,
         overlay_id=overlay_id,
     )

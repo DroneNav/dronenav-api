@@ -55,6 +55,8 @@ from app.routes.droneports import droneports_bp
 from app.routes.routes import routes_bp
 from app.routes.overlay_reviews import overlay_reviews_bp
 from app.routes.overlay_package import overlay_package_bp
+from app.routes.operational_readiness import operational_readiness_bp
+
 
 app = Flask(__name__)
 
@@ -80,6 +82,7 @@ app.register_blueprint(droneports_bp)
 app.register_blueprint(routes_bp)
 app.register_blueprint(overlay_reviews_bp)
 app.register_blueprint(overlay_package_bp)
+app.register_blueprint(operational_readiness_bp)
 
 
 @app.after_request

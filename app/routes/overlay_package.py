@@ -109,7 +109,7 @@ def get_overlay_package_route(site_id):
     })
 
 
-@overlay_package_bp.route("/api/governance/overlays/<site_id>/survey-package", methods=["POST", "OPTIONS"])
+@overlay_package_bp.route("/api/governance/sites/<site_id>/survey-package", methods=["POST", "OPTIONS"])
 def survey_package_route(site_id):
 
     if request.method == "OPTIONS":
@@ -146,7 +146,7 @@ def survey_overlay_route(overlay_type, overlay_id):
 
     return jsonify(result), 200
 
-@overlay_package_bp.route("/api/governance/overlays/<site_id>/expire-survey-package", methods=["POST", "OPTIONS"])
+@overlay_package_bp.route("/api/governance/sites/<site_id>/expire-survey-package", methods=["POST", "OPTIONS"])
 def expire_survey_package_route(site_id):
 
     if request.method == "OPTIONS":
