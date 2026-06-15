@@ -88,7 +88,7 @@ def activate_overlay_route(overlay_type, overlay_id):
 
     return jsonify(result), 200
 
-@operational_readiness_bp.route("/api/governance/sites/<site_id>/deactivate-package", methods=["POST", "OPTIONS"])
+@operational_readiness_bp.route("/api/governance/overlays/sites/<site_id>/deactivate-package", methods=["POST", "OPTIONS"])
 def deactivate_package_route(site_id):
 
     if request.method == "OPTIONS":
