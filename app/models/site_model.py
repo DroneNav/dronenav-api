@@ -155,7 +155,7 @@ def select_site(site_id):
         return result.mappings().first()
 
 
-def select_sites():
+def select_sites(survey_status=None):
     with engine.connect() as connection:
         result = connection.execute(
             text("""
@@ -174,10 +174,15 @@ def select_sites():
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM sites
                 WHERE operational_status <> :deleted_status
+                  AND (
+                      :survey_status IS NULL
+                      OR survey_status = :survey_status
+                  )
                 ORDER BY created_at DESC
             """),
             {
                 "deleted_status": SITE_STATUS_DELETED,
+                "survey_status": survey_status,
             }
         )
 

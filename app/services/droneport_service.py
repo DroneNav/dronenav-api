@@ -192,8 +192,8 @@ def get_droneports_by_site_id(site_id):
     return [format_droneport_summary(row) for row in rows]
 
 
-def get_all_droneports():
-    rows = select_droneports()
+def get_all_droneports(survey_status):
+    rows = select_droneports(survey_status)
     return [format_droneport_summary(row) for row in rows]
 
 

@@ -95,20 +95,27 @@ def add_cors_headers(response):
 
 @app.route("/api/cors-test", methods=["GET", "OPTIONS"])
 def cors_test():
+    if request.method == "OPTIONS":
+        return "", 204
     return jsonify({"message": "cors test ok"})
 
 
 @app.route("/api/health", methods=["GET", "OPTIONS"])
 def health():
+    if request.method == "OPTIONS":
+        return "", 204
     return jsonify({"status": "ok"})
 
 
 @app.route("/api/system/database", methods=["GET", "OPTIONS"])
 def database_status():
+    if request.method == "OPTIONS":
+        return "", 204
     return jsonify(check_database())
 
 
-@app.route("/api/reference_data", methods=["GET", "OPTIONS"])
+@app.route("/api/reference-data", methods=["GET", "OPTIONS"])
 def reference_data():
+    if request.method == "OPTIONS":
+        return "", 204
     return jsonify(load_reference_data())
-

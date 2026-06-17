@@ -97,7 +97,9 @@ def get_zones_route():
     if request.method == "OPTIONS":
         return "", 204
 
-    zones = get_all_zones()
+    survey_status = request.args.get("survey_status")
+
+    zones = get_all_zones(survey_status)
 
     return jsonify({
         "zones": zones

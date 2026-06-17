@@ -262,8 +262,8 @@ def get_routes_by_site_id(site_id):
     return [format_route_summary(row) for row in rows]
 
 
-def get_all_routes():
-    rows = select_routes()
+def get_all_routes(survey_status):
+    rows = select_routes(survey_status)
     return [format_route_summary(row) for row in rows]
 
 

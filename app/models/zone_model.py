@@ -152,7 +152,7 @@ def select_zone(zone_id):
         return result.mappings().first()
 
 
-def select_zones():
+def select_zones(survey_status=None):
     with engine.connect() as connection:
         result = connection.execute(
             text("""
@@ -170,10 +170,15 @@ def select_zones():
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM zones
                 WHERE operational_status <> :deleted_status
+                  AND (
+                      :survey_status IS NULL
+                      OR survey_status = :survey_status
+                  )
                 ORDER BY created_at DESC
             """),
             {
                 "deleted_status": ZONE_STATUS_DELETED,
+                "survey_status": survey_status,
             }
         )
 

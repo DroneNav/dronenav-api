@@ -97,7 +97,9 @@ def get_droneports_route():
     if request.method == "OPTIONS":
         return "", 204
 
-    droneports = get_all_droneports()
+    survey_status = request.args.get("survey_status")
+
+    droneports = get_all_droneports(survey_status)
 
     return jsonify({
         "droneports": droneports

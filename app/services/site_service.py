@@ -200,8 +200,8 @@ def get_site_by_id(site_id):
     return format_site(row)
 
 
-def get_all_sites():
-    rows = select_sites()
+def get_all_sites(survey_status):
+    rows = select_sites(survey_status)
     return [format_site_summary(row) for row in rows]
 
 

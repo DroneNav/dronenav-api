@@ -148,7 +148,7 @@ def select_droneport(droneport_id):
         return result.mappings().first()
 
 
-def select_droneports():
+def select_droneports(survey_status=None):
     with engine.connect() as connection:
         result = connection.execute(
             text("""
@@ -165,10 +165,15 @@ def select_droneports():
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM droneports
                 WHERE operational_status <> :deleted_status
+                  AND (
+                      :survey_status IS NULL
+                      OR survey_status = :survey_status
+                  )
                 ORDER BY created_at DESC
             """),
             {
                 "deleted_status": DRONEPORT_STATUS_DELETED,
+                "survey_status": survey_status,
             }
         )
 

@@ -97,7 +97,9 @@ def get_routes_route():
     if request.method == "OPTIONS":
         return "", 204
 
-    routes = get_all_routes()
+    survey_status = request.args.get("survey_status")
+
+    routes = get_all_routes(survey_status)
 
     return jsonify({
         "routes": routes

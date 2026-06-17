@@ -204,8 +204,8 @@ def get_zones_by_site_id(site_id):
     return [format_zone_summary(row) for row in rows]
 
 
-def get_all_zones():
-    rows = select_zones()
+def get_all_zones(survey_status):
+    rows = select_zones(survey_status)
     return [format_zone_summary(row) for row in rows]
 
 

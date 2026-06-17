@@ -171,7 +171,7 @@ def select_route(route_id):
         return result.mappings().first()
 
 
-def select_routes():
+def select_routes(survey_status=None):
     with engine.connect() as connection:
         result = connection.execute(
             text("""
@@ -195,10 +195,15 @@ def select_routes():
                     segment_attributes
                 FROM routes
                 WHERE operational_status <> :deleted_status
+                  AND (
+                      :survey_status IS NULL
+                      OR survey_status = :survey_status
+                  )
                 ORDER BY created_at DESC
             """),
             {
                 "deleted_status": ROUTE_STATUS_DELETED,
+                "survey_status": survey_status,
             }
         )
 
