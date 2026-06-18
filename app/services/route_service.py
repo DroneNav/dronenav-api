@@ -53,9 +53,9 @@ from app.config.constants import (
     DEFAULT_SURVEY_STATUS,
 )
 
-from app.models.overlay_package import {
+from app.models.overlay_package_model import (
     get_context_package_record,
-}
+)
 
 from app.models.route_model import (
     insert_route,
@@ -351,6 +351,7 @@ def format_context_zone(zone):
 
     return {
         "zone_id": str(zone["zone_id"]),
+        "site_id": str(zone["site_id"]),
         "zone_name": zone["zone_name"],
         "zone_type": zone["zone_type"],
         "geometry": zone["geometry"],
@@ -361,6 +362,7 @@ def format_context_droneport(droneport):
 
     return {
         "droneport_id": str(droneport["droneport_id"]),
+        "site_id": str(droneport["site_id"]),
         "droneport_name": droneport["droneport_name"],
         "droneport_type": droneport["droneport_type"],
         "droneport_diameter_ft": droneport["droneport_diameter_ft"],
@@ -372,6 +374,8 @@ def format_context_route(route):
 
     return {
         "route_id": str(route["route_id"]),
+        "origin_site_id": str(route["origin_site_id"]),
+        "destination_site_id": str(route["destination_site_id"]),
         "route_name": route["route_name"],
         "route_type": route["route_type"],
         "direction": route["direction"],

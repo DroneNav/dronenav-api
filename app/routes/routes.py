@@ -130,15 +130,15 @@ def get_route_context_route(route_id):
     if request.method == "OPTIONS":
         return "", 204
 
-    context = get_route_context(route_id)
+    context, error = get_route_context(route_id)
 
-    if context is None:
+    if error:
         return jsonify({
             "status": "error",
-            "message": "Route package context not found"
+            "message": error
         }), 404
 
-    return jsonify(context)
+    return jsonify(context), 200
 
 
 @routes_bp.route("/api/routes/<route_id>", methods=["PUT", "OPTIONS"])

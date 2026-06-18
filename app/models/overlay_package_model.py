@@ -68,6 +68,8 @@ def get_context_package_record(site_id):
                 text("""
                     SELECT
                         route_id,
+                        origin_site_id,
+                        destination_site_id,
                         route_name,
                         route_type,
                         direction,
@@ -86,6 +88,7 @@ def get_context_package_record(site_id):
                 text("""
                     SELECT
                         droneport_id,
+                        site_id,
                         droneport_name,
                         droneport_type,
                         droneport_diameter_ft,
@@ -104,6 +107,7 @@ def get_context_package_record(site_id):
                 text("""
                     SELECT
                         zone_id,
+                        site_id,
                         zone_name,
                         zone_type,
                         ST_AsGeoJSON(geometry)::json AS geometry
