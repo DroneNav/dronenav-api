@@ -53,6 +53,10 @@ from app.config.constants import (
     DEFAULT_SURVEY_STATUS,
 )
 
+from app.models.overlay_package import {
+    get_context_package_record,
+}
+
 from app.models.route_model import (
     insert_route,
     select_route,
@@ -260,6 +264,119 @@ def get_route_by_id(route_id):
 def get_routes_by_site_id(site_id):
     rows = select_routes_by_site_id(site_id)
     return [format_route_summary(row) for row in rows]
+
+
+def get_route_context(route_id):
+
+    route = get_route_by_id(route_id)
+
+    if route is None:
+        return None, "Route not found"
+
+    origin_site_id = route["origin_site_id"]
+    destination_site_id = route["destination_site_id"]
+
+    origin_context, error = get_context_package_record(
+        site_id=origin_site_id
+    )
+
+    if error:
+        return None, error
+
+    packages = [
+        format_context_package(origin_context),
+    ]
+
+    if origin_site_id != destination_site_id:
+
+        destination_context, error = get_context_package_record(
+            site_id=destination_site_id
+        )
+
+        if error:
+            return None, error
+
+        packages.append(
+            format_context_package(destination_context)
+        )
+
+    return {
+        "packages": packages,
+        "selected_route_id": route_id,
+    }, None
+
+
+def format_context_package(context_package):
+
+    if context_package is None:
+        return None
+
+    return {
+        "site": format_context_site(context_package.get("site")),
+        "zones": format_context_zones(context_package.get("zones", [])),
+        "droneports": format_context_droneports(context_package.get("droneports", [])),
+        "routes": format_context_routes(context_package.get("routes", [])),
+    }
+
+
+def format_context_zones(zones):
+
+    return [format_context_zone(zone) for zone in zones]
+
+
+def format_context_droneports(droneports):
+
+    return [format_context_droneport(droneport) for droneport in droneports]
+
+
+def format_context_routes(routes):
+
+    return [format_context_route(route) for route in routes]
+
+
+def format_context_site(site):
+
+    if site is None:
+        return None
+
+    return {
+        "site_id": str(site["site_id"]),
+        "site_name": site["site_name"],
+        "site_type": site["site_type"],
+        "geometry": site["geometry"],
+    }
+
+
+def format_context_zone(zone):
+
+    return {
+        "zone_id": str(zone["zone_id"]),
+        "zone_name": zone["zone_name"],
+        "zone_type": zone["zone_type"],
+        "geometry": zone["geometry"],
+    }
+
+
+def format_context_droneport(droneport):
+
+    return {
+        "droneport_id": str(droneport["droneport_id"]),
+        "droneport_name": droneport["droneport_name"],
+        "droneport_type": droneport["droneport_type"],
+        "droneport_diameter_ft": droneport["droneport_diameter_ft"],
+        "geometry": droneport["geometry"],
+    }
+
+
+def format_context_route(route):
+
+    return {
+        "route_id": str(route["route_id"]),
+        "route_name": route["route_name"],
+        "route_type": route["route_type"],
+        "direction": route["direction"],
+        "geometry": route["geometry"],
+    }
 
 
 def get_all_routes(survey_status):

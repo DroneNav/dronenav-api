@@ -49,6 +49,7 @@ from flask_cors import CORS
 from app.services.route_service import (
     create_route,
     get_route_by_id,
+    get_route_context,
     get_all_routes,
     update_route,
     patch_route,
@@ -121,6 +122,23 @@ def get_route_route(route_id):
         }), 404
 
     return jsonify(route)
+
+
+@routes_bp.route("/api/routes/<route_id>/context-package", methods=["GET", "OPTIONS"])
+def get_route_context_route(route_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    context = get_route_context(route_id)
+
+    if context is None:
+        return jsonify({
+            "status": "error",
+            "message": "Route package context not found"
+        }), 404
+
+    return jsonify(context)
 
 
 @routes_bp.route("/api/routes/<route_id>", methods=["PUT", "OPTIONS"])

@@ -52,8 +52,103 @@ from app.config.constants import (
     OVERLAY_TYPE_ZONE,
     OVERLAY_TYPE_DRONEPORT,
     OVERLAY_TYPE_ROUTE,
+    ROUTE_STATUS_DELETED,
+    DRONEPORT_STATUS_DELETED,
+    ZONE_STATUS_DELETED,
+    SITE_STATUS_DELETED,
 )
-    
+
+
+def get_context_package_record(site_id):
+
+    try:
+        with engine.connect() as connection:
+
+            route_result = connection.execute(
+                text("""
+                    SELECT
+                        route_id,
+                        route_name,
+                        route_type,
+                        direction,
+                        ST_AsGeoJSON(geometry)::json AS geometry
+                    FROM routes
+                    WHERE (origin_site_id = :site_id OR destination_site_id = :site_id)
+                      AND operational_status <> :deleted_status
+                """),
+                {
+                    "site_id": site_id,
+                    "deleted_status": ROUTE_STATUS_DELETED,
+                }
+            )
+
+            droneport_result = connection.execute(
+                text("""
+                    SELECT
+                        droneport_id,
+                        droneport_name,
+                        droneport_type,
+                        droneport_diameter_ft,
+                        ST_AsGeoJSON(geometry)::json AS geometry
+                    FROM droneports
+                    WHERE site_id = :site_id
+                      AND operational_status <> :deleted_status
+                """),
+                {
+                    "site_id": site_id,
+                    "deleted_status": DRONEPORT_STATUS_DELETED,
+                }
+            )
+
+            zone_result = connection.execute(
+                text("""
+                    SELECT
+                        zone_id,
+                        zone_name,
+                        zone_type,
+                        ST_AsGeoJSON(geometry)::json AS geometry
+                    FROM zones
+                    WHERE operational_status <> :deleted_status
+                      AND site_id = :site_id
+                """),
+                {
+                    "site_id": site_id,
+                    "deleted_status": ZONE_STATUS_DELETED,
+                }
+            )
+
+            site_result = connection.execute(
+                text("""
+                    SELECT
+                        site_id,
+                        site_name,
+                        site_type,
+                        ST_AsGeoJSON(geometry)::json AS geometry
+                    FROM sites
+                    WHERE site_id = :site_id
+                      AND operational_status <> :deleted_status
+                """),
+                {
+                    "site_id": site_id,
+                    "deleted_status": SITE_STATUS_DELETED,
+                }
+            )
+
+            site = site_result.mappings().first()
+
+            if site is None:
+                return None, f"Site not found: {site_id}"
+
+            return {
+                "site": site,
+                "zones": zone_result.mappings().all(),
+                "droneports": droneport_result.mappings().all(),
+                "routes": route_result.mappings().all(),
+            }, None
+
+    except Exception as e:
+        return None, str(e)
+
 
 def survey_overlay_package_record(site_id, surveyed_by):
 
