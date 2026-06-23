@@ -120,6 +120,12 @@ def survey_package_route(site_id):
     result, error = survey_overlay_package(site_id, data)
 
     if error:
+        if isinstance(error, dict):
+            return jsonify({
+                "status": "error",
+                **error,
+            }), 400
+
         return jsonify({
             "status": "error",
             "message": error

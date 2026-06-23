@@ -44,6 +44,7 @@ of the aircraft operator and applicable regulatory authorities.
 
 from app.models.overlay_package_model import (
     survey_overlay_package_record,
+    select_unsubmitted_site_package_surveys,
     survey_overlay_record,
     expire_survey_overlay_package_record,
     expire_survey_overlay_record,
@@ -63,6 +64,16 @@ def survey_overlay_package(site_id, data):
     if surveyed_by in ("", None):
         return None, "Missing required field: surveyed_by"
 
+    missing, error = select_unsubmitted_site_package_surveys(
+        site_id=site_id
+    )
+
+    if error:
+        return None, error
+
+    if has_unsubmitted_site_package_surveys(missing):
+        return None, build_unsubmitted_site_package_error(missing)
+
     result, error = survey_overlay_package_record(
         site_id=site_id,
         surveyed_by=surveyed_by,
@@ -72,6 +83,22 @@ def survey_overlay_package(site_id, data):
         return None, error
 
     return result, None
+
+def has_unsubmitted_site_package_surveys(missing):
+
+    return (
+        bool(missing.get("site"))
+        or bool(missing.get("zones"))
+        or bool(missing.get("droneports"))
+        or bool(missing.get("routes"))
+    )
+
+def build_unsubmitted_site_package_error(missing):
+
+    return {
+        "message": "Site package cannot be submitted. One or more required surveys have not been submitted.",
+        "missing": missing,
+    }
 
 
 def survey_overlay(overlay_type, overlay_id, data):
@@ -140,6 +167,7 @@ def normalize_overlay_type(overlay_type):
         return None
 
     overlay_type_map = {
+        "site": "site",
         "zone": "zone",
         "zones": "zone",
         "droneport": "droneport",

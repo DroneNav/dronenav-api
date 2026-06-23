@@ -46,6 +46,7 @@ from sqlalchemy import text
 
 from app.config.database import engine
 from app.config.constants import (
+    SURVEY_STATUS_SUBMITTED,
     SURVEY_STATUS_SURVEYED,
     SURVEY_STATUS_NOT_SURVEYED,
     OVERLAY_TYPE_SITE,
@@ -148,6 +149,89 @@ def get_context_package_record(site_id):
                 "zones": zone_result.mappings().all(),
                 "droneports": droneport_result.mappings().all(),
                 "routes": route_result.mappings().all(),
+            }, None
+
+    except Exception as e:
+        return None, str(e)
+
+
+def select_unsubmitted_site_package_surveys(site_id):
+
+    try:
+        with engine.connect() as connection:
+
+            site_result = connection.execute(
+                text("""
+                    SELECT
+                        site_id AS overlay_id,
+                        site_name AS overlay_name,
+                        survey_status
+                    FROM sites
+                    WHERE site_id = :site_id
+                      AND survey_status <> :submitted_status
+                """),
+                {
+                    "site_id": site_id,
+                    "submitted_status": SURVEY_STATUS_SURVEYED,
+                }
+            )
+
+            zone_result = connection.execute(
+                text("""
+                    SELECT
+                        zone_id AS overlay_id,
+                        zone_name AS overlay_name,
+                        survey_status
+                    FROM zones
+                    WHERE site_id = :site_id
+                      AND survey_status <> :submitted_status
+                """),
+                {
+                    "site_id": site_id,
+                    "submitted_status": SURVEY_STATUS_SURVEYED,
+                }
+            )
+
+            droneport_result = connection.execute(
+                text("""
+                    SELECT
+                        droneport_id AS overlay_id,
+                        droneport_name AS overlay_name,
+                        survey_status
+                    FROM droneports
+                    WHERE site_id = :site_id
+                      AND survey_status <> :submitted_status
+                """),
+                {
+                    "site_id": site_id,
+                    "submitted_status": SURVEY_STATUS_SURVEYED,
+                }
+            )
+
+            route_result = connection.execute(
+                text("""
+                    SELECT
+                        route_id AS overlay_id,
+                        route_name AS overlay_name,
+                        survey_status
+                    FROM routes
+                    WHERE (
+                        origin_site_id = :site_id
+                        OR destination_site_id = :site_id
+                    )
+                      AND survey_status <> :submitted_status
+                """),
+                {
+                    "site_id": site_id,
+                    "submitted_status": SURVEY_STATUS_SURVEYED,
+                }
+            )
+
+            return {
+                "site": [dict(row) for row in site_result.mappings().all()],
+                "zones": [dict(row) for row in zone_result.mappings().all()],
+                "droneports": [dict(row) for row in droneport_result.mappings().all()],
+                "routes": [dict(row) for row in route_result.mappings().all()],
             }, None
 
     except Exception as e:
@@ -358,6 +442,10 @@ def survey_overlay_package_record(site_id, surveyed_by):
 def survey_overlay_record(overlay_type, overlay_id, surveyed_by):
 
     table_config = {
+        OVERLAY_TYPE_SITE: {
+            "table": "sites",
+            "id_column": "site_id",
+        },
         OVERLAY_TYPE_ZONE: {
             "table": "zones",
             "id_column": "zone_id",
@@ -614,6 +702,10 @@ def expire_survey_overlay_package_record(site_id):
 def expire_survey_overlay_record(overlay_type, overlay_id):
 
     table_config = {
+        OVERLAY_TYPE_SITE: {
+            "table": "sites",
+            "id_column": "site_id",
+        },
         OVERLAY_TYPE_ZONE: {
             "table": "zones",
             "id_column": "zone_id",

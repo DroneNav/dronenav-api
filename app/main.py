@@ -67,6 +67,8 @@ CORS(
             "origins": [
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
+                "https://dronenav.org",
+                "https://www.dronenav.org",
             ],
             "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
@@ -87,9 +89,22 @@ app.register_blueprint(operational_readiness_bp)
 
 @app.after_request
 def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+    origin = request.headers.get("Origin")
+
+    allowed_origins = {
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://dronenav.org",
+        "https://www.dronenav.org",
+    }
+
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+
+    response.headers["Vary"] = "Origin"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+
     return response
 
 
