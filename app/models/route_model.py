@@ -284,23 +284,36 @@ def update_route_record(route_id, data):
 
 
 def patch_route_record(route_id, data):
+
+    if not data:
+        return None
+
+    set_clauses = []
+    params = {
+        "route_id": route_id,
+    }
+
+    for field, value in data.items():
+
+        if field == "segment_attributes":
+            set_clauses.append("segment_attributes = CAST(:segment_attributes AS jsonb)")
+            params["segment_attributes"] = json.dumps(value)
+        else:
+            set_clauses.append(f"{field} = :{field}")
+            params[field] = value
+
+    sql = f"""
+        UPDATE routes
+        SET
+            {", ".join(set_clauses)}
+        WHERE route_id = :route_id
+        RETURNING route_id, route_name
+    """
+
     with engine.begin() as connection:
         result = connection.execute(
-            text("""
-                UPDATE routes
-                SET
-                    route_name = :route_name,
-                    route_type = :route_type,
-                    minimum_aircraft_weight_lbs = :minimum_aircraft_weight_lbs,
-                    maximum_aircraft_weight_lbs = :maximum_aircraft_weight_lbs,
-                    buffered = :buffered
-                WHERE route_id = :route_id
-                RETURNING route_id, route_name
-            """),
-            {
-                **data,
-                "route_id": route_id,
-            }
+            text(sql),
+            params
         )
 
         return result.mappings().first()

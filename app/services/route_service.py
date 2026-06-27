@@ -149,37 +149,50 @@ def normalize_route_payload(data):
 
 
 def validate_route_patch(data):
-    required_fields = [
+
+    if not isinstance(data, dict):
+        return "Patch payload must be an object"
+
+    if not data:
+        return "Patch payload cannot be empty"
+
+    allowed_fields = {
         "route_name",
         "route_type",
         "minimum_aircraft_weight_lbs",
         "maximum_aircraft_weight_lbs",
         "buffered",
-    ]
+        "direction",
+        "segment_attributes",
+    }
 
-    for field in required_fields:
-        if field not in data or data[field] in ("", None):
-            return f"Missing required field: {field}"
+    for field in data:
+        if field not in allowed_fields:
+            return f"Unsupported patch field: {field}"
+
+    if "segment_attributes" in data:
+        if not isinstance(data["segment_attributes"], list):
+            return "segment_attributes must be an array"
 
     return None
 
 
 def normalize_route_patch(data):
+
+    allowed_fields = {
+        "route_name",
+        "route_type",
+        "minimum_aircraft_weight_lbs",
+        "maximum_aircraft_weight_lbs",
+        "buffered",
+        "direction",
+        "segment_attributes",
+    }
+
     return {
-        "route_name": data["route_name"],
-        "route_type": data["route_type"],
-        "minimum_aircraft_weight_lbs": data.get(
-            "minimum_aircraft_weight_lbs",
-            DEFAULT_MINIMUM_AIRCRAFT_WEIGHT_LBS
-        ),
-        "maximum_aircraft_weight_lbs": data.get(
-            "maximum_aircraft_weight_lbs",
-            DEFAULT_MAXIMUM_AIRCRAFT_WEIGHT_LBS
-        ),
-        "buffered": data.get(
-            "buffered",
-            DEFAULT_ROUTE_BUFFERED
-        ),
+        field: data[field]
+        for field in allowed_fields
+        if field in data
     }
 
 
