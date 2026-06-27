@@ -107,7 +107,8 @@ from app.config.constants import (
     REVIEW_STATUS_REVISIONS_REQUESTED,
     REVIEW_STATUS_APPROVED,
     REVIEW_STATUS_REJECTED,
-    REVIEW_STATUS_SUBMITTED
+    REVIEW_STATUS_SUBMITTED,
+    SURVEY_STATUS_SURVEYED
 )
 
 from app.config.constants import (
@@ -291,9 +292,12 @@ def approve_overlay(overlay_type, overlay_id, data):
     if approved_by in ("", None):
         return None, "Missing required field: approved_by"
 
-    survey_status = data.get("survey_status")
+    overlay = get_overlay_by_type_and_id(overlay_type, overlay_id)
 
-    if (survey_status != SURVEY_STATUS_SURVEYED):
+    if overlay is None:
+        return None, "Overlay not found"
+
+    if overlay.get("survey_status") != SURVEY_STATUS_SURVEYED:
         return None, "Overlay not surveyed"
 
     review_comments = data.get("review_comments", "Approved review")
@@ -353,13 +357,13 @@ def reject_overlay(overlay_type, overlay_id, data):
         return None, "Overlay review not found"
 
     if overlay_type == OVERLAY_TYPE_SITE:
-        result = reject_site(overlay_id, reviewed_by)
+        result = reject_site(overlay_id)
     elif overlay_type == OVERLAY_TYPE_ZONE:
-        result = reject_zone(overlay_id, reviewed_by)
+        result = reject_zone(overlay_id)
     elif overlay_type == OVERLAY_TYPE_DRONEPORT:
-        result = reject_droneport(overlay_id, reviewed_by)
+        result = reject_droneport(overlay_id)
     elif overlay_type == OVERLAY_TYPE_ROUTE:
-        result = reject_route(overlay_id, reviewed_by)
+        result = reject_route(overlay_id)
     else:
         return None, "Invalid overlay type"
 
@@ -402,13 +406,13 @@ def request_changes_overlay(overlay_type, overlay_id, data):
         return None, "Overlay review not found"
 
     if overlay_type == OVERLAY_TYPE_SITE:
-        result = request_site_changes(overlay_id, reviewed_by)
+        result = request_site_changes(overlay_id)
     elif overlay_type == OVERLAY_TYPE_ZONE:
-        result = request_zone_changes(overlay_id, reviewed_by)
+        result = request_zone_changes(overlay_id)
     elif overlay_type == OVERLAY_TYPE_DRONEPORT:
-        result = request_droneport_changes(overlay_id, reviewed_by)
+        result = request_droneport_changes(overlay_id)
     elif overlay_type == OVERLAY_TYPE_ROUTE:
-        result = request_route_changes(overlay_id, reviewed_by)
+        result = request_route_changes(overlay_id)
     else:
         return None, "Invalid overlay type"
 
@@ -456,13 +460,13 @@ def submit_overlay(overlay_type, overlay_id, data):
         return None, "Overlay review not found"
 
     if overlay_type == OVERLAY_TYPE_SITE:
-        result = submit_site(overlay_id, reviewed_by)
+        result = submit_site(overlay_id)
     elif overlay_type == OVERLAY_TYPE_ZONE:
-        result = submit_zone(overlay_id, reviewed_by)
+        result = submit_zone(overlay_id)
     elif overlay_type == OVERLAY_TYPE_DRONEPORT:
-        result = submit_droneport(overlay_id, reviewed_by)
+        result = submit_droneport(overlay_id)
     elif overlay_type == OVERLAY_TYPE_ROUTE:
-        result = submit_route(overlay_id, reviewed_by)
+        result = submit_route(overlay_id)
     else:
         return None, "Invalid overlay type"
 

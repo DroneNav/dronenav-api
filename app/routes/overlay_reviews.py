@@ -54,7 +54,7 @@ from app.services.overlay_review_service import (
     get_governance_metrics,
     approve_overlay,
     reject_overlay,
-    request_overlay_review_changes,
+    request_changes_overlay,
     submit_overlay,
 )
 
@@ -215,7 +215,7 @@ def request_changes_overlay_route(overlay_type, overlay_id):
 
     data = request.get_json()
 
-    result, error = request_overlay_review_changes(overlay_type, overlay_id, data)
+    result, error = request_changes_overlay(overlay_type, overlay_id, data)
 
     if error:
         return jsonify({

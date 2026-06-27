@@ -284,7 +284,7 @@ def approve_site(site_id, approved_by):
         return result.mappings().first()
 
 
-def reject_site(site_id, reviewed_by):
+def reject_site(site_id):
     with engine.begin() as connection:
         result = connection.execute(
             text("""
@@ -304,11 +304,11 @@ def reject_site(site_id, reviewed_by):
         return result.mappings().first()
 
 
-def request_site_changes(site_id, reviewed_by):
-    return reject_site(site_id, reviewed_by)
+def request_site_changes(site_id):
+    return reject_site(site_id)
 
 
-def submit_site(site_id, reviewed_by):
-    return reject_site(site_id, reviewed_by)
+def submit_site(site_id):
+    return reject_site(site_id)
 
 
