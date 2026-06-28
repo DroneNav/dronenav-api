@@ -51,7 +51,9 @@ from app.config.constants import (
     DEFAULT_SRID,
     DRONEPORT_STATUS_DELETED,
     DRONEPORT_STATUS_INACTIVE,
-    DRONEPORT_STATUS_ACTIVE
+    DRONEPORT_STATUS_ACTIVE,
+    SURVEY_STATUS_APPROVED,
+    SURVEY_STATUS_NOT_SURVEYED
 )
 
 from app.config.database import engine 
@@ -287,7 +289,7 @@ def approve_droneport(droneport_id, approved_by):
             text("""
                 UPDATE droneports
                 SET
-                    operational_status = :status,
+                    survey_status = :status,
                     approved_by = :approved_by
                 WHERE droneport_id = :droneport_id
                 RETURNING droneport_id, approved_by
@@ -295,7 +297,7 @@ def approve_droneport(droneport_id, approved_by):
             {
                 "droneport_id": droneport_id,
                 "approved_by": approved_by,
-                "status": DRONEPORT_STATUS_ACTIVE
+                "status": SURVEY_STATUS_APPROVED
             }
         )
 
@@ -308,14 +310,14 @@ def reject_droneport(droneport_id):
             text("""
                 UPDATE droneports
                 SET
-                    operational_status = :status,
+                    survey_status = :status,
                     approved_by = NULL
                 WHERE droneport_id = :droneport_id
                 RETURNING droneport_id
             """),
             {
                 "droneport_id": droneport_id,
-                "status": DRONEPORT_STATUS_INACTIVE
+                "status": SURVEY_STATUS_NOT_SURVEYED
             }
         )
 

@@ -51,7 +51,9 @@ from app.config.constants import (
     DEFAULT_SRID,
     ZONE_STATUS_DELETED,
     ZONE_STATUS_INACTIVE,
-    ZONE_STATUS_ACTIVE
+    ZONE_STATUS_ACTIVE,
+    SURVEY_STATUS_APPROVED,
+    SURVEY_STATUS_NOT_SURVEYED
 )
 
 from app.config.database import engine
@@ -295,7 +297,7 @@ def approve_zone(zone_id, approved_by):
             text("""
                 UPDATE zones
                 SET
-                    operational_status = :status,
+                    survey_status = :status,
                     approved_by = :approved_by
                 WHERE zone_id = :zone_id
                 RETURNING zone_id, approved_by
@@ -303,7 +305,7 @@ def approve_zone(zone_id, approved_by):
             {
                 "zone_id": zone_id,
                 "approved_by": approved_by,
-                "status": ZONE_STATUS_ACTIVE
+                "status": SURVEY_STATUS_APPROVED
             }
         )
 
@@ -316,14 +318,14 @@ def reject_zone(zone_id):
             text("""
                 UPDATE zones 
                 SET
-                    operational_status = :status,
+                    survey_status = :status,
                     approved_by = NULL
                 WHERE zone_id = :zone_id
                 RETURNING zone_id
             """),
             {
                 "zone_id": zone_id,
-                "status": ZONE_STATUS_INACTIVE
+                "status": SURVEY_STATUS_NOT_SURVEYED
             }
         )
 

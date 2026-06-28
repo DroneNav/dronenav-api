@@ -51,7 +51,9 @@ from app.config.constants import (
     DEFAULT_SRID,
     ROUTE_STATUS_DELETED,
     ROUTE_STATUS_INACTIVE,
-    ROUTE_STATUS_ACTIVE
+    ROUTE_STATUS_ACTIVE,
+    SURVEY_STATUS_APPROVED,
+    SURVEY_STATUS_NOT_SURVEYED
 )
 
 from app.config.database import engine
@@ -347,7 +349,7 @@ def approve_route(route_id, approved_by):
             text("""
                 UPDATE routes
                 SET
-                    operational_status = :status,
+                    survey_status = :status,
                     approved_by = :approved_by
                 WHERE route_id = :route_id
                 RETURNING route_id, approved_by
@@ -355,7 +357,7 @@ def approve_route(route_id, approved_by):
             {
                 "route_id": route_id,
                 "approved_by": approved_by,
-                "status": ROUTE_STATUS_ACTIVE
+                "status": SURVEY_STATUS_APPROVED
             }
         )
 
@@ -368,14 +370,14 @@ def reject_route(route_id):
             text("""
                 UPDATE routes
                 SET
-                    operational_status = :status,
+                    survey_status = :status,
                     approved_by = NULL
                 WHERE route_id = :route_id
                 RETURNING route_id
             """),
             {
                 "route_id": route_id,
-                "status": ROUTE_STATUS_INACTIVE
+                "status": SURVEY_STATUS_NOT_SURVEYED
             }
         )
 

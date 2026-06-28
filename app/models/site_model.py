@@ -51,7 +51,9 @@ from app.config.constants import (
     DEFAULT_SRID,
     SITE_STATUS_DELETED,
     SITE_STATUS_ACTIVE,
-    SITE_STATUS_INACTIVE
+    SITE_STATUS_INACTIVE,
+    SURVEY_STATUS_APPROVED,
+    SURVEY_STATUS_NOT_SURVEYED
 )
 
 from app.config.database import engine
@@ -269,7 +271,7 @@ def approve_site(site_id, approved_by):
             text("""
                 UPDATE sites
                 SET
-                    operational_status = :status,
+                    survey_status = :status,
                     approved_by = :approved_by 
                 WHERE site_id = :site_id
                 RETURNING site_id, approved_by
@@ -277,7 +279,7 @@ def approve_site(site_id, approved_by):
             {
                 "site_id": site_id,
                 "approved_by": approved_by,
-                "status": SITE_STATUS_ACTIVE
+                "status": SURVEY_STATUS_APPROVED
             }
         )
 
@@ -290,14 +292,14 @@ def reject_site(site_id):
             text("""
                 UPDATE sites
                 SET
-                    operational_status = :status,
+                    survey_status = :status,
                     approved_by = NULL
                 WHERE site_id = :site_id
                 RETURNING site_id
             """),
             {
                 "site_id": site_id,
-                "status": SITE_STATUS_INACTIVE
+                "status": SURVEY_STATUS_NOT_SURVEYED
             }
         )
 
