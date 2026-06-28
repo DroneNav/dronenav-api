@@ -108,7 +108,8 @@ from app.config.constants import (
     REVIEW_STATUS_APPROVED,
     REVIEW_STATUS_REJECTED,
     REVIEW_STATUS_SUBMITTED,
-    SURVEY_STATUS_SURVEYED
+    SURVEY_STATUS_SURVEYED,
+    SURVEY_STATUS_APPROVED
 )
 
 from app.config.constants import (

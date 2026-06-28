@@ -69,6 +69,7 @@ CORS(
                 "http://127.0.0.1:5173",
                 "https://dronenav.org",
                 "https://www.dronenav.org",
+                "https://app.dronenav.org"
             ],
             "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
@@ -96,6 +97,7 @@ def add_cors_headers(response):
         "http://127.0.0.1:5173",
         "https://dronenav.org",
         "https://www.dronenav.org",
+        "https://app.dronenav.org"
     }
 
     if origin in allowed_origins:
