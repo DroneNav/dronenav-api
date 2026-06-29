@@ -48,6 +48,9 @@ from app.models.overlay_package_model import (
     survey_overlay_record,
     expire_survey_overlay_package_record,
     expire_survey_overlay_record,
+    approve_site_review_package_record,
+    reject_site_review_package_record,
+    select_unapproved_site_package_reviews,
 )
 
 
@@ -180,4 +183,90 @@ def normalize_overlay_type(overlay_type):
         overlay_type.lower()
     )
 
+
+def approve_site_review_package(site_id, data):
+
+    if data is None:
+        data = {}
+
+    if not isinstance(data, dict):
+        return None, "Review payload must be an object"
+
+    reviewed_by = data.get("reviewed_by")
+
+    if reviewed_by in ("", None):
+        return None, "Missing required field: reviewed_by"
+
+    unapproved, error = select_unapproved_site_package_reviews(
+        site_id=site_id
+    )
+
+    if error:
+        return None, error
+
+    if has_unapproved_site_package_reviews(unapproved):
+        return None, build_unapproved_site_package_error(unapproved)
+
+    result, error = approve_site_review_package_record(
+        site_id=site_id,
+        reviewed_by=reviewed_by,
+    )
+
+    if error:
+        return None, error
+
+    return result, None
+
+def has_unapproved_site_package_reviews(unapproved):
+
+    return (
+        bool(unapproved.get("site"))
+        or bool(unapproved.get("zones"))
+        or bool(unapproved.get("droneports"))
+        or bool(unapproved.get("routes"))
+    )
+
+
+def build_unapproved_site_package_error(unapproved):
+
+    return {
+        "message": "Site package is not eligible for operational review. One or more required overlay reviews have not been approved.",
+        "unapproved": unapproved,
+    }
+
+def reject_site_review_package(site_id, data):
+
+    if data is None:
+        data = {}
+
+    if not isinstance(data, dict):
+        return None, "Review payload must be an object"
+
+    reviewed_by = data.get("reviewed_by")
+
+    if reviewed_by in ("", None):
+        return None, "Missing required field: reviewed_by"
+
+    review_comments = data.get("review_comments", "Rejected review")
+
+    unapproved, error = select_unapproved_site_package_reviews(
+        site_id=site_id
+    )
+
+    if error:
+        return None, error
+
+    if has_unapproved_site_package_reviews(unapproved):
+        return None, build_unapproved_site_package_error(unapproved)
+
+    result, error = reject_site_review_package_record(
+        site_id=site_id,
+        reviewed_by=reviewed_by,
+        review_comments=review_comments,
+    )
+
+    if error:
+        return None, error
+
+    return result, None
 

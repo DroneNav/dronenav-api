@@ -63,6 +63,8 @@ from app.services.overlay_package_service import (
     survey_overlay,
     expire_survey_overlay_package,
     expire_survey_overlay,
+    approve_site_review_package,
+    reject_site_review_package,
 )
 
 
@@ -185,4 +187,53 @@ def expire_survey_overlay_route(overlay_type, overlay_id):
 
     return jsonify(result), 200
 
+
+@overlay_package_bp.route("/api/governance/sites/<site_id>/approve-package", methods=["POST", "OPTIONS"])
+def approve_site_review_package_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    result, error = approve_site_review_package(site_id, data)
+
+    if error:
+        if isinstance(error, dict):
+            return jsonify({
+                "status": "error",
+                **error,
+            }), 400
+
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify(result), 200
+
+
+@overlay_package_bp.route("/api/governance/sites/<site_id>/reject-package", methods=["POST", "OPTIONS"])
+def reject_site_review_package_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    result, error = reject_site_review_package(site_id, data)
+
+    if error:
+        if isinstance(error, dict):
+            return jsonify({
+                "status": "error",
+                **error,
+            }), 400
+
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify(result), 200
 

@@ -49,6 +49,9 @@ from app.config.constants import (
     SURVEY_STATUS_SUBMITTED,
     SURVEY_STATUS_SURVEYED,
     SURVEY_STATUS_NOT_SURVEYED,
+    SURVEY_STATUS_APPROVED,
+    REVIEW_STATUS_APPROVED,
+    REVIEW_STATUS_REJECTED,
     OVERLAY_TYPE_SITE,
     OVERLAY_TYPE_ZONE,
     OVERLAY_TYPE_DRONEPORT,
@@ -774,5 +777,342 @@ def expire_survey_overlay_record(overlay_type, overlay_id):
 
     except Exception as e:
         return None, str(e)
+
+
+def select_unapproved_site_package_reviews(site_id):
+
+    try:
+        with engine.connect() as connection:
+
+            site_result = connection.execute(
+                text("""
+                    SELECT
+                        site_id AS overlay_id,
+                        site_name AS overlay_name,
+                        survey_status
+                    FROM sites
+                    WHERE site_id = :site_id
+                      AND survey_status <> :approved_status
+                """),
+                {
+                    "site_id": site_id,
+                    "approved_status": SURVEY_STATUS_APPROVED,
+                }
+            )
+
+            zone_result = connection.execute(
+                text("""
+                    SELECT
+                        zone_id AS overlay_id,
+                        zone_name AS overlay_name,
+                        survey_status
+                    FROM zones
+                    WHERE site_id = :site_id
+                      AND survey_status <> :approved_status
+                """),
+                {
+                    "site_id": site_id,
+                    "approved_status": SURVEY_STATUS_APPROVED,
+                }
+            )
+
+            droneport_result = connection.execute(
+                text("""
+                    SELECT
+                        droneport_id AS overlay_id,
+                        droneport_name AS overlay_name,
+                        survey_status
+                    FROM droneports
+                    WHERE site_id = :site_id
+                      AND survey_status <> :approved_status
+                """),
+                {
+                    "site_id": site_id,
+                    "approved_status": SURVEY_STATUS_APPROVED,
+                }
+            )
+
+            route_result = connection.execute(
+                text("""
+                    SELECT
+                        route_id AS overlay_id,
+                        route_name AS overlay_name,
+                        survey_status
+                    FROM routes
+                    WHERE (
+                        origin_site_id = :site_id
+                        OR destination_site_id = :site_id
+                    )
+                      AND survey_status <> :approved_status
+                """),
+                {
+                    "site_id": site_id,
+                    "approved_status": SURVEY_STATUS_APPROVED,
+                }
+            )
+
+            return {
+                "site": [dict(row) for row in site_result.mappings().all()],
+                "zones": [dict(row) for row in zone_result.mappings().all()],
+                "droneports": [dict(row) for row in droneport_result.mappings().all()],
+                "routes": [dict(row) for row in route_result.mappings().all()],
+            }, None
+
+    except Exception as e:
+        return None, str(e)
+
+
+def approve_site_review_package_record(site_id, reviewed_by):
+
+    try:
+
+        with engine.begin() as connection:
+
+            # --------------------------------------------------------
+            # Routes where this site is either origin or destination
+            # --------------------------------------------------------
+
+            route_review_result = connection.execute(
+
+                text("""
+                   UPDATE overlay_reviews
+                   SET
+                       review_status = :review_status,
+                       reviewed_by = :reviewed_by,
+                       reviewed_at = NOW()
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id IN (
+                    SELECT route_id
+                     FROM routes
+                    WHERE origin_site_id = :site_id
+                       OR destination_site_id = :site_id
+                     )
+                """),
+                {
+                    "site_id": site_id,
+                    "review_status": REVIEW_STATUS_APPROVED,
+                    "overlay_type": OVERLAY_TYPE_ROUTE,
+                    "reviewed_by": reviewed_by,
+                }
+            )
+
+            # --------------------------------------------------------
+            # DronePorts for this site
+            # --------------------------------------------------------
+
+            droneport_review_result = connection.execute(
+
+                text("""
+                   UPDATE overlay_reviews
+                   SET
+                   review_status = :review_status,
+                   reviewed_by = :reviewed_by,
+                   reviewed_at = NOW()
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id IN (
+                     SELECT droneport_id
+                       FROM droneports
+                      WHERE site_id = :site_id
+                     )
+                """),
+                {
+                    "site_id": site_id,
+                    "review_status": REVIEW_STATUS_APPROVED,
+                    "overlay_type": OVERLAY_TYPE_DRONEPORT,
+                    "reviewed_by": reviewed_by,
+                }
+            )
+
+            # --------------------------------------------------------
+            # Zones for this site
+            # --------------------------------------------------------
+
+            zone_review_result = connection.execute(
+
+                text("""
+                UPDATE overlay_reviews
+                   SET
+                       review_status = :review_status,
+                       reviewed_by = :reviewed_by,
+                       reviewed_at = NOW()
+                 WHERE overlay_type = :overlay_type
+                   AND overlay_id IN (
+                      SELECT zone_id
+                        FROM zones
+                        WHERE site_id = :site_id
+                     )
+                """),
+                {
+                    "site_id": site_id,
+                    "review_status": REVIEW_STATUS_APPROVED,
+                    "overlay_type": OVERLAY_TYPE_ZONE,
+                    "reviewed_by": reviewed_by,
+                }
+            )
+
+            # --------------------------------------------------------
+            # Site itself
+            # --------------------------------------------------------
+
+            site_review_result = connection.execute(
+
+                text("""
+                   UPDATE overlay_reviews
+                   SET
+                       review_status = :review_status,
+                       reviewed_by = :reviewed_by,
+                       reviewed_at = NOW()
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id = :site_id
+                """),
+                {
+                    "site_id": site_id,
+                    "review_status": REVIEW_STATUS_APPROVED,
+                    "overlay_type": OVERLAY_TYPE_SITE,
+                    "reviewed_by": reviewed_by,
+                }
+            )
+
+            return {
+                "status": "approved",
+                "site_id": site_id,
+                "reviewed_by": reviewed_by,
+                "route_reviews_updated": route_review_result.rowcount,
+                "droneport_reviews_updated": droneport_review_result.rowcount,
+                "zone_reviews_updated": zone_review_result.rowcount,
+                "site_reviews_updated": site_review_result.rowcount,
+            }, None
+
+    except Exception as e:
+        return None, str(e)
+
+
+def reject_site_review_package_record(site_id, reviewed_by, review_comments):
+
+    try:
+
+        with engine.begin() as connection:
+
+            # --------------------------------------------------------
+            # Routes where this site is either origin or destination
+            # --------------------------------------------------------
+
+            route_review_result = connection.execute(
+
+                text("""
+                   UPDATE overlay_reviews
+                   SET
+                       review_status = :review_status,
+                       reviewed_by = :reviewed_by,
+                       reviewed_at = NOW()
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id IN (
+                    SELECT route_id
+                     FROM routes
+                    WHERE origin_site_id = :site_id
+                       OR destination_site_id = :site_id
+                     )
+                """),
+                {
+                    "site_id": site_id,
+                    "review_status": REVIEW_STATUS_REJECTED,
+                    "overlay_type": OVERLAY_TYPE_ROUTE,
+                    "reviewed_by": reviewed_by,
+                }
+            )
+
+            # --------------------------------------------------------
+            # DronePorts for this site
+            # --------------------------------------------------------
+
+            droneport_review_result = connection.execute(
+
+                text("""
+                   UPDATE overlay_reviews
+                   SET
+                   review_status = :review_status,
+                   reviewed_by = :reviewed_by,
+                   reviewed_at = NOW()
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id IN (
+                     SELECT droneport_id
+                       FROM droneports
+                      WHERE site_id = :site_id
+                     )
+                """),
+                {
+                    "site_id": site_id,
+                    "review_status": REVIEW_STATUS_REJECTED,
+                    "overlay_type": OVERLAY_TYPE_DRONEPORT,
+                    "reviewed_by": reviewed_by,
+                }
+            )
+
+            # --------------------------------------------------------
+            # Zones for this site
+            # --------------------------------------------------------
+
+            zone_review_result = connection.execute(
+
+                text("""
+                UPDATE overlay_reviews
+                   SET
+                       review_status = :review_status,
+                       reviewed_by = :reviewed_by,
+                       reviewed_at = NOW()
+                 WHERE overlay_type = :overlay_type
+                   AND overlay_id IN (
+                      SELECT zone_id
+                        FROM zones
+                        WHERE site_id = :site_id
+                     )
+                """),
+                {
+                    "site_id": site_id,
+                    "review_status": REVIEW_STATUS_REJECTED,
+                    "overlay_type": OVERLAY_TYPE_ZONE,
+                    "reviewed_by": reviewed_by,
+                }
+            )
+
+            # --------------------------------------------------------
+            # Site itself
+            # --------------------------------------------------------
+
+            site_review_result = connection.execute(
+
+                text("""
+                   UPDATE overlay_reviews
+                   SET
+                       review_comments = :review_comments,
+                       review_status = :review_status,
+                       reviewed_by = :reviewed_by,
+                       reviewed_at = NOW()
+                   WHERE overlay_type = :overlay_type
+                     AND overlay_id = :site_id
+                """),
+                {
+                    "site_id": site_id,
+                    "review_status": REVIEW_STATUS_REJECTED,
+                    "overlay_type": OVERLAY_TYPE_SITE,
+                    "review_comments": review_comments,
+                    "reviewed_by": reviewed_by,
+                }
+            )
+
+            return {
+                "status": "rejected",
+                "site_id": site_id,
+                "reviewed_by": reviewed_by,
+                "route_reviews_updated": route_review_result.rowcount,
+                "droneport_reviews_updated": droneport_review_result.rowcount,
+                "zone_reviews_updated": zone_review_result.rowcount,
+                "site_reviews_updated": site_review_result.rowcount,
+            }, None
+
+    except Exception as e:
+        return None, str(e)
+
+
 
 
