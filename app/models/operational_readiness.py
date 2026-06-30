@@ -46,7 +46,6 @@ from sqlalchemy import text
 
 from app.config.database import engine
 from app.config.constants import (
-    SURVEY_STATUS_SURVEYED,
     OVERLAY_TYPE_SITE,
     OVERLAY_TYPE_ZONE,
     OVERLAY_TYPE_DRONEPORT,
@@ -55,12 +54,18 @@ from app.config.constants import (
     ZONE_STATUS_INACTIVE,
     DRONEPORT_STATUS_INACTIVE,
     ROUTE_STATUS_INACTIVE,
+    SURVEY_STATUS_APPROVED,
+    REVIEW_STATUS_APPROVED,
 )
     
 
-def activate_overlay_record(overlay_type, overlay_id, activated_by):
+def activate_overlay_record(overlay_type, overlay_id, _activated_by):
 
     table_config = {
+        OVERLAY_TYPE_SITE: {
+            "table": "sites",
+            "id_column": "site_id",
+        },
         OVERLAY_TYPE_ZONE: {
             "table": "zones",
             "id_column": "zone_id",
@@ -88,8 +93,7 @@ def activate_overlay_record(overlay_type, overlay_id, activated_by):
                 text(f"""
                     UPDATE {config["table"]}
                     SET
-                        operational_status = :operational_status,
-                        approved_by = :approved_by
+                        operational_status = :operational_status
                     WHERE {config["id_column"]} = :overlay_id
                       AND survey_status = :survey_status
                       AND EXISTS (
@@ -97,26 +101,25 @@ def activate_overlay_record(overlay_type, overlay_id, activated_by):
                                FROM overlay_reviews
                               WHERE overlay_type = :overlay_type
                                 AND overlay_id = :overlay_id
-                                AND review_status = 'approved'
+                                AND review_status = :review_status
                           )
                      """),
                 {
                     "overlay_id": overlay_id,
                     "overlay_type": overlay_type,
                     "operational_status": "active",
-                    "approved_by": activated_by,
-                    "survey_status": SURVEY_STATUS_SURVEYED,
+                    "survey_status": SURVEY_STATUS_APPROVED,
+                    "review_status": REVIEW_STATUS_APPROVED,
                 }
             )
 
             if overlay_result.rowcount != 1:
-                raise Exception("Overlay not found, not surveyed, or not approved")
+                raise Exception("Overlay not found or not approved")
 
             return {
-                "status": "activated",
+                "status": "active",
                 "overlay_type": overlay_type,
                 "overlay_id": overlay_id,
-                "activated_by": activated_by,
                 "overlay_records_activated": overlay_result.rowcount,
             }, None
 
@@ -137,8 +140,7 @@ def deactivate_overlay_package_record(site_id):
                 text("""
                 UPDATE routes
                 SET
-                    operational_status = :operational_status,
-                    approved_by = NULL
+                    operational_status = :operational_status
                 WHERE origin_site_id = :site_id
                    OR destination_site_id = :site_id
                 """),
@@ -156,8 +158,7 @@ def deactivate_overlay_package_record(site_id):
                 text("""
                 UPDATE droneports
                 SET
-                    operational_status = :operational_status,
-                    approved_by = NULL
+                    operational_status = :operational_status
                 WHERE site_id = :site_id
                 """),
                 {
@@ -174,8 +175,7 @@ def deactivate_overlay_package_record(site_id):
                 text("""
                 UPDATE zones
                 SET
-                    operational_status = :operational_status,
-                    approved_by = NULL
+                    operational_status = :operational_status
                 WHERE site_id = :site_id
                 """),
                 {
@@ -192,8 +192,7 @@ def deactivate_overlay_package_record(site_id):
                 text("""
                 UPDATE sites
                 SET
-                    operational_status = :operational_status,
-                    approved_by = NULL
+                    operational_status = :operational_status
                 WHERE site_id = :site_id
                 """),
                 {
@@ -221,6 +220,10 @@ def deactivate_overlay_package_record(site_id):
 def deactivate_overlay_record(overlay_type, overlay_id):
 
     table_config = {
+        OVERLAY_TYPE_SITE: {
+            "table": "sites",
+            "id_column": "site_id",
+        },
         OVERLAY_TYPE_ZONE: {
             "table": "zones",
             "id_column": "zone_id",
@@ -248,8 +251,7 @@ def deactivate_overlay_record(overlay_type, overlay_id):
                 text(f"""
                     UPDATE {config["table"]}
                     SET
-                        operational_status = :operational_status,
-                        approved_by = NULL
+                        operational_status = :operational_status
                     WHERE {config["id_column"]} = :overlay_id
                      """),
                 {
@@ -262,7 +264,7 @@ def deactivate_overlay_record(overlay_type, overlay_id):
                 raise Exception("Overlay not found")
 
             return {
-                "status": "deactivated",
+                "status": "inactive",
                 "overlay_type": overlay_type,
                 "overlay_id": overlay_id,
                 "overlay_records_deactivated": overlay_result.rowcount,
