@@ -48,6 +48,7 @@ from flask_cors import CORS
 
 from app.services.operational_readiness_service import (
     activate_overlay,
+    activate_overlay_package,
     deactivate_overlay_package,
     deactivate_overlay,
 )
@@ -88,7 +89,27 @@ def activate_overlay_route(overlay_type, overlay_id):
 
     return jsonify(result), 200
 
-@operational_readiness_bp.route("/api/governance/overlays/sites/<site_id>/deactivate-package", methods=["POST", "OPTIONS"])
+
+@operational_readiness_bp.route("/api/governance/sites/<site_id>/activate-package", methods=["POST", "OPTIONS"])
+def activate_package_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    result, error = activate_overlay_package(site_id, data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify(result), 200
+
+
+@operational_readiness_bp.route("/api/governance/sites/<site_id>/deactivate-package", methods=["POST", "OPTIONS"])
 def deactivate_package_route(site_id):
 
     if request.method == "OPTIONS":

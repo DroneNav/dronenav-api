@@ -44,6 +44,7 @@ of the aircraft operator and applicable regulatory authorities.
 
 from app.models.operational_readiness import (
     activate_overlay_record,
+    activate_overlay_package_record,
     deactivate_overlay_package_record,
     deactivate_overlay_record,
 )
@@ -71,6 +72,30 @@ def activate_overlay(overlay_type, overlay_id, data):
         overlay_type=normalized_overlay_type,
         overlay_id=overlay_id,
         activated_by=activated_by,
+    )
+
+    if error:
+        return None, error
+
+    return result, None
+
+
+def activate_overlay_package(site_id, data):
+
+    if data is None:
+        data = {}
+
+    if not isinstance(data, dict):
+        return None, "Survey payload must be an object"
+
+    activated_by = data.get("activated_by")
+
+    if activated_by in ("", None):
+        return None, "Missing required field: activated_by"
+
+    result, error = activate_overlay_package_record(
+        site_id=site_id,
+        activated_by=activated_by
     )
 
     if error:
@@ -115,6 +140,8 @@ def normalize_overlay_type(overlay_type):
         return None
 
     overlay_type_map = {
+        "site": "site",
+        "sites": "site",
         "zone": "zone",
         "zones": "zone",
         "droneport": "droneport",
