@@ -51,6 +51,10 @@ of the aircraft operator and applicable regulatory authorities.
 
 DEFAULT_MINIMUM_ALTITUDE_FT = 0
 DEFAULT_MAXIMUM_ALTITUDE_FT = 400
+DEFAULT_START_TIME = "00:00"
+DEFAULT_END_TIME = "23:59"
+DEFAULT_TIMEZONE = "America/New_York"
+DEFAULT_ALLDAYS = (0, 1, 2, 3, 4, 5, 6)
 
 # ------------------------------------------------------------------
 # SRID
@@ -192,6 +196,40 @@ DEFAULT_MINIMUM_SEGMENT_COUNT = 3
 DEFAULT_MINIMUM_SEGMENT_ALTITUDE_FT = DEFAULT_MINIMUM_ALTITUDE_FT
 DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT = DEFAULT_MAXIMUM_ALTITUDE_FT
 
+# -----------------------------------------------------------------
+# Flight Classes
+# -----------------------------------------------------------------
+FLIGHT_CLASS_AGRICULTURE = "Agriculture"
+FLIGHT_CLASS_COMMERCIAL = "Commercial"
+FLIGHT_CLASS_DELIVERY = "Delivery"
+FLIGHT_CLASS_EMERGENCY = "Emergency"
+FLIGHT_CLASS_INSPECTION = "Inspection"
+FLIGHT_CLASS_PHOTOGRAPHY = "Photography"
+FLIGHT_CLASS_PUBLICSAFETY = "Public Safety"
+FLIGHT_CLASS_RECREATIONAL = "Recreational"
+FLIGHT_CLASS_EDUCATIONAL = "Educational"
+FLIGHT_CLASS_RESEARCH = "Research"
+FLIGHT_CLASS_SURVEY = "Survey"
+FLIGHT_CLASS_TRAINING = "Training"
+FLIGHT_CLASS_RACING = "Racing"
+
+VALID_FLIGHT_CLASSES = {
+    FLIGHT_CLASS_AGRICULTURE,
+    FLIGHT_CLASS_COMMERCIAL,
+    FLIGHT_CLASS_DELIVERY,
+    FLIGHT_CLASS_EMERGENCY,
+    FLIGHT_CLASS_INSPECTION,
+    FLIGHT_CLASS_PHOTOGRAPHY,
+    FLIGHT_CLASS_PUBLICSAFETY,
+    FLIGHT_CLASS_RECREATIONAL,
+    FLIGHT_CLASS_EDUCATIONAL,
+    FLIGHT_CLASS_RESEARCH,
+    FLIGHT_CLASS_SURVEY,
+    FLIGHT_CLASS_TRAINING,
+    FLIGHT_CLASS_RACING
+}
+
+DEFAULT_FLIGHT_CLASS = FLIGHT_CLASS_RECREATIONAL
 
 # -----------------------------------------------------------------
 # Overlay Review Status
@@ -309,6 +347,23 @@ ROUTE_TYPES = {
   ROUTE_TYPE_RACEWAY: "Raceway"
 }
 
+FLIGHT_CLASSES = {
+    FLIGHT_CLASS_AGRICULTURE: "Agriculture",
+    FLIGHT_CLASS_COMMERCIAL: "Commercial",
+    FLIGHT_CLASS_DELIVERY: "Delivery",
+    FLIGHT_CLASS_EMERGENCY: "Emergency",
+    FLIGHT_CLASS_INSPECTION: "Inspection",
+    FLIGHT_CLASS_PHOTOGRAPHY: "Photography",
+    FLIGHT_CLASS_PUBLICSAFETY: "Public Safety",
+    FLIGHT_CLASS_RECREATIONAL: "Recreational",
+    FLIGHT_CLASS_EDUCATIONAL: "Educational",
+    FLIGHT_CLASS_RESEARCH: "Research",
+    FLIGHT_CLASS_SURVEY: "Survey",
+    FLIGHT_CLASS_TRAINING: "Training",
+    FLIGHT_CLASS_RACING: "Racing"
+}
+
+
 def load_reference_data():
 
     return {
@@ -323,5 +378,6 @@ def load_reference_data():
         "route_operational_status": ROUTE_OPERATIONAL_STATUSES,
         "survey_status": SURVEY_STATUSES,
         "overlay_review_status": OVERLAY_REVIEW_STATUSES,
+        "flight_class": FLIGHT_CLASSES,
     } # end...return
 
