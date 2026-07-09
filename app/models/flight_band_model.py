@@ -335,3 +335,38 @@ def _replace_flight_band_days(connection, flight_band_id, days):
 
     _insert_flight_band_days(connection, flight_band_id, days)
 
+
+def select_active_flight_band_records_by_class(flight_class):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    fb.flight_band_id,
+                    fb.flight_class,
+                    fb.band_name,
+                    fb.min_agl_ft,
+                    fb.max_agl_ft,
+                    fb.start_time,
+                    fb.end_time,
+                    fb.timezone,
+                    fb.operational_status,
+                    COALESCE(
+                        array_agg(fbd.day_of_week ORDER BY fbd.day_of_week)
+                        FILTER (WHERE fbd.day_of_week IS NOT NULL),
+                        '{}'
+                    ) AS days
+                FROM flight_bands fb
+                LEFT JOIN flight_band_days fbd
+                    ON fb.flight_band_id = fbd.flight_band_id
+                WHERE fb.flight_class = :flight_class
+                  AND fb.operational_status = 'active'
+                GROUP BY fb.flight_band_id
+                ORDER BY fb.start_time, fb.end_time
+            """),
+            {
+                "flight_class": flight_class,
+            }
+        )
+
+        return result.mappings().all()
+

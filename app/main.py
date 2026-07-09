@@ -57,7 +57,7 @@ from app.routes.overlay_reviews import overlay_reviews_bp
 from app.routes.overlay_package import overlay_package_bp
 from app.routes.operational_readiness import operational_readiness_bp
 from app.routes.flight_bands import flight_bands_bp 
-
+from app.routes.flight_executions import flight_executions_bp
 
 app = Flask(__name__)
 
@@ -88,6 +88,7 @@ app.register_blueprint(overlay_reviews_bp)
 app.register_blueprint(overlay_package_bp)
 app.register_blueprint(operational_readiness_bp)
 app.register_blueprint(flight_bands_bp)
+app.register_blueprint(flight_executions_bp)
 
 
 @app.after_request
