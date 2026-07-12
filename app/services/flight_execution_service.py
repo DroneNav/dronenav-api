@@ -46,12 +46,11 @@ import uuid
 from app.config.constants import VALID_FLIGHT_CLASSES
 from app.models.flight_band_model import select_active_flight_band_records_by_class
 
-from app.models.site_model import select_site
-from app.models.droneport_model import select_droneport
-from app.models.route_model import select_route
 from app.services.geospatial_validation_service import (
     validate_operational_geospatial_data,
 )
+from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 def create_flight_execution(data):
@@ -118,8 +117,19 @@ def validate_flight_execution_submission(data):
         errors.append({
             "field": "flight_class",
             "code": "flight_band_unavailable",
-            "message": "No active Flight Band is available for this flight class.",
+            "message": (
+                "No active Flight Band is available for this "
+                "flight class."
+            ),
         })
+    else:
+        departure_error = validate_requested_departure_datetime(
+            data["requested_departure_datetime"],
+            active_flight_bands,
+        )
+
+        if departure_error:
+            errors.append(departure_error)
 
     nullable_fields = [
         "requested_departure_datetime",
@@ -184,4 +194,132 @@ def rejected_response(errors):
         "flight_plan_status": "draft",
         "errors": errors,
     }, 422
+
+def validate_requested_departure_datetime(
+    requested_departure_datetime,
+    active_flight_bands,
+):
+    """
+    Validate an optional requested departure against active Flight Bands.
+
+    A null value means no specific departure time was requested. The Flight
+    Execution may be scheduled whenever an active Flight Band permits it.
+    """
+
+    if requested_departure_datetime is None:
+        return None
+
+    requested_datetime = _parse_requested_departure_datetime(
+        requested_departure_datetime
+    )
+
+    if requested_datetime is None:
+        return {
+            "field": "requested_departure_datetime",
+            "code": "invalid_departure_datetime",
+            "message": (
+                "requested_departure_datetime must be a valid "
+                "ISO 8601 datetime with a timezone offset."
+            ),
+        }
+
+    for flight_band in active_flight_bands:
+        if _requested_departure_matches_band(
+            requested_datetime,
+            flight_band,
+        ):
+            return None
+
+    return {
+        "field": "requested_departure_datetime",
+        "code": "outside_flight_band_window",
+        "message": (
+            "The requested departure datetime is outside every active "
+            "Flight Band window for this flight class."
+        ),
+    }
+
+
+def _parse_requested_departure_datetime(value):
+    if not isinstance(value, str):
+        return None
+
+    normalized_value = value.strip()
+
+    if not normalized_value:
+        return None
+
+    # Python 3.11 accepts ISO 8601 offsets through fromisoformat().
+    # Normalize a trailing Z to the equivalent UTC offset.
+    if normalized_value.endswith("Z"):
+        normalized_value = normalized_value[:-1] + "+00:00"
+
+    try:
+        parsed_datetime = datetime.fromisoformat(normalized_value)
+    except ValueError:
+        return None
+
+    # Require an aware datetime so its meaning is unambiguous when converted
+    # into each Flight Band's configured timezone.
+    if (
+        parsed_datetime.tzinfo is None
+        or parsed_datetime.utcoffset() is None
+    ):
+        return None
+
+    return parsed_datetime
+
+
+def _requested_departure_matches_band(
+    requested_datetime,
+    flight_band,
+):
+    timezone_name = flight_band["timezone"]
+
+    try:
+        flight_band_timezone = ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        return False
+
+    local_datetime = requested_datetime.astimezone(
+        flight_band_timezone
+    )
+
+    day_of_week = _to_flight_band_day_of_week(local_datetime)
+
+    allowed_days = {
+        int(day)
+        for day in flight_band["days"]
+    }
+
+    if day_of_week not in allowed_days:
+        return False
+
+    requested_time = local_datetime.time().replace(
+        second=0,
+        microsecond=0,
+        tzinfo=None,
+    )
+
+    start_time = flight_band["start_time"]
+    end_time = flight_band["end_time"]
+
+    return start_time <= requested_time <= end_time
+
+
+def _to_flight_band_day_of_week(value):
+    """
+    Convert Python weekday numbering to DroneNav numbering.
+
+    Python:
+        Monday = 0
+        Sunday = 6
+
+    DroneNav:
+        Sunday = 0
+        Monday = 1
+        Saturday = 6
+    """
+
+    return (value.weekday() + 1) % 7
 
