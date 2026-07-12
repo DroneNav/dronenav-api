@@ -46,6 +46,13 @@ import uuid
 from app.config.constants import VALID_FLIGHT_CLASSES
 from app.models.flight_band_model import select_active_flight_band_records_by_class
 
+from app.models.site_model import select_site
+from app.models.droneport_model import select_droneport
+from app.models.route_model import select_route
+from app.services.geospatial_validation_service import (
+    validate_operational_geospatial_data,
+)
+
 
 def create_flight_execution(data):
     if data.get("force_reject") is True:
@@ -91,6 +98,8 @@ def validate_flight_execution_submission(data):
                 "message": f"Missing required field: {field}.",
             })
 
+    # This early return is intentional because later code accesses
+    # required dictionary keys directly.
     if errors:
         return errors
 
@@ -101,7 +110,9 @@ def validate_flight_execution_submission(data):
             "message": "flight_class is not valid.",
         })
 
-    active_flight_bands = select_active_flight_band_records_by_class(data["flight_class"])
+    active_flight_bands = select_active_flight_band_records_by_class(
+        data["flight_class"]
+    )
 
     if not active_flight_bands:
         errors.append({
@@ -117,11 +128,14 @@ def validate_flight_execution_submission(data):
     ]
 
     for field in nullable_fields:
-        if field in data and data[field] == "":
+        if data[field] == "":
             errors.append({
                 "field": field,
                 "code": "invalid_null_value",
-                "message": f"{field} must be null or a valid value, not an empty string.",
+                "message": (
+                    f"{field} must be null or a valid value, "
+                    "not an empty string."
+                ),
             })
 
     if not isinstance(data["flight_path_ids"], list):
@@ -131,14 +145,26 @@ def validate_flight_execution_submission(data):
             "message": "flight_path_ids must be an array.",
         })
     else:
-        for flight_path_id in data["flight_path_ids"]:
-            if flight_path_id in ("", None):
+        for route_id in data["flight_path_ids"]:
+            if route_id in ("", None):
                 errors.append({
                     "field": "flight_path_ids",
                     "code": "invalid_route_id",
-                    "message": "flight_path_ids must contain only non-empty route IDs.",
+                    "message": (
+                        "flight_path_ids must contain only "
+                        "non-empty Route IDs."
+                    ),
                 })
 
+    # Do not run database relationship validation when the payload shape
+    # is already invalid.
+    if errors:
+        return errors
+
+    geospatial_errors = validate_operational_geospatial_data(data)
+    errors.extend(geospatial_errors)
+
+    # This is the final return.
     return errors
 
 
