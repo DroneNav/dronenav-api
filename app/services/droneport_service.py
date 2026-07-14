@@ -71,7 +71,6 @@ def validate_droneport_payload(data):
         "droneport_name",
         "droneport_type",
         "created_by",
-        "timezone",
         "geometry"
     ]
 

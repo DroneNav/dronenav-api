@@ -64,6 +64,14 @@ from app.models.site_model import (
 
 from app.services.timezone_service import resolve_site_timezone
 
+from app.models.site_model import (
+    compute_point_on_surface_from_geojson,
+)
+
+from app.services.timezone_service import (
+    derive_timezone_from_coordinates,
+)
+
 
 def validate_site_payload(data):
     required_fields = [
@@ -204,6 +212,18 @@ def create_site(data):
         return None, error
 
     normalized_data = normalize_site_payload(data)
+
+    representative_point = compute_point_on_surface_from_geojson(
+        normalized_data["geometry"]
+    )
+
+    timezone = derive_timezone_from_coordinates(
+        longitude=representative_point["longitude"],
+        latitude=representative_point["latitude"],
+    )
+
+    normalized_data["timezone"] = timezone
+
     site_id = insert_site(normalized_data)
 
     insert_overlay_review({

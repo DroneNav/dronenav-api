@@ -341,3 +341,32 @@ def submit_site(site_id):
     return reject_site(site_id)
 
 
+def compute_point_on_surface_from_geojson(geometry, srid=4326):
+    """
+    Use PostGIS to calculate a representative point guaranteed to lie
+    within the submitted Site polygon.
+    """
+
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    ST_X(point_geometry) AS longitude,
+                    ST_Y(point_geometry) AS latitude
+                FROM (
+                    SELECT ST_PointOnSurface(
+                        ST_SetSRID(
+                            ST_GeomFromGeoJSON(:geometry),
+                            :srid
+                        )
+                    ) AS point_geometry
+                ) AS point_result
+            """),
+            {
+                "geometry": json.dumps(geometry),
+                "srid": srid,
+            },
+        )
+
+        return result.mappings().first()
+
