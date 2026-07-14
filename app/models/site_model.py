@@ -73,6 +73,7 @@ def insert_site(data):
                     minimum_altitude_ft,
                     maximum_altitude_ft,
                     description,
+                    timezone,
                     geometry
                 )
                 VALUES (
@@ -85,6 +86,7 @@ def insert_site(data):
                     :minimum_altitude_ft,
                     :maximum_altitude_ft,
                     :description,
+                    :timezone,
                     ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
@@ -143,6 +145,9 @@ def select_site(site_id):
                     minimum_altitude_ft,
                     maximum_altitude_ft,
                     description,
+                    timezone,
+                    ST_X(ST_PointOnSurface(geometry)) AS timezone_longitude,
+                    ST_Y(ST_PointOnSurface(geometry)) AS timezone_latitude,
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM sites
                 WHERE site_id = :site_id
@@ -173,6 +178,9 @@ def select_sites(survey_status=None):
                     minimum_altitude_ft,
                     maximum_altitude_ft,
                     description,
+                    timezone,
+                    ST_X(ST_PointOnSurface(geometry)) AS timezone_longitude,
+                    ST_Y(ST_PointOnSurface(geometry)) AS timezone_latitude,
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM sites
                 WHERE operational_status <> :deleted_status
@@ -204,6 +212,7 @@ def update_site_record(site_id, data):
                     minimum_altitude_ft = :minimum_altitude_ft,
                     maximum_altitude_ft = :maximum_altitude_ft,
                     description = :description,
+                    timezone = :timezone,
                     geometry = ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
@@ -237,6 +246,24 @@ def patch_site_record(site_id, data):
             {
                 **data,
                 "site_id": site_id,
+            }
+        )
+
+        return result.mappings().first()
+
+
+def patch_timezone_record(site_id, timezone):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE sites
+                SET timezone = :timezone
+                WHERE site_id = :site_id
+                RETURNING site_id, timezone
+            """),
+            {
+                "site_id": site_id,
+                "timezone": timezone,
             }
         )
 

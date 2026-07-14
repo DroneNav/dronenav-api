@@ -1,0 +1,5 @@
+ALTER TABLE sites
+ADD COLUMN timezone VARCHAR(64);
+
+ALTER TABLE droneports
+ADD COLUMN timezone VARCHAR(64);

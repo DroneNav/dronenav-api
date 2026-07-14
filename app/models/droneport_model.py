@@ -70,6 +70,7 @@ def insert_droneport(data):
                     operational_status,
                     survey_status,
                     droneport_diameter_ft,
+                    timezone,
                     geometry 
                 )
                 VALUES (
@@ -80,6 +81,7 @@ def insert_droneport(data):
                     :operational_status,
                     :survey_status,
                     :droneport_diameter_ft,
+                    :timezone,
                     ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
@@ -136,6 +138,9 @@ def select_droneport(droneport_id):
                     surveyed_by,
                     approved_by,
                     droneport_diameter_ft,
+                    timezone,
+                    ST_X(geometry) AS longitude,
+                    ST_Y(geometry) AS latitude,
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM droneports 
                 WHERE droneport_id = :droneport_id
@@ -164,6 +169,9 @@ def select_droneports(survey_status=None):
                     operational_status,
                     survey_status,
                     droneport_diameter_ft,
+                    timezone,
+                    ST_X(geometry) AS longitude,
+                    ST_Y(geometry) AS latitude,
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM droneports
                 WHERE operational_status <> :deleted_status
@@ -196,6 +204,9 @@ def select_droneports_by_site_id(site_id):
                     operational_status,
                     survey_status,
                     droneport_diameter_ft,
+                    timezone,
+                    ST_X(geometry) AS longitude,
+                    ST_Y(geometry) AS latitude,
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM droneports
                 WHERE operational_status <> :deleted_status
@@ -222,6 +233,7 @@ def update_droneport_record(droneport_id, data):
                     droneport_type = :droneport_type,
                     created_by = :created_by,
                     droneport_diameter_ft = :droneport_diameter_ft,
+                    timezone = :timezone,
                     geometry = ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
@@ -255,6 +267,24 @@ def patch_droneport_record(droneport_id, data):
             {
                 **data,
                 "droneport_id": droneport_id,
+            }
+        )
+
+        return result.mappings().first()
+
+
+def patch_timezone_record(droneport_id, timezone):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE droneports
+                SET timezone = :timezone
+                WHERE droneport_id = :droneport_id
+                RETURNING droneport_id, timezone
+            """),
+            {
+                "droneport_id": droneport_id,
+                "timezone": timezone,
             }
         )
 

@@ -56,9 +56,13 @@ from app.models.droneport_model import (
     select_droneports_by_site_id,
     update_droneport_record,
     patch_droneport_record,
+    patch_timezone_record,
     soft_delete_droneport,
     insert_overlay_review,
 )
+
+from app.services.timezone_service import resolve_droneport_timezone
+from app.services.timezone_service import derive_timezone_from_coordinates
 
 
 def validate_droneport_payload(data):
@@ -67,6 +71,7 @@ def validate_droneport_payload(data):
         "droneport_name",
         "droneport_type",
         "created_by",
+        "timezone",
         "geometry"
     ]
 
@@ -96,7 +101,30 @@ def validate_droneport_patch(data):
     return None
 
 
+def validate_timezone_patch(data):
+    required_fields = [
+        "timezone"
+    ]
+
+    for field in required_fields:
+        if field not in data or data[field] in ("", None):
+            return f"Missing required field: {field}"
+
+    return None
+
+
 def normalize_droneport_payload(data):
+    geometry = data["geometry"]
+    coordinates = geometry["coordinates"]
+
+    longitude = coordinates[0]
+    latitude = coordinates[1]
+
+    timezone = derive_timezone_from_coordinates(
+        longitude=longitude,
+        latitude=latitude,
+    )
+
     return {
         "site_id": data["site_id"],
         "droneport_name": data["droneport_name"],
@@ -108,7 +136,8 @@ def normalize_droneport_payload(data):
             "droneport_diameter_ft",
             DEFAULT_DRONEPORT_DIAMETER_FT
         ),
-        "geometry": data["geometry"],
+        "timezone": timezone,
+        "geometry": geometry,
     }
 
 
@@ -120,6 +149,20 @@ def normalize_droneport_patch(data):
             "droneport_diameter_ft",
             DEFAULT_DRONEPORT_DIAMETER_FT
         ),
+    }
+
+
+def normalize_timezone_patch(data):
+    geometry = data["geometry"]
+    coordinates = geometry["coordinates"]
+
+    timezone = derive_timezone_from_coordinates(
+        longitude=coordinates[0],
+        latitude=coordinates[1],
+    )
+
+    return {
+        "timezone": timezone,
     }
 
 
@@ -141,6 +184,7 @@ def format_droneport(row):
         "surveyed_by": row.get("surveyed_by"),
         "approved_by": row.get("approved_by"),
         "droneport_diameter_ft": row["droneport_diameter_ft"],
+        "timezone": resolve_droneport_timezone(row),
         "geometry": row["geometry"],
     }
 
@@ -156,6 +200,7 @@ def format_droneport_summary(row):
         "operational_status": row["operational_status"],
         "survey_status": row["survey_status"],
         "droneport_diameter_ft": row["droneport_diameter_ft"],
+        "timezone": resolve_droneport_timezone(row),
         "geometry": row["geometry"],
     }
 
@@ -167,6 +212,13 @@ def create_droneport(data):
         return None, error
 
     normalized_data = normalize_droneport_payload(data)
+
+    if normalized_data["timezone"] is None:
+        return None, (
+            "Unable to determine an operational timezone "
+            "from the DronePort coordinates"
+        )
+
     droneport_id = insert_droneport(normalized_data)
 
     insert_overlay_review({
@@ -232,6 +284,26 @@ def patch_droneport(droneport_id, data):
         "status": "updated",
         "droneport_id": str(row["droneport_id"]),
         "droneport_name": row["droneport_name"],
+    }, None
+
+
+def patch_timezone(droneport_id, timezone):
+    error = validate_timezone_patch(timezone)
+
+    if error:
+        return None, error
+
+    normalized_data = normalize_timezone_patch(timezone)
+    row = patch_timezone_record(droneport_id, normalized_data)
+
+    if row is None:
+        return None, "DronePort timezone not found"
+
+    return {
+        "status": "updated",
+        "droneport_id": str(row["droneport_id"]),
+        "droneport_name": row["droneport_name"],
+        "timezone": row.get("timezone"),
     }, None
 
 

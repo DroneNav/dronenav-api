@@ -57,9 +57,12 @@ from app.models.site_model import (
     select_sites,
     update_site_record,
     patch_site_record,
+    patch_timezone_record,
     soft_delete_site,
     insert_overlay_review,
 )
+
+from app.services.timezone_service import resolve_site_timezone
 
 
 def validate_site_payload(data):
@@ -97,6 +100,18 @@ def validate_site_patch(data):
     return None
 
 
+def validate_timezone_patch(data):
+    required_fields = [
+        "timezone",
+    ]
+
+    for field in required_fields:
+        if field not in data or data[field] in ("", None):
+            return f"Missing required field: {field}"
+
+    return None
+
+
 def normalize_site_payload(data):
     return {
         "authority_id": data["authority_id"],
@@ -114,6 +129,7 @@ def normalize_site_payload(data):
             "maximum_altitude_ft",
             DEFAULT_MAXIMUM_ALTITUDE_FT
         ),
+        "timezone": data.get("timezone"),
         "geometry": data["geometry"],
     }
 
@@ -129,6 +145,12 @@ def normalize_site_patch(data):
             "maximum_altitude_ft",
             DEFAULT_MAXIMUM_ALTITUDE_FT
         ),
+    }
+
+
+def normalize_timezone_patch(data):
+    return {
+        "timezone": data.get("timezone"),
     }
 
 
@@ -152,6 +174,7 @@ def format_site(row):
         "approved_by": row.get("approved_by"),
         "minimum_altitude_ft": row["minimum_altitude_ft"],
         "maximum_altitude_ft": row["maximum_altitude_ft"],
+        "timezone": resolve_site_timezone(row),
         "geometry": row["geometry"],
     }
 
@@ -169,6 +192,7 @@ def format_site_summary(row):
         "survey_status": row["survey_status"],
         "minimum_altitude_ft": row["minimum_altitude_ft"],
         "maximum_altitude_ft": row["maximum_altitude_ft"],
+        "timezone": resolve_site_timezone(row),
         "geometry": row["geometry"],
     }
 
@@ -240,6 +264,26 @@ def patch_site(site_id, data):
         "status": "updated",
         "site_id": str(row["site_id"]),
         "site_name": row["site_name"],
+    }, None
+
+
+def patch_timezone(site_id, timezone):
+    error = validate_timezone_patch(timezone)
+
+    if error:
+        return None, error
+
+    normalized_data = normalize_timezone_patch(timezone)
+    row = patch_timezone_record(site_id, normalized_data)
+
+    if row is None:
+        return None, "Site timezone not found"
+
+    return {
+        "status": "updated",
+        "site_id": str(row["site_id"]),
+        "site_name": row["site_name"],
+        "timezone": row.get("timezone"),
     }, None
 
 
