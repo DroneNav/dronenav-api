@@ -196,6 +196,15 @@ DEFAULT_MINIMUM_SEGMENT_COUNT = 3
 DEFAULT_MINIMUM_SEGMENT_ALTITUDE_FT = DEFAULT_MINIMUM_ALTITUDE_FT
 DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT = DEFAULT_MAXIMUM_ALTITUDE_FT
 
+# --------------------------------------------------------------
+# Flight Execution Status
+# --------------------------------------------------------------
+EXECUTION_STATUS_ACTIVE = "active"
+EXECUTION_STATUS_COMPLETED = "completed"
+EXECUTION_STATUS_EXPIRED = "expired"
+EXECUTION_STATUS_SUSPENDED = "suspended"
+EXECUTION_STATUS_REVOKED = "revoked"
+
 # -----------------------------------------------------------------
 # Flight Classes
 # -----------------------------------------------------------------
