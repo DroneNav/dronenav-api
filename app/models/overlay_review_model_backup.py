@@ -27,7 +27,7 @@ License:
 GNU Affero General Public License v3.0 (AGPL-3.0-or-later)
 
 Purpose:
-Overlay Review API object model implementation source file.
+Overlay Review API object model implentation source file.
 
 Author:
 DroneNav Project Contributors
@@ -42,44 +42,19 @@ operations. All operational use remains the responsibility
 of the aircraft operator and applicable regulatory authorities.
 """
 
-from datetime import datetime
 
 from sqlalchemy import text
+from datetime import datetime
 
 from app.config.database import engine
+
 from app.config.constants import (
     REVIEW_STATUS_APPROVED,
-    REVIEW_STATUS_PENDING,
     REVIEW_STATUS_REJECTED,
-    REVIEW_STATUS_REVISIONS_REQUESTED,
+    REVIEW_STATUS_PENDING,
     REVIEW_STATUS_SUBMITTED,
+    REVIEW_STATUS_REVISIONS_REQUESTED
 )
-
-SURVEY_STATUS_NOT_SURVEYED = "not_surveyed"
-SURVEY_STATUS_SURVEYED = "surveyed"
-OPERATIONAL_STATUS_DELETED = "deleted"
-
-
-def _build_updated_comments(prior_comments, actor, new_comment):
-    """
-    Add a timestamped review comment before the existing comment history.
-
-    An empty new comment leaves the existing history unchanged.
-    """
-
-    prior_comments = prior_comments or ""
-    new_comment = new_comment or ""
-
-    if not new_comment.strip():
-        return prior_comments
-
-    timestamp = datetime.now().astimezone().isoformat()
-    entry = f"{timestamp}  {actor}  {new_comment.strip()}"
-
-    if prior_comments:
-        return f"{entry}\n\n{prior_comments}"
-
-    return entry
 
 
 def get_overlay_review_id(overlay_type, overlay_id):
@@ -93,13 +68,11 @@ def get_overlay_review_id(overlay_type, overlay_id):
             """),
             {
                 "overlay_type": overlay_type,
-                "overlay_id": overlay_id,
-            },
+                "overlay_id": overlay_id
+            }
         )
 
-        review_id = result.scalar_one_or_none()
-
-        return str(review_id) if review_id is not None else None
+        return str(result.scalar_one())
 
 
 def select_overlay_review(review_id):
@@ -126,17 +99,13 @@ def select_overlay_review(review_id):
             """),
             {
                 "review_id": review_id,
-            },
+            }
         )
 
         return result.mappings().first()
 
 
-def select_overlay_reviews(
-    overlay_type=None,
-    review_status=None,
-    survey_status=None,
-):
+def select_overlay_reviews(overlay_type=None, review_status=None, survey_status=None):
     with engine.connect() as connection:
         result = connection.execute(
             text("""
@@ -156,56 +125,35 @@ def select_overlay_reviews(
                     created_at,
                     updated_at
                 FROM overlay_reviews
-                WHERE (
-                    :overlay_type IS NULL
-                    OR overlay_type = :overlay_type
-                )
-                  AND (
-                    :review_status IS NULL
-                    OR review_status = :review_status
-                  )
-                  AND (
-                    :survey_status IS NULL
-                    OR survey_status = :survey_status
-                  )
+                WHERE (:overlay_type IS NULL OR overlay_type = :overlay_type)
+                  AND (:review_status IS NULL OR review_status = :review_status)
+                  AND (:survey_status IS NULL OR survey_status = :survey_status)
                 ORDER BY created_at DESC
             """),
             {
                 "overlay_type": overlay_type,
                 "review_status": review_status,
                 "survey_status": survey_status,
-            },
+            }
         )
 
         return result.mappings().all()
 
 
-def select_overlay_notes(overlay_id, overlay_type=None):
-    """
-    Return review comments for an overlay.
-
-    overlay_type remains optional for backward compatibility. New callers
-    should provide it so the complete overlay identity is used.
-    """
-
+def select_overlay_notes(overlay_id):
     with engine.connect() as connection:
         result = connection.execute(
             text("""
                 SELECT review_comments
                 FROM overlay_reviews
                 WHERE overlay_id = :overlay_id
-                  AND (
-                      :overlay_type IS NULL
-                      OR overlay_type = :overlay_type
-                  )
             """),
             {
-                "overlay_id": overlay_id,
-                "overlay_type": overlay_type,
-            },
+                "overlay_id": overlay_id
+            }
         )
 
-        return result.scalar_one_or_none()
+        return result.scalar_one()
 
 
 def get_overlay_review_prior_comments(review_id):
@@ -217,178 +165,123 @@ def get_overlay_review_prior_comments(review_id):
                 WHERE review_id = :review_id
             """),
             {
-                "review_id": review_id,
-            },
+                "review_id": review_id
+            }
         )
 
-        return result.scalar_one_or_none()
+        return str(result.scalar_one())
 
 
 def approve_overlay_review(review_id, reviewed_by, new_comment):
-    prior_comments = get_overlay_review_prior_comments(review_id)
-    updated_comments = _build_updated_comments(
-        prior_comments,
-        reviewed_by,
-        new_comment,
-    )
+
+    prior_comments = get_overlay_review_prior_comments(review_id) or ""
+    updated_comments = datetime.now().isoformat() + "  " + reviewed_by + "  " + new_comment + "\n\n" + prior_comments
 
     with engine.begin() as connection:
         result = connection.execute(
             text("""
-                UPDATE overlay_reviews
+                UPDATE overlay_reviews 
                 SET
-                    review_status = :approved_status,
+                    review_status = :status,
                     reviewed_by = :reviewed_by,
-                    reviewed_at = NOW(),
-                    updated_at = NOW(),
+                    reviewed_at = now(),
                     review_comments = :updated_comments
                 WHERE review_id = :review_id
-                  AND review_status IN (
-                      :pending_status,
-                      :submitted_status
-                  )
-                RETURNING
-                    review_id,
-                    reviewed_by
+                RETURNING review_id, reviewed_by
             """),
             {
                 "review_id": review_id,
                 "reviewed_by": reviewed_by,
-                "approved_status": REVIEW_STATUS_APPROVED,
-                "pending_status": REVIEW_STATUS_PENDING,
-                "submitted_status": REVIEW_STATUS_SUBMITTED,
-                "updated_comments": updated_comments,
-            },
+                "status": REVIEW_STATUS_APPROVED,
+                "updated_comments": updated_comments
+            }
         )
 
         return result.mappings().first()
 
 
 def reject_overlay_review(review_id, reviewed_by, new_comment):
-    prior_comments = get_overlay_review_prior_comments(review_id)
-    updated_comments = _build_updated_comments(
-        prior_comments,
-        reviewed_by,
-        new_comment,
-    )
+
+    prior_comments = get_overlay_review_prior_comments(review_id) or ""
+    updated_comments = datetime.now().isoformat() + "  " + reviewed_by + "  " + new_comment + "\n\n" + prior_comments
 
     with engine.begin() as connection:
         result = connection.execute(
             text("""
                 UPDATE overlay_reviews
                 SET
-                    review_status = :rejected_status,
+                    review_status = :status,
                     reviewed_by = :reviewed_by,
-                    reviewed_at = NOW(),
-                    updated_at = NOW(),
+                    reviewed_at = now(),
                     review_comments = :updated_comments
                 WHERE review_id = :review_id
-                  AND review_status IN (
-                      :pending_status,
-                      :submitted_status
-                  )
-                RETURNING
-                    review_id,
-                    reviewed_by
+                RETURNING review_id, reviewed_by
             """),
             {
                 "review_id": review_id,
                 "reviewed_by": reviewed_by,
-                "rejected_status": REVIEW_STATUS_REJECTED,
-                "pending_status": REVIEW_STATUS_PENDING,
-                "submitted_status": REVIEW_STATUS_SUBMITTED,
-                "updated_comments": updated_comments,
-            },
+                "status": REVIEW_STATUS_REJECTED,
+                "updated_comments": updated_comments
+            }
         )
 
         return result.mappings().first()
 
 
-def request_overlay_review_changes(
-    review_id,
-    reviewed_by,
-    new_comment,
-):
-    prior_comments = get_overlay_review_prior_comments(review_id)
-    updated_comments = _build_updated_comments(
-        prior_comments,
-        reviewed_by,
-        new_comment,
-    )
+def request_overlay_review_changes(review_id, reviewed_by, new_comment):
+
+    prior_comments = get_overlay_review_prior_comments(review_id) or ""
+    updated_comments = datetime.now().isoformat() + "  " + reviewed_by + "  " + new_comment + "\n\n" + prior_comments
 
     with engine.begin() as connection:
         result = connection.execute(
             text("""
                 UPDATE overlay_reviews
                 SET
-                    review_status = :revisions_requested_status,
+                    review_status = :status,
                     reviewed_by = :reviewed_by,
-                    reviewed_at = NOW(),
-                    updated_at = NOW(),
+                    reviewed_at = now(),
                     review_comments = :updated_comments
                 WHERE review_id = :review_id
-                  AND review_status IN (
-                      :pending_status,
-                      :submitted_status
-                  )
-                RETURNING
-                    review_id,
-                    reviewed_by
+                RETURNING review_id, reviewed_by
             """),
             {
                 "review_id": review_id,
                 "reviewed_by": reviewed_by,
-                "revisions_requested_status":
-                    REVIEW_STATUS_REVISIONS_REQUESTED,
-                "pending_status": REVIEW_STATUS_PENDING,
-                "submitted_status": REVIEW_STATUS_SUBMITTED,
-                "updated_comments": updated_comments,
-            },
+                "status": REVIEW_STATUS_REVISIONS_REQUESTED,
+                "updated_comments": updated_comments
+            }
         )
 
         return result.mappings().first()
 
 
 def submit_overlay_review(review_id, submitted_by, new_comment):
-    prior_comments = get_overlay_review_prior_comments(review_id)
-    updated_comments = _build_updated_comments(
-        prior_comments,
-        submitted_by,
-        new_comment,
-    )
+
+    prior_comments = get_overlay_review_prior_comments(review_id) or ""
+    updated_comments = datetime.now().isoformat() + "  " + submitted_by + "  " + new_comment + "\n\n" + prior_comments
 
     with engine.begin() as connection:
         result = connection.execute(
             text("""
                 UPDATE overlay_reviews
                 SET
-                    review_status = :submitted_status,
+                    review_status = :status,
                     submitted_by = :submitted_by,
-                    submitted_at = NOW(),
+                    submitted_at = now(),
                     reviewed_by = NULL,
                     reviewed_at = NULL,
-                    updated_at = NOW(),
+                    updated_at = now(),
                     review_comments = :updated_comments
                 WHERE review_id = :review_id
-                  AND review_status IN (
-                      :pending_status,
-                      :revisions_requested_status,
-                      :rejected_status
-                  )
-                RETURNING
-                    review_id,
-                    submitted_by
+                RETURNING review_id, submitted_by
             """),
             {
                 "review_id": review_id,
                 "submitted_by": submitted_by,
-                "submitted_status": REVIEW_STATUS_SUBMITTED,
-                "pending_status": REVIEW_STATUS_PENDING,
-                "revisions_requested_status":
-                    REVIEW_STATUS_REVISIONS_REQUESTED,
-                "rejected_status": REVIEW_STATUS_REJECTED,
-                "updated_comments": updated_comments,
-            },
+                "status": REVIEW_STATUS_SUBMITTED,
+                "updated_comments": updated_comments
+            }
         )
 
         return result.mappings().first()
@@ -398,20 +291,18 @@ def select_pending_reviews_count():
     with engine.connect() as connection:
         result = connection.execute(
             text("""
-                SELECT COUNT(*)
+                SELECT count(*)
                 FROM overlay_reviews
-                WHERE review_status IN (
-                    :pending_status,
-                    :submitted_status
-                )
-                  AND survey_status = :surveyed_status
-                  AND surveyed_by IS NOT NULL
+                WHERE (review_status = :pending_status
+                   OR review_status = :submitted_status)
+                  AND survey_status = :surveyed 
+                  AND survey_by IS NOT NULL
             """),
             {
-                "pending_status": REVIEW_STATUS_PENDING,
-                "submitted_status": REVIEW_STATUS_SUBMITTED,
-                "surveyed_status": SURVEY_STATUS_SURVEYED,
-            },
+                "pending_status": "pending_review",
+                "submitted_status": "submitted",
+                "surveyed": "surveyed"
+            }
         )
 
         return result.scalar_one()
@@ -421,17 +312,15 @@ def select_pending_surveys_count():
     with engine.connect() as connection:
         result = connection.execute(
             text("""
-                SELECT COUNT(*)
+                SELECT count(*)
                 FROM overlay_reviews
-                WHERE (
-                    survey_status = :pending_survey_status
-                    OR survey_status IS NULL
-                    OR surveyed_by IS NULL
-                )
+                WHERE survey_status = :pending_survey_status
+                  OR survey_status IS NULL
+                  OR surveyed_by IS NULL
             """),
             {
-                "pending_survey_status": SURVEY_STATUS_NOT_SURVEYED,
-            },
+                "pending_survey_status": "not_surveyed"
+            }
         )
 
         return result.scalar_one()
@@ -441,13 +330,13 @@ def select_approved_reviews_count():
     with engine.connect() as connection:
         result = connection.execute(
             text("""
-                SELECT COUNT(*)
+                SELECT count(*)
                 FROM overlay_reviews
                 WHERE review_status = :approved_status
             """),
             {
-                "approved_status": REVIEW_STATUS_APPROVED,
-            },
+                "approved_status": "approved"
+            }
         )
 
         return result.scalar_one()
@@ -457,13 +346,13 @@ def select_rejected_reviews_count():
     with engine.connect() as connection:
         result = connection.execute(
             text("""
-                SELECT COUNT(*)
+                SELECT count(*)
                 FROM overlay_reviews
                 WHERE review_status = :rejected_status
             """),
             {
-                "rejected_status": REVIEW_STATUS_REJECTED,
-            },
+                "rejected_status": "rejected"
+            }
         )
 
         return result.scalar_one()
@@ -473,13 +362,13 @@ def select_revision_requested_count():
     with engine.connect() as connection:
         result = connection.execute(
             text("""
-                SELECT COUNT(*)
+                SELECT count(*)
                 FROM overlay_reviews
                 WHERE review_status = :requested_status
             """),
             {
-                "requested_status": REVIEW_STATUS_REVISIONS_REQUESTED,
-            },
+                "requested_status": "revisions_requested"
+            }
         )
 
         return result.scalar_one()
@@ -489,13 +378,13 @@ def select_site_count():
     with engine.connect() as connection:
         result = connection.execute(
             text("""
-                SELECT COUNT(*)
+                SELECT count(*)
                 FROM sites
                 WHERE operational_status <> :deleted_status
             """),
             {
-                "deleted_status": OPERATIONAL_STATUS_DELETED,
-            },
+                "deleted_status": "deleted"
+            }
         )
 
         return result.scalar_one()
@@ -505,13 +394,13 @@ def select_zone_count():
     with engine.connect() as connection:
         result = connection.execute(
             text("""
-                SELECT COUNT(*)
+                SELECT count(*)
                 FROM zones
                 WHERE operational_status <> :deleted_status
             """),
             {
-                "deleted_status": OPERATIONAL_STATUS_DELETED,
-            },
+                "deleted_status": "deleted"
+            }
         )
 
         return result.scalar_one()
@@ -521,13 +410,13 @@ def select_droneport_count():
     with engine.connect() as connection:
         result = connection.execute(
             text("""
-                SELECT COUNT(*)
+                SELECT count(*)
                 FROM droneports
                 WHERE operational_status <> :deleted_status
             """),
             {
-                "deleted_status": OPERATIONAL_STATUS_DELETED,
-            },
+                "deleted_status": "deleted"
+            }
         )
 
         return result.scalar_one()
@@ -537,13 +426,13 @@ def select_route_count():
     with engine.connect() as connection:
         result = connection.execute(
             text("""
-                SELECT COUNT(*)
+                SELECT count(*)
                 FROM routes
                 WHERE operational_status <> :deleted_status
             """),
             {
-                "deleted_status": OPERATIONAL_STATUS_DELETED,
-            },
+                "deleted_status": "deleted"
+            }
         )
 
         return result.scalar_one()

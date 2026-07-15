@@ -53,6 +53,19 @@ from app.models.overlay_package_model import (
     select_unapproved_site_package_reviews,
 )
 
+from app.models.droneport_model import (
+    select_droneports_by_site,
+)
+
+from app.models.site_model import (
+    select_site,
+    update_site_timezone_record,
+)
+
+from app.services.timezone_service import (
+    resolve_authoritative_site_timezone,
+)
+
 
 def survey_overlay_package(site_id, data):
 
@@ -76,6 +89,29 @@ def survey_overlay_package(site_id, data):
 
     if has_unsubmitted_site_package_surveys(missing):
         return None, build_unsubmitted_site_package_error(missing)
+
+    site = select_site(site_id)
+
+    if site is None:
+        return None, "Site not found"
+
+    droneports = select_droneports_by_site(site_id)
+
+    timezone, timezone_condition = resolve_authoritative_site_timezone(
+        site=site,
+        droneports=droneports,
+    )
+
+    if timezone is None:
+        return None, "Unable to determine the Site operational timezone"
+
+    timezone_result, error = update_site_timezone_record(
+        site_id=site_id,
+        timezone=timezone,
+    )
+
+    if error:
+        return None, error
 
     result, error = survey_overlay_package_record(
         site_id=site_id,

@@ -361,3 +361,27 @@ def request_droneport_changes(droneport_id):
 def submit_droneport(droneport_id):
     return reject_droneport(droneport_id)
 
+
+def select_droneports_by_site(site_id):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    droneport_id,
+                    site_id,
+                    timezone,
+                    created_at
+                FROM droneports
+                WHERE site_id = :site_id
+                ORDER BY created_at ASC
+            """),
+            {
+                "site_id": site_id,
+            },
+        )
+
+        return [
+            dict(record)
+            for record in result.mappings().all()
+        ]
+

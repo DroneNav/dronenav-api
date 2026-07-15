@@ -47,6 +47,9 @@ Operational timezone resolution service.
 This service owns coordinate-based IANA timezone resolution for DroneNav.
 """
 
+
+from collections import Counter
+
 from timezonefinder import timezone_at_land
 
 
@@ -109,4 +112,66 @@ def resolve_site_timezone(site):
         longitude=site.get("timezone_longitude"),
         latitude=site.get("timezone_latitude"),
     )
+
+def resolve_authoritative_site_timezone(site, droneports):
+    """
+    Resolve the authoritative Site timezone from contained DronePorts.
+
+    Returns:
+        (timezone, condition)
+
+    condition is one of:
+        persisted_site_fallback
+        single_timezone
+        majority_timezone
+        tied_timezone
+    """
+
+    valid_droneports = [
+        droneport
+        for droneport in droneports
+        if droneport.get("timezone")
+    ]
+
+    if not valid_droneports:
+        return resolve_site_timezone(site), "persisted_site_fallback"
+
+    timezone_counts = Counter(
+        droneport["timezone"]
+        for droneport in valid_droneports
+    )
+
+    highest_count = max(timezone_counts.values())
+
+    winning_timezones = {
+        timezone
+        for timezone, count in timezone_counts.items()
+        if count == highest_count
+    }
+
+    if len(winning_timezones) == 1:
+        selected_timezone = next(iter(winning_timezones))
+
+        condition = (
+            "single_timezone"
+            if len(timezone_counts) == 1
+            else "majority_timezone"
+        )
+
+        return selected_timezone, condition
+
+    # No primary DronePort exists yet. Use the earliest-created
+    # DronePort whose timezone is among the tied winners.
+    tied_droneports = [
+        droneport
+        for droneport in valid_droneports
+        if droneport["timezone"] in winning_timezones
+    ]
+
+    earliest_droneport = min(
+        tied_droneports,
+        key=lambda droneport: droneport["created_at"],
+    )
+
+    return earliest_droneport["timezone"], "tied_timezone"
 

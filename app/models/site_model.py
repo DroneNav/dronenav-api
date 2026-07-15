@@ -370,3 +370,29 @@ def compute_point_on_surface_from_geojson(geometry, srid=4326):
 
         return result.mappings().first()
 
+
+def update_site_timezone_record(site_id, timezone):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE sites
+                SET timezone = :timezone
+                WHERE site_id = :site_id
+                RETURNING
+                    site_id,
+                    timezone
+            """),
+            {
+                "site_id": site_id,
+                "timezone": timezone,
+            },
+        )
+
+        record = result.mappings().first()
+
+        if record is None:
+            return None, "Site not found"
+
+        return dict(record), None
+
+
