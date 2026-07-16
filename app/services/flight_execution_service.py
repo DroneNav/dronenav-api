@@ -42,7 +42,6 @@ operations. All operational use remains the responsibility
 of the aircraft operator and applicable regulatory authorities.
 """
 
-import uuid
 from app.config.constants import VALID_FLIGHT_CLASSES
 from app.models.flight_band_model import select_active_flight_band_records_by_class
 
@@ -52,14 +51,64 @@ from app.services.geospatial_validation_service import (
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from sqlalchemy.exc import IntegrityError
+
+from app.config.constants import (
+    EXECUTION_STATUS_ACTIVE,
+    VALID_FLIGHT_CLASSES,
+)
+
+from app.models.droneport_model import select_droneport
+from app.models.flight_execution_model import (
+    insert_flight_execution_record,
+    select_flight_execution_by_flight_plan,
+)
+from app.models.site_model import select_site
+
+from app.services.timezone_service import (
+    resolve_droneport_timezone,
+    resolve_site_timezone,
+)
+
 
 def create_flight_execution(data):
+    if not isinstance(data, dict):
+        return rejected_response([
+            {
+                "field": None,
+                "code": "invalid_payload",
+                "message": (
+                    "Flight Execution submission must be a JSON object."
+                ),
+            }
+        ])
+
+    flight_plan_id = data.get("flight_plan_id")
+
+    # A Flight Plan may be translated into only one
+    # Flight Execution Record.
+    if flight_plan_id not in (None, ""):
+        existing_record = (
+            select_flight_execution_by_flight_plan(
+                str(flight_plan_id)
+            )
+        )
+
+        if existing_record is not None:
+            return accepted_response(
+                existing_record,
+                status_code=200,
+            )
+
     if data.get("force_reject") is True:
         return rejected_response([
             {
                 "field": "flight_class",
                 "code": "flight_band_unavailable",
-                "message": "No active Flight Band is available for this flight class at the requested execution time.",
+                "message": (
+                    "No active Flight Band is available for this "
+                    "flight class at the requested execution time."
+                ),
             }
         ])
 
@@ -68,7 +117,84 @@ def create_flight_execution(data):
     if errors:
         return rejected_response(errors)
 
-    return accepted_response()
+    operational_timezone = resolve_operational_timezone(data)
+
+    if operational_timezone is None:
+        return rejected_response([
+            {
+                "field": "origin_site_id",
+                "code": "operational_timezone_unavailable",
+                "message": (
+                    "The operational timezone could not be resolved "
+                    "from the departure DronePort or origin Site."
+                ),
+            }
+        ])
+
+    requested_departure_datetime = None
+
+    if data["requested_departure_datetime"] is not None:
+        requested_departure_datetime = (
+            _parse_requested_departure_datetime(
+                data["requested_departure_datetime"]
+            )
+        )
+
+    flight_execution_data = {
+        "flight_plan_id": str(data["flight_plan_id"]),
+        "authority_id": str(data["authority_id"]),
+        "flight_class": data["flight_class"],
+        "origin_site_id": str(data["origin_site_id"]),
+        "destination_site_id": str(
+            data["destination_site_id"]
+        ),
+        "departure_droneport_id": (
+            str(data["departure_droneport_id"])
+            if data["departure_droneport_id"] is not None
+            else None
+        ),
+        "arrival_droneport_id": (
+            str(data["arrival_droneport_id"])
+            if data["arrival_droneport_id"] is not None
+            else None
+        ),
+        "requested_departure_datetime":
+            requested_departure_datetime,
+        "flight_termination_datetime": None,
+        "operational_timezone": operational_timezone,
+        "execution_status": EXECUTION_STATUS_ACTIVE,
+        "route_ids": [
+            str(route_id)
+            for route_id in data["flight_path_ids"]
+        ],
+    }
+
+    try:
+        flight_execution = insert_flight_execution_record(
+            flight_execution_data
+        )
+
+    except IntegrityError:
+        # Protect against two concurrent submissions of the
+        # same immutable Flight Plan.
+        existing_record = (
+            select_flight_execution_by_flight_plan(
+                str(data["flight_plan_id"])
+            )
+        )
+
+        if existing_record is not None:
+            return accepted_response(
+                existing_record,
+                status_code=200,
+            )
+
+        raise
+
+    return accepted_response(
+        flight_execution,
+        status_code=201,
+    )
 
 
 def validate_flight_execution_submission(data):
@@ -178,22 +304,29 @@ def validate_flight_execution_submission(data):
     return errors
 
 
-def accepted_response():
+def accepted_response(
+    flight_execution,
+    status_code=201,
+):
     return {
         "status": "accepted",
         "message": "Flight plan accepted.",
-        "flight_execution_record_id": str(uuid.uuid4()),
+        "flight_execution_record_id": str(
+            flight_execution["flight_execution_id"]
+        ),
         "flight_plan_status": "submitted",
-    }, 201
+    }, status_code
 
 
 def rejected_response(errors):
+
     return {
         "status": "rejected",
         "message": "Flight plan rejected.",
         "flight_plan_status": "draft",
         "errors": errors,
     }, 422
+
 
 def validate_requested_departure_datetime(
     requested_departure_datetime,
@@ -238,6 +371,25 @@ def validate_requested_departure_datetime(
             "Flight Band window for this flight class."
         ),
     }
+
+
+def resolve_operational_timezone(data):
+    departure_droneport_id = data["departure_droneport_id"]
+
+    if departure_droneport_id is not None:
+        droneport = select_droneport(departure_droneport_id)
+
+        if droneport is None:
+            return None
+
+        return resolve_droneport_timezone(droneport)
+
+    site = select_site(data["origin_site_id"])
+
+    if site is None:
+        return None
+
+    return resolve_site_timezone(site)
 
 
 def _parse_requested_departure_datetime(value):

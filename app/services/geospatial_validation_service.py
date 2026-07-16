@@ -132,6 +132,30 @@ def validate_operational_geospatial_data(data):
             )
         )
 
+
+    is_cross_site = origin_site_id != destination_site_id
+
+    if is_cross_site and departure_droneport_id is None:
+        errors.append({
+            "field": "departure_droneport_id",
+            "code": "departure_droneport_required",
+            "message": (
+                "A departure DronePort is required for a "
+                "cross-site Flight Plan."
+            ),
+        })
+
+    if is_cross_site and arrival_droneport_id is None:
+        errors.append({
+            "field": "arrival_droneport_id",
+            "code": "arrival_droneport_required",
+            "message": (
+                "An arrival DronePort is required for a "
+                "cross-site Flight Plan."
+            ),
+        })
+
+
     flight_path_ids = data.get("flight_path_ids", [])
 
     # An empty Flight Path is valid.
@@ -157,6 +181,72 @@ def validate_operational_geospatial_data(data):
             destination_site_id=destination_site_id,
         )
     )
+
+    if errors:
+        return errors
+
+    errors.extend(
+        _validate_terminal_droneports(
+            routes=routes,
+            departure_droneport_id=departure_droneport_id,
+            arrival_droneport_id=arrival_droneport_id,
+        )
+    )
+
+    return errors
+
+
+def _validate_terminal_droneports(
+    routes,
+    departure_droneport_id,
+    arrival_droneport_id,
+):
+    errors = []
+
+    first_route = routes[0]
+    last_route = routes[-1]
+
+    if departure_droneport_id is None:
+        errors.append({
+            "field": "departure_droneport_id",
+            "code": "departure_droneport_required",
+            "message": (
+                "A departure DronePort is required when a Flight Path "
+                "is specified."
+            ),
+        })
+    elif str(first_route["origin_droneport_id"]) != str(
+        departure_droneport_id
+    ):
+        errors.append({
+            "field": "departure_droneport_id",
+            "code": "departure_droneport_route_mismatch",
+            "message": (
+                "The selected departure DronePort must be the origin "
+                "DronePort of the first Route in the Flight Path."
+            ),
+        })
+
+    if arrival_droneport_id is None:
+        errors.append({
+            "field": "arrival_droneport_id",
+            "code": "arrival_droneport_required",
+            "message": (
+                "An arrival DronePort is required when a Flight Path "
+                "is specified."
+            ),
+        })
+    elif str(last_route["destination_droneport_id"]) != str(
+        arrival_droneport_id
+    ):
+        errors.append({
+            "field": "arrival_droneport_id",
+            "code": "arrival_droneport_route_mismatch",
+            "message": (
+                "The selected arrival DronePort must be the destination "
+                "DronePort of the final Route in the Flight Path."
+            ),
+        })
 
     return errors
 

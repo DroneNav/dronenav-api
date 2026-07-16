@@ -55,6 +55,8 @@ DEFAULT_START_TIME = "00:00"
 DEFAULT_END_TIME = "23:59"
 DEFAULT_TIMEZONE = "America/New_York"
 DEFAULT_ALLDAYS = (0, 1, 2, 3, 4, 5, 6)
+LAUNCH_WINDOW_EXPIRES_MINUTES = 30
+LAUNCH_WINDOW_PREFLIGHT_MINUTES = 15
 
 # ------------------------------------------------------------------
 # SRID
