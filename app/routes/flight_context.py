@@ -27,13 +27,13 @@ License:
 GNU Affero General Public License v3.0 (AGPL-3.0-or-later)
 
 Purpose:
-Flight Executions API business rules layer implementation source file.
+Flight Context API business rules layer implementation source file.
 
 Author:
 DroneNav Project Contributors
 
 Created:
-2026-07-05
+2026-07-18
 
 Notes:
 This software is intended to support drone navigation,
@@ -45,12 +45,12 @@ of the aircraft operator and applicable regulatory authorities.
 from flask import Blueprint, jsonify, request
 from flask_cors import CORS
 
-from app.services.flight_execution_service import create_flight_execution
+from app.services.flight_context_service import get_flight_context
 
-flight_executions_bp = Blueprint("flight_executions", __name__)
+flight_context_bp = Blueprint("flight_context", __name__)
 
 CORS(
-    flight_executions_bp,
+    flight_context_bp,
     resources={
         r"/api/*": {
             "origins": [
@@ -63,16 +63,27 @@ CORS(
     },
 )
 
-
-@flight_executions_bp.route("/api/flight-executions", methods=["POST", "OPTIONS"])
-def create_flight_execution_route():
+@flight_context_bp.route("/api/flight-context", methods=["POST", "OPTIONS"])
+def get_flight_context_route():
 
     if request.method == "OPTIONS":
         return "", 204
 
-    data = request.get_json() or {}
+    data = request.get_json()
 
-    result, status_code = create_flight_execution(data)
+    if data is None:
+        return jsonify({
+            "status": "error",
+            "message": "Request body must contain valid JSON."
+        }), 400
 
-    return jsonify(result), status_code
+    context, error = get_flight_context(data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify(context), 200
 
