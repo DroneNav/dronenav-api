@@ -12,8 +12,6 @@ CREATE TABLE flight_bands (
     start_time TIME NOT NULL DEFAULT '00:00:00',
     end_time   TIME NOT NULL DEFAULT '23:59:59',
 
-    timezone VARCHAR(64) NOT NULL DEFAULT 'America/New_York',
-
     operational_status VARCHAR(20) NOT NULL DEFAULT 'active',
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

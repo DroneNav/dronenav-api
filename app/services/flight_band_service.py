@@ -58,7 +58,6 @@ from app.config.constants import (
     DEFAULT_MAXIMUM_ALTITUDE_FT,
     DEFAULT_START_TIME,
     DEFAULT_END_TIME,
-    DEFAULT_TIMEZONE,
     DEFAULT_ALLDAYS,
     VALID_FLIGHT_CLASSES,
 )
@@ -125,7 +124,6 @@ def validate_flight_band_patch(data):
         "max_agl_ft",
         "start_time",
         "end_time",
-        "timezone",
         "operational_status",
         "updated_by",
         "days",
@@ -211,7 +209,6 @@ def normalize_flight_band_payload(data):
         "max_agl_ft": data.get("max_agl_ft", DEFAULT_MAXIMUM_ALTITUDE_FT),
         "start_time": normalize_time(data.get("start_time", DEFAULT_START_TIME)),
         "end_time": normalize_time(data.get("end_time", DEFAULT_END_TIME)),
-        "timezone": data.get("timezone", DEFAULT_TIMEZONE),
         "operational_status": data.get(
             "operational_status",
             DEFAULT_OPERATIONAL_STATUS
@@ -230,7 +227,6 @@ def normalize_flight_band_update(data):
         "max_agl_ft": data.get("max_agl_ft", DEFAULT_MAXIMUM_ALTITUDE_FT),
         "start_time": normalize_time(data.get("start_time", DEFAULT_START_TIME)),
         "end_time": normalize_time(data.get("end_time", DEFAULT_END_TIME)),
-        "timezone": data.get("timezone", DEFAULT_TIMEZONE),
         "operational_status": data.get(
             "operational_status",
             DEFAULT_OPERATIONAL_STATUS
@@ -248,7 +244,6 @@ def normalize_flight_band_patch(data):
         "band_name",
         "min_agl_ft",
         "max_agl_ft",
-        "timezone",
         "operational_status",
         "updated_by",
         "days",
@@ -287,7 +282,6 @@ def format_flight_band(row):
         "max_agl_ft": row["max_agl_ft"],
         "start_time": format_time(row["start_time"]),
         "end_time": format_time(row["end_time"]),
-        "timezone": row["timezone"],
         "operational_status": row["operational_status"],
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,
         "created_by": row["created_by"],

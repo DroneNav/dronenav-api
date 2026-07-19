@@ -48,7 +48,6 @@ from app.config.database import engine
 
 from app.config.constants import (
     DEFAULT_ALLDAYS,
-    DEFAULT_TIMEZONE,
     DEFAULT_MINIMUM_ALTITUDE_FT,
     DEFAULT_MAXIMUM_ALTITUDE_FT,
     DEFAULT_START_TIME,
@@ -69,7 +68,6 @@ def insert_flight_band_record(data):
                     max_agl_ft,
                     start_time,
                     end_time,
-                    timezone,
                     operational_status,
                     created_by
                 )
@@ -80,7 +78,6 @@ def insert_flight_band_record(data):
                     :max_agl_ft,
                     :start_time,
                     :end_time,
-                    :timezone,
                     :operational_status,
                     :created_by
                 )
@@ -93,7 +90,6 @@ def insert_flight_band_record(data):
                 "max_agl_ft": data.get("max_agl_ft", DEFAULT_MAXIMUM_ALTITUDE_FT),
                 "start_time": data.get("start_time", DEFAULT_START_TIME),
                 "end_time": data.get("end_time", DEFAULT_END_TIME),
-                "timezone": data.get("timezone", DEFAULT_TIMEZONE),
                 "operational_status": data.get("operational_status", "active"),
                 "created_by": data.get("created_by"),
             }
@@ -118,7 +114,6 @@ def select_flight_band_record(flight_band_id):
                     fb.max_agl_ft,
                     fb.start_time,
                     fb.end_time,
-                    fb.timezone,
                     fb.operational_status,
                     fb.created_at,
                     fb.created_by,
@@ -153,7 +148,6 @@ def select_flight_band_records(flight_class=None, operational_status=None):
                     fb.max_agl_ft,
                     fb.start_time,
                     fb.end_time,
-                    fb.timezone,
                     fb.operational_status,
                     fb.created_at,
                     fb.created_by,
@@ -201,7 +195,6 @@ def update_flight_band_record(flight_band_id, data):
                     max_agl_ft = :max_agl_ft,
                     start_time = :start_time,
                     end_time = :end_time,
-                    timezone = :timezone,
                     operational_status = :operational_status,
                     updated_at = now(),
                     updated_by = :updated_by
@@ -216,7 +209,6 @@ def update_flight_band_record(flight_band_id, data):
                 "max_agl_ft": data.get("max_agl_ft", DEFAULT_MAXIMUM_ALTITUDE_FT),
                 "start_time": data.get("start_time", DEFAULT_START_TIME),
                 "end_time": data.get("end_time", DEFAULT_END_TIME),
-                "timezone": data.get("timezone", DEFAULT_TIMEZONE),
                 "operational_status": data.get("operational_status", "active"),
                 "updated_by": data.get("updated_by"),
             }
@@ -240,7 +232,6 @@ def patch_flight_band_record(flight_band_id, data):
         "max_agl_ft",
         "start_time",
         "end_time",
-        "timezone",
         "operational_status",
         "updated_by",
     ]
@@ -348,7 +339,6 @@ def select_active_flight_band_records_by_class(flight_class):
                     fb.max_agl_ft,
                     fb.start_time,
                     fb.end_time,
-                    fb.timezone,
                     fb.operational_status,
                     COALESCE(
                         array_agg(fbd.day_of_week ORDER BY fbd.day_of_week)
