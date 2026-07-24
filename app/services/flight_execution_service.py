@@ -74,6 +74,8 @@ from app.services.timezone_service import (
 
 import subprocess
 import sys
+import os
+
 from pathlib import Path
 import logging
 
@@ -504,17 +506,20 @@ def launch_navproxy(
         flight_log_id,
     )
 
+    navproxy_project_dir = os.environ["NAVPROXY_PROJECT_DIR"]
+
     subprocess.Popen(
         [
             sys.executable,
+            "-u",
             "-m",
-            "app.services.navproxy_process_service",
+            "app.navproxy",
             "--flight-execution-id",
             str(flight_execution_id),
             "--flight-log-id",
             str(flight_log_id),
         ],
-        cwd=project_root,
+        cwd=navproxy_project_dir,
     )
 
 
