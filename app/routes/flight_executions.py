@@ -45,7 +45,10 @@ of the aircraft operator and applicable regulatory authorities.
 from flask import Blueprint, jsonify, request
 from flask_cors import CORS
 
-from app.services.flight_execution_service import create_flight_execution
+from app.services.flight_execution_service import (
+    create_flight_execution,
+    launch_reusable_flight_execution,
+)
 
 flight_executions_bp = Blueprint("flight_executions", __name__)
 
@@ -73,6 +76,39 @@ def create_flight_execution_route():
     data = request.get_json() or {}
 
     result, status_code = create_flight_execution(data)
+
+    return jsonify(result), status_code
+
+
+@flight_executions_bp.route(
+    "/api/flight-executions/<flight_execution_id>/launch",
+    methods=["POST", "OPTIONS"],
+)
+def launch_flight_execution_route(flight_execution_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    aviator_id = data.get("aviator_id")
+    aircraft_id = data.get("aircraft_id")
+
+    if not aviator_id:
+        return jsonify({
+            "error": "aviator_id is required."
+        }), 400
+
+    if not aircraft_id:
+        return jsonify({
+            "error": "aircraft_id is required."
+        }), 400
+
+    result, status_code = launch_reusable_flight_execution(
+        flight_execution_id,
+        aviator_id,
+        aircraft_id,
+    )
 
     return jsonify(result), status_code
 

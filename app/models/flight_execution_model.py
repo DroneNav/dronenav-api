@@ -54,14 +54,21 @@ from app.config.database import engine
 from app.config.constants import (
     EXECUTION_STATUS_ACTIVE,
     EXECUTION_STATUS_COMPLETED,
+    EXECUTION_STATUS_DISPATCHED,
     EXECUTION_STATUS_EXPIRED,
     EXECUTION_STATUS_REVOKED,
     EXECUTION_STATUS_SUSPENDED,
 )
 
+from app.config.constants import (
+    FLIGHT_LOG_STATUS_PRE_FLIGHT,
+    FLIGHT_LOG_STATUS_IN_FLIGHT,
+)
+
 EXECUTION_STATUSES = {
     EXECUTION_STATUS_ACTIVE,
     EXECUTION_STATUS_COMPLETED,
+    EXECUTION_STATUS_DISPATCHED,
     EXECUTION_STATUS_EXPIRED,
     EXECUTION_STATUS_SUSPENDED,
     EXECUTION_STATUS_REVOKED,
@@ -389,6 +396,221 @@ def complete_scheduled_flight_execution(
 
         row = result.mappings().first()
         return dict(row) if row is not None else None
+
+
+def select_flight_executions_ready_for_dispatch(
+    preflight_window_minutes,
+    expiration_grace_minutes,
+):
+    preflight_window_minutes = int(preflight_window_minutes)
+    expiration_grace_minutes = int(expiration_grace_minutes)
+
+    if preflight_window_minutes < 0:
+        raise ValueError(
+            "preflight_window_minutes must not be negative"
+        )
+
+    if expiration_grace_minutes < 0:
+        raise ValueError(
+            "expiration_grace_minutes must not be negative"
+        )
+
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    flight_execution_id,
+                    flight_plan_id,
+                    requested_departure_datetime
+                FROM flight_executions
+                WHERE requested_departure_datetime IS NOT NULL
+                  AND flight_termination_datetime IS NULL
+                  AND execution_status = :active_status
+                  AND requested_departure_datetime
+                      <= NOW()
+                         + (
+                             :preflight_window_minutes
+                             * INTERVAL '1 minute'
+                         )
+                  AND requested_departure_datetime
+                      > NOW()
+                        - (
+                            :expiration_grace_minutes
+                            * INTERVAL '1 minute'
+                        )
+                ORDER BY
+                    requested_departure_datetime,
+                    flight_execution_id
+            """),
+            {
+                "active_status": EXECUTION_STATUS_ACTIVE,
+                "preflight_window_minutes":
+                    preflight_window_minutes,
+                "expiration_grace_minutes":
+                    expiration_grace_minutes,
+            },
+        )
+
+        return [
+            dict(row)
+            for row in result.mappings().all()
+        ]
+
+
+def _create_flight_log(
+    connection,
+    flight_execution_id,
+    aviator_id,
+    aircraft_id,
+    scheduled_departure_utc,
+):
+    """
+    Create and return a Flight Log for a claimed Flight Execution.
+
+    The caller must already hold the Flight Execution row lock.
+    """
+
+    log_result = connection.execute(
+        text("""
+            INSERT INTO flight_log (
+                flight_execution_id,
+                aviator_id,
+                aircraft_id,
+                scheduled_departure_utc,
+                flight_log_status
+            )
+            VALUES (
+                :flight_execution_id,
+                :aviator_id,
+                :aircraft_id,
+                :scheduled_departure_utc,
+                :flight_log_status
+            )
+            RETURNING *
+        """),
+        {
+            "flight_execution_id": flight_execution_id,
+            "aviator_id": aviator_id,
+            "aircraft_id": aircraft_id,
+            "scheduled_departure_utc": scheduled_departure_utc,
+            "flight_log_status": FLIGHT_LOG_STATUS_PRE_FLIGHT,
+        },
+    )
+
+    return dict(log_result.mappings().one())
+
+
+def claim_scheduled_flight_execution(
+    flight_execution_id,
+    aviator_id,
+    aircraft_id,
+):
+    """
+    Atomically claim a scheduled Flight Execution.
+
+    A scheduled Flight Execution may be dispatched only once.
+    Returns the created Flight Log, or None when the execution is
+    no longer eligible.
+    """
+
+    with engine.begin() as connection:
+
+        execution_result = connection.execute(
+            text("""
+                UPDATE flight_executions
+                SET
+                    execution_status = :dispatched_status,
+                    updated_at = NOW()
+                WHERE flight_execution_id =
+                    :flight_execution_id
+                  AND execution_status =
+                    :active_status
+                  AND requested_departure_datetime
+                    IS NOT NULL
+                  AND flight_termination_datetime
+                    IS NULL
+                RETURNING
+                    flight_execution_id,
+                    requested_departure_datetime
+                        AS scheduled_departure_utc
+            """),
+            {
+                "flight_execution_id":
+                    flight_execution_id,
+                "active_status":
+                    EXECUTION_STATUS_ACTIVE,
+                "dispatched_status":
+                    EXECUTION_STATUS_DISPATCHED,
+            },
+        )
+
+        execution = execution_result.mappings().first()
+
+        if execution is None:
+            return None
+
+        return _create_flight_log(
+            connection=connection,
+            flight_execution_id=execution["flight_execution_id"],
+            aviator_id=aviator_id,
+            aircraft_id=aircraft_id,
+            scheduled_departure_utc=
+                execution["scheduled_departure_utc"],
+        )
+
+
+def claim_reusable_flight_execution(
+    flight_execution_id,
+    aviator_id,
+    aircraft_id,
+):
+    """
+    Atomically claim a reusable Flight Execution.
+
+    A reusable Flight Execution may create multiple Flight Logs.
+    Returns the created Flight Log, or None when the execution is
+    no longer eligible.
+    """
+
+    with engine.begin() as connection:
+
+        execution_result = connection.execute(
+            text("""
+                SELECT
+                    flight_execution_id,
+                    NOW() AS scheduled_departure_utc
+                FROM flight_executions
+                WHERE flight_execution_id =
+                    :flight_execution_id
+                  AND execution_status =
+                    :execution_status
+                  AND requested_departure_datetime
+                    IS NULL
+                  AND flight_termination_datetime
+                    IS NULL
+                FOR UPDATE SKIP LOCKED
+            """),
+            {
+                "flight_execution_id":
+                    flight_execution_id,
+                "execution_status":
+                    EXECUTION_STATUS_ACTIVE,
+            },
+        )
+
+        execution = execution_result.mappings().first()
+
+        if execution is None:
+            return None
+
+        return _create_flight_log(
+            connection=connection,
+            flight_execution_id=execution["flight_execution_id"],
+            aviator_id=aviator_id,
+            aircraft_id=aircraft_id,
+            scheduled_departure_utc=
+                execution["scheduled_departure_utc"],
+        )
 
 
 def expire_scheduled_flight_executions(late_launch_minutes):

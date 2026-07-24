@@ -60,6 +60,7 @@ CREATE TABLE flight_executions (
             execution_status IN (
                 'active',
                 'completed',
+                'dispatched',
                 'expired',
                 'suspended',
                 'revoked'

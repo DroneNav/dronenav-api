@@ -62,6 +62,8 @@ from app.models.droneport_model import select_droneport
 from app.models.flight_execution_model import (
     insert_flight_execution_record,
     select_flight_execution_by_flight_plan,
+    claim_scheduled_flight_execution,
+    claim_reusable_flight_execution,
 )
 from app.models.site_model import select_site
 
@@ -69,6 +71,13 @@ from app.services.timezone_service import (
     resolve_droneport_timezone,
     resolve_site_timezone,
 )
+
+import subprocess
+import sys
+from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def create_flight_execution(data):
@@ -474,4 +483,107 @@ def _to_flight_band_day_of_week(value):
     """
 
     return (value.weekday() + 1) % 7
+
+# ----------------------------------------------------------------------
+# NAVProxy Launcher
+# ----------------------------------------------------------------------
+
+def launch_navproxy(
+    flight_execution_id,
+    flight_log_id,
+):
+    """
+    Launch the Phase 2 NAVProxy simulator as a separate process.
+    """
+
+    project_root = Path(__file__).resolve().parents[2]
+
+    logger.info(
+        "Launching NAVProxy simulator: execution=%s flight_log=%s",
+        flight_execution_id,
+        flight_log_id,
+    )
+
+    subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "app.services.navproxy_process_service",
+            "--flight-execution-id",
+            str(flight_execution_id),
+            "--flight-log-id",
+            str(flight_log_id),
+        ],
+        cwd=project_root,
+    )
+
+
+# ----------------------------------------------------------------------
+# Flight Launch
+# ----------------------------------------------------------------------
+def launch_scheduled_flight_execution(
+    flight_execution_id,
+    aviator_id,
+    aircraft_id,
+):
+    flight_log = claim_scheduled_flight_execution(
+        flight_execution_id,
+        aviator_id,
+        aircraft_id,
+    )
+
+    if flight_log is None:
+        return {
+            "status": "rejected",
+            "message": (
+                "Flight Execution could not be launched. "
+                "It may already be active or unavailable."
+            ),
+        }, 409
+
+    launch_navproxy(
+        flight_execution_id,
+        flight_log["flight_log_id"],
+    )
+
+    return {
+        "status": "accepted",
+        "message": "Flight launched.",
+        "flight_execution_id": str(flight_execution_id),
+        "flight_log_id": str(flight_log["flight_log_id"]),
+    }, 200
+
+
+def launch_reusable_flight_execution(
+    flight_execution_id,
+    aviator_id,
+    aircraft_id,
+):
+    flight_log = claim_reusable_flight_execution(
+        flight_execution_id,
+        aviator_id,
+        aircraft_id,
+    )
+
+    if flight_log is None:
+        return {
+            "status": "rejected",
+            "message": (
+                "Flight Execution could not be launched. "
+                "It may already be active or unavailable."
+            ),
+        }, 409
+
+    launch_navproxy(
+        flight_execution_id,
+        flight_log["flight_log_id"],
+    )
+
+    return {
+        "status": "accepted",
+        "message": "Flight launched.",
+        "flight_execution_id": str(flight_execution_id),
+        "flight_log_id": str(flight_log["flight_log_id"]),
+    }, 200
+
 

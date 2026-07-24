@@ -55,8 +55,30 @@ DEFAULT_START_TIME = "00:00"
 DEFAULT_END_TIME = "23:59"
 DEFAULT_TIMEZONE = "America/New_York"
 DEFAULT_ALLDAYS = (0, 1, 2, 3, 4, 5, 6)
+
+# ------------------------------------------------------------------
+# SCHEDULER CONFIGURATION
+# ------------------------------------------------------------------
+
 LAUNCH_WINDOW_EXPIRES_MINUTES = 30
 LAUNCH_WINDOW_PREFLIGHT_MINUTES = 15
+
+# Scheduler begins pre-flight this many minutes before the
+# scheduled departure time.
+SCHEDULER_PREFLIGHT_WINDOW_MINUTES = 5
+# Scheduled flights older than this are considered missed.
+# They will not be dispatched by the scheduler.
+SCHEDULER_EXPIRATION_GRACE_MINUTES = 5
+
+# ------------------------------------------------------------------
+# FLIGHT LOG STATUS
+# ------------------------------------------------------------------
+
+FLIGHT_LOG_STATUS_PRE_FLIGHT = "pre_flight"
+FLIGHT_LOG_STATUS_IN_FLIGHT = "in_flight"
+FLIGHT_LOG_STATUS_COMPLETED = "completed"
+FLIGHT_LOG_STATUS_ABORTED = "aborted"
+FLIGHT_LOG_STATUS_FAILED = "failed"
 
 # ------------------------------------------------------------------
 # SRID
@@ -203,6 +225,7 @@ DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT = DEFAULT_MAXIMUM_ALTITUDE_FT
 # --------------------------------------------------------------
 EXECUTION_STATUS_ACTIVE = "active"
 EXECUTION_STATUS_COMPLETED = "completed"
+EXECUTION_STATUS_DISPATCHED = "dispatched"
 EXECUTION_STATUS_EXPIRED = "expired"
 EXECUTION_STATUS_SUSPENDED = "suspended"
 EXECUTION_STATUS_REVOKED = "revoked"
