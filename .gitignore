@@ -17,3 +17,5 @@ cgi-bin/
 startenv
 .htaccess
 .well-known/
+
+app/navproxy/
