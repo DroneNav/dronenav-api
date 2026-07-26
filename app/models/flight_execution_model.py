@@ -779,3 +779,215 @@ def _validate_execution_status(execution_status):
             f"{execution_status}"
         )
 
+
+def select_flight_executions(
+    requested_departure_datetime=None,
+):
+
+    if requested_departure_datetime == "null":
+
+        query = text("""
+            SELECT
+                fe.flight_execution_id,
+                fe.authority_id,
+                fe.flight_class,
+                fe.origin_site_id,
+                fe.destination_site_id,
+                fe.departure_droneport_id,
+                fe.arrival_droneport_id,
+                fe.requested_departure_datetime,
+                fe.operational_timezone,
+
+                COALESCE(
+                    ARRAY_AGG(
+                        fer.route_id
+                        ORDER BY fer.sequence_number
+                    ) FILTER (
+                        WHERE fer.route_id IS NOT NULL
+                    ),
+                    ARRAY[]::UUID[]
+                ) AS route_ids
+
+            FROM flight_executions fe
+
+            LEFT JOIN flight_execution_routes fer
+                ON fe.flight_execution_id =
+                   fer.flight_execution_id
+
+            WHERE fe.requested_departure_datetime IS NULL
+              AND fe.execution_status = :active_status
+
+            GROUP BY
+                fe.flight_execution_id,
+                fe.authority_id,
+                fe.flight_class,
+                fe.origin_site_id,
+                fe.destination_site_id,
+                fe.departure_droneport_id,
+                fe.arrival_droneport_id,
+                fe.requested_departure_datetime,
+                fe.operational_timezone
+        """)
+
+    elif requested_departure_datetime == "not_null":
+
+        query = text("""
+            SELECT
+                fe.flight_execution_id,
+                fe.authority_id,
+                fe.flight_class,
+                fe.origin_site_id,
+                fe.destination_site_id,
+                fe.departure_droneport_id,
+                fe.arrival_droneport_id,
+                fe.requested_departure_datetime,
+                fe.operational_timezone,
+
+                COALESCE(
+                    ARRAY_AGG(
+                        fer.route_id
+                        ORDER BY fer.sequence_number
+                    ) FILTER (
+                        WHERE fer.route_id IS NOT NULL
+                    ),
+                    ARRAY[]::UUID[]
+                ) AS route_ids
+
+            FROM flight_executions fe
+
+            LEFT JOIN flight_execution_routes fer
+                ON fe.flight_execution_id =
+                   fer.flight_execution_id
+
+            WHERE fe.requested_departure_datetime IS NOT NULL
+              AND fe.requested_departure_datetime >= NOW()
+              AND fe.execution_status = :active_status
+
+            GROUP BY
+                fe.flight_execution_id,
+                fe.authority_id,
+                fe.flight_class,
+                fe.origin_site_id,
+                fe.destination_site_id,
+                fe.departure_droneport_id,
+                fe.arrival_droneport_id,
+                fe.requested_departure_datetime,
+                fe.operational_timezone
+
+            ORDER BY
+                fe.requested_departure_datetime
+        """)
+
+    else:
+
+        query = text("""
+            SELECT
+                fe.flight_execution_id,
+                fe.authority_id,
+                fe.flight_class,
+                fe.origin_site_id,
+                fe.destination_site_id,
+                fe.departure_droneport_id,
+                fe.arrival_droneport_id,
+                fe.requested_departure_datetime,
+                fe.operational_timezone,
+
+                COALESCE(
+                    ARRAY_AGG(
+                        fer.route_id
+                        ORDER BY fer.sequence_number
+                    ) FILTER (
+                        WHERE fer.route_id IS NOT NULL
+                    ),
+                    ARRAY[]::UUID[]
+                ) AS route_ids
+
+            FROM flight_executions fe
+
+            LEFT JOIN flight_execution_routes fer
+                ON fe.flight_execution_id =
+                   fer.flight_execution_id
+
+            WHERE fe.execution_status = :active_status
+
+            GROUP BY
+                fe.flight_execution_id,
+                fe.authority_id,
+                fe.flight_class,
+                fe.origin_site_id,
+                fe.destination_site_id,
+                fe.departure_droneport_id,
+                fe.arrival_droneport_id,
+                fe.requested_departure_datetime,
+                fe.operational_timezone
+        """)
+
+    with engine.connect() as connection:
+        result = connection.execute(
+            query,
+            {
+                "active_status": EXECUTION_STATUS_ACTIVE,
+            },
+        )
+
+        return [
+            dict(row)
+            for row in result.mappings().all()
+        ]
+
+
+def select_flight_execution(flight_execution_id):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    fe.flight_execution_id,
+                    fe.authority_id,
+                    fe.flight_class,
+                    fe.origin_site_id,
+                    fe.destination_site_id,
+                    fe.departure_droneport_id,
+                    fe.arrival_droneport_id,
+                    fe.requested_departure_datetime,
+                    fe.operational_timezone,
+
+                    COALESCE(
+                        ARRAY_AGG(
+                            fer.route_id
+                            ORDER BY fer.sequence_number
+                        ) FILTER (
+                            WHERE fer.route_id IS NOT NULL
+                        ),
+                        ARRAY[]::UUID[]
+                    ) AS route_ids
+
+                FROM flight_executions fe
+
+                LEFT JOIN flight_execution_routes fer
+                    ON fe.flight_execution_id =
+                       fer.flight_execution_id
+
+                WHERE fe.flight_execution_id =
+                    :flight_execution_id
+
+                GROUP BY
+                    fe.flight_execution_id,
+                    fe.authority_id,
+                    fe.flight_class,
+                    fe.origin_site_id,
+                    fe.destination_site_id,
+                    fe.departure_droneport_id,
+                    fe.arrival_droneport_id,
+                    fe.requested_departure_datetime,
+                    fe.operational_timezone
+            """),
+            {
+                "flight_execution_id":
+                    flight_execution_id,
+            },
+        )
+
+        row = result.mappings().first()
+
+    return dict(row) if row else None
+

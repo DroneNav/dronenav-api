@@ -48,6 +48,8 @@ from flask_cors import CORS
 from app.services.flight_execution_service import (
     create_flight_execution,
     launch_reusable_flight_execution,
+    list_flight_executions,
+    get_flight_execution,
 )
 
 flight_executions_bp = Blueprint("flight_executions", __name__)
@@ -111,4 +113,35 @@ def launch_flight_execution_route(flight_execution_id):
     )
 
     return jsonify(result), status_code
+
+
+@flight_executions_bp.route("/api/flight-executions", methods=["GET", "OPTIONS"])
+def list_flight_executions_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    requested_departure_datetime = request.args.get(
+        "requested_departure_datetime"
+    )
+
+    response, status = list_flight_executions(
+        requested_departure_datetime
+    )
+
+    return jsonify(response), status
+
+
+@flight_executions_bp.route("/api/flight-executions/<flight_execution_id>", methods=["GET", "OPTIONS"])
+def get_flight_execution_route(
+    flight_execution_id,
+):
+    if request.method == "OPTIONS":
+        return "", 204
+
+    response, status_code = get_flight_execution(
+        flight_execution_id
+    )
+
+    return jsonify(response), status_code
 

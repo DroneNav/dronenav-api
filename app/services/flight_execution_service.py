@@ -64,6 +64,8 @@ from app.models.flight_execution_model import (
     select_flight_execution_by_flight_plan,
     claim_scheduled_flight_execution,
     claim_reusable_flight_execution,
+    select_flight_executions,
+    select_flight_execution,
 )
 from app.models.site_model import select_site
 
@@ -590,5 +592,94 @@ def launch_reusable_flight_execution(
         "flight_execution_id": str(flight_execution_id),
         "flight_log_id": str(flight_log["flight_log_id"]),
     }, 200
+
+
+def get_flight_execution(flight_execution_id):
+
+    flight_execution = select_flight_execution(
+        flight_execution_id
+    )
+
+    if flight_execution is None:
+        return {
+            "error": "Flight Execution Record not found."
+        }, 404
+
+    return format_flight_execution(
+        flight_execution
+    ), 200
+
+
+def list_flight_executions(
+    requested_departure_datetime,
+):
+    if requested_departure_datetime not in (
+        None,
+        "null",
+        "not_null",
+    ):
+        return {
+            "error": (
+                "requested_departure_datetime must be "
+                "'null', 'not_null', or omitted."
+            )
+        }, 400
+
+    flight_executions = select_flight_executions(
+        requested_departure_datetime
+    )
+
+    flight_executions = normalize_flight_executions(
+        flight_executions
+    )
+
+    return flight_executions, 200
+
+
+def normalize_flight_executions(rows):
+    return [
+        format_flight_execution(row)
+        for row in rows
+    ]
+
+
+def format_flight_execution(row):
+    return {
+        "flight_execution_id": str(
+            row["flight_execution_id"]
+        ),
+        "authority_id": str(
+            row["authority_id"]
+        ),
+        "flight_class": row["flight_class"],
+        "origin_site_id": str(
+            row["origin_site_id"]
+        ),
+        "destination_site_id": str(
+            row["destination_site_id"]
+        ),
+        "departure_droneport_id": (
+            str(row["departure_droneport_id"])
+            if row["departure_droneport_id"]
+            else None
+        ),
+        "arrival_droneport_id": (
+            str(row["arrival_droneport_id"])
+            if row["arrival_droneport_id"]
+            else None
+        ),
+        "route_ids": [
+          str(route_id)
+          for route_id in row["route_ids"]
+        ],
+        "requested_departure_datetime": (
+            row["requested_departure_datetime"].isoformat()
+            if row["requested_departure_datetime"]
+            else None
+        ),
+        "operational_timezone": row[
+            "operational_timezone"
+        ],
+    }
 
 
