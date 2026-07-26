@@ -236,8 +236,7 @@ def validate_flight_execution_submission(data):
                 "message": f"Missing required field: {field}.",
             })
 
-    # This early return is intentional because later code accesses
-    # required dictionary keys directly.
+    # Later validation accesses required dictionary keys directly.
     if errors:
         return errors
 
@@ -248,8 +247,10 @@ def validate_flight_execution_submission(data):
             "message": "flight_class is not valid.",
         })
 
-    active_flight_bands = select_active_flight_band_records_by_class(
-        data["flight_class"]
+    active_flight_bands = (
+        select_active_flight_band_records_by_class(
+            data["flight_class"]
+        )
     )
 
     if not active_flight_bands:
@@ -262,9 +263,11 @@ def validate_flight_execution_submission(data):
             ),
         })
     else:
-        departure_error = validate_requested_departure_datetime(
-            data["requested_departure_datetime"],
-            active_flight_bands,
+        departure_error = (
+            validate_requested_departure_datetime(
+                data["requested_departure_datetime"],
+                active_flight_bands,
+            )
         )
 
         if departure_error:
@@ -305,15 +308,98 @@ def validate_flight_execution_submission(data):
                     ),
                 })
 
-    # Do not run database relationship validation when the payload shape
-    # is already invalid.
+    # Do not evaluate flight structure until the basic payload
+    # values and flight_path_ids type have been validated.
     if errors:
         return errors
 
-    geospatial_errors = validate_operational_geospatial_data(data)
+    requested_departure_datetime = data[
+        "requested_departure_datetime"
+    ]
+    departure_droneport_id = data[
+        "departure_droneport_id"
+    ]
+    arrival_droneport_id = data[
+        "arrival_droneport_id"
+    ]
+    flight_path_ids = data["flight_path_ids"]
+
+    # A reusable execution cannot prescribe droneports or a route.
+    if requested_departure_datetime is None:
+        if departure_droneport_id is not None:
+            errors.append({
+                "field": "departure_droneport_id",
+                "code": "invalid_reusable_flight_structure",
+                "message": (
+                    "departure_droneport_id must be null when "
+                    "requested_departure_datetime is null."
+                ),
+            })
+
+        if arrival_droneport_id is not None:
+            errors.append({
+                "field": "arrival_droneport_id",
+                "code": "invalid_reusable_flight_structure",
+                "message": (
+                    "arrival_droneport_id must be null when "
+                    "requested_departure_datetime is null."
+                ),
+            })
+
+        if flight_path_ids:
+            errors.append({
+                "field": "flight_path_ids",
+                "code": "invalid_reusable_flight_structure",
+                "message": (
+                    "flight_path_ids must be an empty array when "
+                    "requested_departure_datetime is null."
+                ),
+            })
+
+    # A scheduled execution must prescribe both droneports
+    # and at least one Route.
+    else:
+        if departure_droneport_id is None:
+            errors.append({
+                "field": "departure_droneport_id",
+                "code": "missing_scheduled_flight_field",
+                "message": (
+                    "departure_droneport_id is required when "
+                    "requested_departure_datetime is provided."
+                ),
+            })
+
+        if arrival_droneport_id is None:
+            errors.append({
+                "field": "arrival_droneport_id",
+                "code": "missing_scheduled_flight_field",
+                "message": (
+                    "arrival_droneport_id is required when "
+                    "requested_departure_datetime is provided."
+                ),
+            })
+
+        if not flight_path_ids:
+            errors.append({
+                "field": "flight_path_ids",
+                "code": "missing_scheduled_flight_field",
+                "message": (
+                    "flight_path_ids must contain at least one "
+                    "Route when requested_departure_datetime "
+                    "is provided."
+                ),
+            })
+
+    # Do not perform database relationship validation when the
+    # Flight Execution structure is invalid.
+    if errors:
+        return errors
+
+    geospatial_errors = (
+        validate_operational_geospatial_data(data)
+    )
     errors.extend(geospatial_errors)
 
-    # This is the final return.
     return errors
 
 
