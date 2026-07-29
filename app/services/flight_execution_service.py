@@ -712,7 +712,7 @@ def list_flight_executions(
         }, 400
 
     flight_executions = select_flight_executions(
-        requested_departure_datetime
+        requested_departure_datetime=requested_departure_datetime
     )
 
     flight_executions = normalize_flight_executions(

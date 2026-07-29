@@ -235,8 +235,6 @@ def select_flight_executions(
     authority_id=None,
     execution_status=None,
     requested_departure_datetime=None,
-    limit=100,
-    offset=0,
 ):
     if execution_status is not None:
         _validate_execution_status(execution_status)
@@ -245,14 +243,6 @@ def select_flight_executions(
         raise ValueError(
             "requested_departure_datetime must be null or not_null"
         )
-
-    limit = int(limit)
-    offset = int(offset)
-
-    if not 1 <= limit <= 1000:
-        raise ValueError("limit must be between 1 and 1000")
-    if offset < 0:
-        raise ValueError("offset must not be negative")
 
     departure_filter = ""
     if requested_departure_datetime == "null":
@@ -294,8 +284,6 @@ def select_flight_executions(
         ORDER BY
             requested_departure_datetime NULLS FIRST,
             created_at DESC
-        LIMIT :limit
-        OFFSET :offset
     """)
 
     with engine.connect() as connection:
@@ -304,8 +292,6 @@ def select_flight_executions(
             {
                 "authority_id": authority_id,
                 "execution_status": execution_status,
-                "limit": limit,
-                "offset": offset,
             },
         )
 
