@@ -27,7 +27,7 @@ License:
 GNU Affero General Public License v3.0 (AGPL-3.0-or-later)
 
 Purpose:
-Flight Execution API object model implentation source file.
+Flight Execution API object model implementation source file.
 
 Author:
 DroneNav Project Contributors
@@ -60,10 +60,7 @@ from app.config.constants import (
     EXECUTION_STATUS_SUSPENDED,
 )
 
-from app.config.constants import (
-    FLIGHT_LOG_STATUS_PRE_FLIGHT,
-    FLIGHT_LOG_STATUS_IN_FLIGHT,
-)
+from app.config.constants import FLIGHT_LOG_STATUS_PRE_FLIGHT
 
 EXECUTION_STATUSES = {
     EXECUTION_STATUS_ACTIVE,
@@ -237,11 +234,17 @@ def select_flight_execution_by_flight_plan(flight_plan_id):
 def select_flight_executions(
     authority_id=None,
     execution_status=None,
+    requested_departure_datetime=None,
     limit=100,
     offset=0,
 ):
     if execution_status is not None:
         _validate_execution_status(execution_status)
+
+    if requested_departure_datetime not in (None, "null", "not_null"):
+        raise ValueError(
+            "requested_departure_datetime must be null or not_null"
+        )
 
     limit = int(limit)
     offset = int(offset)
@@ -251,37 +254,53 @@ def select_flight_executions(
     if offset < 0:
         raise ValueError("offset must not be negative")
 
+    departure_filter = ""
+    if requested_departure_datetime == "null":
+        departure_filter = (
+            "AND requested_departure_datetime IS NULL"
+        )
+    elif requested_departure_datetime == "not_null":
+        departure_filter = (
+            "AND requested_departure_datetime IS NOT NULL "
+            "AND requested_departure_datetime >= NOW()"
+        )
+
+    query = text(f"""
+        SELECT
+            flight_execution_id,
+            flight_plan_id,
+            authority_id,
+            flight_class,
+            origin_site_id,
+            destination_site_id,
+            departure_droneport_id,
+            arrival_droneport_id,
+            requested_departure_datetime,
+            flight_termination_datetime,
+            operational_timezone,
+            execution_status,
+            created_at,
+            updated_at
+        FROM flight_executions
+        WHERE (
+            :authority_id IS NULL
+            OR authority_id = :authority_id
+        )
+          AND (
+            :execution_status IS NULL
+            OR execution_status = :execution_status
+          )
+          {departure_filter}
+        ORDER BY
+            requested_departure_datetime NULLS FIRST,
+            created_at DESC
+        LIMIT :limit
+        OFFSET :offset
+    """)
+
     with engine.connect() as connection:
         result = connection.execute(
-            text("""
-                SELECT
-                    flight_execution_id,
-                    flight_plan_id,
-                    authority_id,
-                    flight_class,
-                    origin_site_id,
-                    destination_site_id,
-                    departure_droneport_id,
-                    arrival_droneport_id,
-                    requested_departure_datetime,
-                    flight_termination_datetime,
-                    operational_timezone,
-                    execution_status,
-                    created_at,
-                    updated_at
-                FROM flight_executions
-                WHERE (
-                    :authority_id IS NULL
-                    OR authority_id = :authority_id
-                )
-                  AND (
-                    :execution_status IS NULL
-                    OR execution_status = :execution_status
-                  )
-                ORDER BY created_at DESC
-                LIMIT :limit
-                OFFSET :offset
-            """),
+            query,
             {
                 "authority_id": authority_id,
                 "execution_status": execution_status,
@@ -378,7 +397,7 @@ def complete_scheduled_flight_execution(
                     updated_at = NOW()
                 WHERE flight_execution_id = :flight_execution_id
                   AND requested_departure_datetime IS NOT NULL
-                  AND execution_status = :active_status
+                  AND execution_status = :dispatched_status
                 RETURNING
                     flight_execution_id,
                     execution_status,
@@ -390,7 +409,7 @@ def complete_scheduled_flight_execution(
                 "flight_termination_datetime":
                     flight_termination_datetime,
                 "completed_status": EXECUTION_STATUS_COMPLETED,
-                "active_status": EXECUTION_STATUS_ACTIVE,
+                "dispatched_status": EXECUTION_STATUS_DISPATCHED,
             },
         )
 
@@ -779,215 +798,4 @@ def _validate_execution_status(execution_status):
             f"{execution_status}"
         )
 
-
-def select_flight_executions(
-    requested_departure_datetime=None,
-):
-
-    if requested_departure_datetime == "null":
-
-        query = text("""
-            SELECT
-                fe.flight_execution_id,
-                fe.authority_id,
-                fe.flight_class,
-                fe.origin_site_id,
-                fe.destination_site_id,
-                fe.departure_droneport_id,
-                fe.arrival_droneport_id,
-                fe.requested_departure_datetime,
-                fe.operational_timezone,
-
-                COALESCE(
-                    ARRAY_AGG(
-                        fer.route_id
-                        ORDER BY fer.sequence_number
-                    ) FILTER (
-                        WHERE fer.route_id IS NOT NULL
-                    ),
-                    ARRAY[]::UUID[]
-                ) AS route_ids
-
-            FROM flight_executions fe
-
-            LEFT JOIN flight_execution_routes fer
-                ON fe.flight_execution_id =
-                   fer.flight_execution_id
-
-            WHERE fe.requested_departure_datetime IS NULL
-              AND fe.execution_status = :active_status
-
-            GROUP BY
-                fe.flight_execution_id,
-                fe.authority_id,
-                fe.flight_class,
-                fe.origin_site_id,
-                fe.destination_site_id,
-                fe.departure_droneport_id,
-                fe.arrival_droneport_id,
-                fe.requested_departure_datetime,
-                fe.operational_timezone
-        """)
-
-    elif requested_departure_datetime == "not_null":
-
-        query = text("""
-            SELECT
-                fe.flight_execution_id,
-                fe.authority_id,
-                fe.flight_class,
-                fe.origin_site_id,
-                fe.destination_site_id,
-                fe.departure_droneport_id,
-                fe.arrival_droneport_id,
-                fe.requested_departure_datetime,
-                fe.operational_timezone,
-
-                COALESCE(
-                    ARRAY_AGG(
-                        fer.route_id
-                        ORDER BY fer.sequence_number
-                    ) FILTER (
-                        WHERE fer.route_id IS NOT NULL
-                    ),
-                    ARRAY[]::UUID[]
-                ) AS route_ids
-
-            FROM flight_executions fe
-
-            LEFT JOIN flight_execution_routes fer
-                ON fe.flight_execution_id =
-                   fer.flight_execution_id
-
-            WHERE fe.requested_departure_datetime IS NOT NULL
-              AND fe.requested_departure_datetime >= NOW()
-              AND fe.execution_status = :active_status
-
-            GROUP BY
-                fe.flight_execution_id,
-                fe.authority_id,
-                fe.flight_class,
-                fe.origin_site_id,
-                fe.destination_site_id,
-                fe.departure_droneport_id,
-                fe.arrival_droneport_id,
-                fe.requested_departure_datetime,
-                fe.operational_timezone
-
-            ORDER BY
-                fe.requested_departure_datetime
-        """)
-
-    else:
-
-        query = text("""
-            SELECT
-                fe.flight_execution_id,
-                fe.authority_id,
-                fe.flight_class,
-                fe.origin_site_id,
-                fe.destination_site_id,
-                fe.departure_droneport_id,
-                fe.arrival_droneport_id,
-                fe.requested_departure_datetime,
-                fe.operational_timezone,
-
-                COALESCE(
-                    ARRAY_AGG(
-                        fer.route_id
-                        ORDER BY fer.sequence_number
-                    ) FILTER (
-                        WHERE fer.route_id IS NOT NULL
-                    ),
-                    ARRAY[]::UUID[]
-                ) AS route_ids
-
-            FROM flight_executions fe
-
-            LEFT JOIN flight_execution_routes fer
-                ON fe.flight_execution_id =
-                   fer.flight_execution_id
-
-            WHERE fe.execution_status = :active_status
-
-            GROUP BY
-                fe.flight_execution_id,
-                fe.authority_id,
-                fe.flight_class,
-                fe.origin_site_id,
-                fe.destination_site_id,
-                fe.departure_droneport_id,
-                fe.arrival_droneport_id,
-                fe.requested_departure_datetime,
-                fe.operational_timezone
-        """)
-
-    with engine.connect() as connection:
-        result = connection.execute(
-            query,
-            {
-                "active_status": EXECUTION_STATUS_ACTIVE,
-            },
-        )
-
-        return [
-            dict(row)
-            for row in result.mappings().all()
-        ]
-
-
-def select_flight_execution(flight_execution_id):
-    with engine.connect() as connection:
-        result = connection.execute(
-            text("""
-                SELECT
-                    fe.flight_execution_id,
-                    fe.authority_id,
-                    fe.flight_class,
-                    fe.origin_site_id,
-                    fe.destination_site_id,
-                    fe.departure_droneport_id,
-                    fe.arrival_droneport_id,
-                    fe.requested_departure_datetime,
-                    fe.operational_timezone,
-
-                    COALESCE(
-                        ARRAY_AGG(
-                            fer.route_id
-                            ORDER BY fer.sequence_number
-                        ) FILTER (
-                            WHERE fer.route_id IS NOT NULL
-                        ),
-                        ARRAY[]::UUID[]
-                    ) AS route_ids
-
-                FROM flight_executions fe
-
-                LEFT JOIN flight_execution_routes fer
-                    ON fe.flight_execution_id =
-                       fer.flight_execution_id
-
-                WHERE fe.flight_execution_id =
-                    :flight_execution_id
-
-                GROUP BY
-                    fe.flight_execution_id,
-                    fe.authority_id,
-                    fe.flight_class,
-                    fe.origin_site_id,
-                    fe.destination_site_id,
-                    fe.departure_droneport_id,
-                    fe.arrival_droneport_id,
-                    fe.requested_departure_datetime,
-                    fe.operational_timezone
-            """),
-            {
-                "flight_execution_id":
-                    flight_execution_id,
-            },
-        )
-
-        row = result.mappings().first()
-
-    return dict(row) if row else None
 
