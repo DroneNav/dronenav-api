@@ -53,6 +53,7 @@ from app.services.site_service import (
     update_site,
     patch_site,
     delete_site,
+    evaluate_point_in_site,
 )
 from app.services.zone_service import get_zones_by_site_id
 from app.services.droneport_service import get_droneports_by_site_id
@@ -226,6 +227,32 @@ def delete_site_route(site_id):
             "status": "error",
             "message": "Site not found"
         }), 404
+
+    return jsonify(result)
+
+@sites_bp.route(
+    "/api/sites/<site_id>/point-containment",
+    methods=["POST", "OPTIONS"],
+)
+def evaluate_point_in_site_route(site_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    result, error = evaluate_point_in_site(
+        site_id,
+        data,
+    )
+
+    if error:
+        status_code = 404 if error == "Site not found" else 400
+
+        return jsonify({
+            "status": "error",
+            "message": error,
+        }), status_code
 
     return jsonify(result)
 

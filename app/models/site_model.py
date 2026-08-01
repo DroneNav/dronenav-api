@@ -396,3 +396,45 @@ def update_site_timezone_record(site_id, timezone):
         return dict(record), None
 
 
+def select_site_point_containment(
+    site_id,
+    data,
+):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                WITH point AS (
+                    SELECT ST_SetSRID(
+                        ST_MakePoint(
+                            :longitude,
+                            :latitude
+                        ),
+                        :srid
+                    ) AS geometry
+                )
+                SELECT
+                    s.site_id,
+                    ST_Covers(
+                        s.geometry,
+                        point.geometry
+                    ) AS inside,
+                    ST_Touches(
+                        s.geometry,
+                        point.geometry
+                    ) AS on_boundary
+                FROM sites AS s
+                CROSS JOIN point
+                WHERE s.site_id = :site_id
+                  AND s.operational_status != :deleted_status
+            """),
+            {
+                "site_id": site_id,
+                "longitude": data["longitude"],
+                "latitude": data["latitude"],
+                "srid": DEFAULT_SRID,
+                "deleted_status": SITE_STATUS_DELETED,
+            },
+        )
+
+        return result.mappings().first()
+

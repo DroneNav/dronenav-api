@@ -53,6 +53,7 @@ from app.services.droneport_service import (
     update_droneport,
     patch_droneport,
     delete_droneport,
+    evaluate_point_in_droneport,
 )
 
 droneports_bp = Blueprint("droneports", __name__)
@@ -180,6 +181,37 @@ def delete_droneport_route(droneport_id):
             "status": "error",
             "message": "DronePort not found"
         }), 404
+
+    return jsonify(result)
+
+
+@droneports_bp.route(
+    "/api/droneports/<droneport_id>/point-containment",
+    methods=["POST", "OPTIONS"],
+)
+def evaluate_point_in_droneport_route(droneport_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    result, error = evaluate_point_in_droneport(
+        droneport_id,
+        data,
+    )
+
+    if error:
+        status_code = (
+            404
+            if error == "DronePort not found"
+            else 400
+        )
+
+        return jsonify({
+            "status": "error",
+            "message": error,
+        }), status_code
 
     return jsonify(result)
 

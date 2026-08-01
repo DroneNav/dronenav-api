@@ -55,6 +55,7 @@ from app.models.site_model import (
     insert_site,
     select_site,
     select_sites,
+    select_site_point_containment,
     update_site_record,
     patch_site_record,
     patch_timezone_record,
@@ -317,4 +318,66 @@ def delete_site(site_id, deleted_by):
         "status": "deleted",
         "site_id": str(row["site_id"]),
     }
+
+
+def validate_site_point_containment_payload(data):
+    required_fields = [
+        "latitude",
+        "longitude",
+    ]
+
+    for field in required_fields:
+        if field not in data or data[field] in ("", None):
+            return f"Missing required field: {field}"
+
+    try:
+        latitude = float(data["latitude"])
+        longitude = float(data["longitude"])
+    except (TypeError, ValueError):
+        return "latitude and longitude must be numeric"
+
+    if latitude < -90 or latitude > 90:
+        return "latitude must be between -90 and 90"
+
+    if longitude < -180 or longitude > 180:
+        return "longitude must be between -180 and 180"
+
+    return None
+
+def normalize_site_point_containment_payload(data):
+    return {
+        "latitude": float(data["latitude"]),
+        "longitude": float(data["longitude"]),
+    }
+
+def format_site_point_containment(row):
+    if row is None:
+        return None
+
+    return {
+        "site_id": str(row["site_id"]),
+        "inside": row["inside"],
+        "on_boundary": row["on_boundary"],
+    }
+
+def evaluate_point_in_site(site_id, data):
+    error = validate_site_point_containment_payload(data)
+
+    if error:
+        return None, error
+
+    normalized_data = normalize_site_point_containment_payload(
+        data
+    )
+
+    row = select_site_point_containment(
+        site_id,
+        normalized_data,
+    )
+
+    if row is None:
+        return None, "Site not found"
+
+    return format_site_point_containment(row), None
+
 

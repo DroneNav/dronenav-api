@@ -54,6 +54,7 @@ from app.models.droneport_model import (
     select_droneport,
     select_droneports,
     select_droneports_by_site_id,
+    select_droneport_point_containment,
     update_droneport_record,
     patch_droneport_record,
     patch_timezone_record,
@@ -316,4 +317,71 @@ def delete_droneport(droneport_id, deleted_by):
         "status": "deleted",
         "droneport_id": str(row["droneport_id"]),
     }
+
+
+def validate_droneport_point_containment_payload(data):
+    required_fields = [
+        "latitude",
+        "longitude",
+    ]
+
+    for field in required_fields:
+        if field not in data or data[field] in ("", None):
+            return f"Missing required field: {field}"
+
+    try:
+        latitude = float(data["latitude"])
+        longitude = float(data["longitude"])
+    except (TypeError, ValueError):
+        return "latitude and longitude must be numeric"
+
+    if latitude < -90 or latitude > 90:
+        return "latitude must be between -90 and 90"
+
+    if longitude < -180 or longitude > 180:
+        return "longitude must be between -180 and 180"
+
+    return None
+
+def normalize_droneport_point_containment_payload(data):
+    return {
+        "latitude": float(data["latitude"]),
+        "longitude": float(data["longitude"]),
+    }
+
+def format_droneport_point_containment(row):
+    if row is None:
+        return None
+
+    return {
+        "droneport_id": str(row["droneport_id"]),
+        "inside": row["inside"],
+        "distance_ft": round(float(row["distance_ft"]), 3),
+        "radius_ft": round(float(row["radius_ft"]), 3),
+        "center": {
+            "latitude": float(row["center_latitude"]),
+            "longitude": float(row["center_longitude"]),
+        },
+    }
+
+def evaluate_point_in_droneport(droneport_id, data):
+    error = validate_droneport_point_containment_payload(data)
+
+    if error:
+        return None, error
+
+    normalized_data = (
+        normalize_droneport_point_containment_payload(data)
+    )
+
+    row = select_droneport_point_containment(
+        droneport_id,
+        normalized_data,
+    )
+
+    if row is None:
+        return None, "DronePort not found"
+
+    return format_droneport_point_containment(row), None
+
 

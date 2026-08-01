@@ -385,3 +385,53 @@ def select_droneports_by_site(site_id):
             for record in result.mappings().all()
         ]
 
+
+def select_droneport_point_containment(
+    droneport_id,
+    data,
+):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                WITH point AS (
+                    SELECT ST_SetSRID(
+                        ST_MakePoint(
+                            :longitude,
+                            :latitude
+                        ),
+                        :srid
+                    ) AS geometry
+                )
+                SELECT
+                    d.droneport_id,
+                    ST_DWithin(
+                        d.geometry::geography,
+                        point.geometry::geography,
+                        (
+                            d.droneport_diameter_ft
+                            / 2.0
+                        ) * 0.3048
+                    ) AS inside,
+                    ST_Distance(
+                        d.geometry::geography,
+                        point.geometry::geography
+                    ) / 0.3048 AS distance_ft,
+                    d.droneport_diameter_ft / 2.0 AS radius_ft,
+                    ST_Y(d.geometry) AS center_latitude,
+                    ST_X(d.geometry) AS center_longitude
+                FROM droneports AS d
+                CROSS JOIN point
+                WHERE d.droneport_id = :droneport_id
+                  AND d.operational_status <> :deleted_status
+            """),
+            {
+                "droneport_id": droneport_id,
+                "longitude": data["longitude"],
+                "latitude": data["latitude"],
+                "srid": DEFAULT_SRID,
+                "deleted_status": DRONEPORT_STATUS_DELETED,
+            }
+        )
+
+        return result.mappings().first()
+
