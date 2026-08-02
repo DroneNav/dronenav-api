@@ -42,7 +42,6 @@ operations. All operational use remains the responsibility
 of the aircraft operator and applicable regulatory authorities.
 """
 
-from app.config.constants import VALID_FLIGHT_CLASSES
 from app.models.flight_band_model import select_active_flight_band_records_by_class
 
 from app.services.geospatial_validation_service import (
@@ -78,8 +77,8 @@ import subprocess
 import sys
 import os
 
-from pathlib import Path
 import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -580,18 +579,16 @@ def _to_flight_band_day_of_week(value):
 
 def launch_navproxy(
     flight_execution_id,
-    flight_log_id,
+    flight_id,
 ):
     """
     Launch the Phase 2 NAVProxy simulator as a separate process.
     """
 
-    project_root = Path(__file__).resolve().parents[2]
-
     logger.info(
-        "Launching NAVProxy simulator: execution=%s flight_log=%s",
+        "Launching NAVProxy simulator: execution=%s flight=%s",
         flight_execution_id,
-        flight_log_id,
+        flight_id,
     )
 
     navproxy_project_dir = os.environ["NAVPROXY_PROJECT_DIR"]
@@ -604,8 +601,8 @@ def launch_navproxy(
             "app.navproxy",
             "--flight-execution-id",
             str(flight_execution_id),
-            "--flight-log-id",
-            str(flight_log_id),
+            "--flight-id",
+            str(flight_id),
         ],
         cwd=navproxy_project_dir,
     )
@@ -619,13 +616,13 @@ def launch_scheduled_flight_execution(
     aviator_id,
     aircraft_id,
 ):
-    flight_log = claim_scheduled_flight_execution(
+    flight = claim_scheduled_flight_execution(
         flight_execution_id,
         aviator_id,
         aircraft_id,
     )
 
-    if flight_log is None:
+    if flight is None:
         return {
             "status": "rejected",
             "message": (
@@ -636,14 +633,14 @@ def launch_scheduled_flight_execution(
 
     launch_navproxy(
         flight_execution_id,
-        flight_log["flight_log_id"],
+        flight["flight_id"],
     )
 
     return {
         "status": "accepted",
         "message": "Flight launched.",
         "flight_execution_id": str(flight_execution_id),
-        "flight_log_id": str(flight_log["flight_log_id"]),
+        "flight_id": str(flight["flight_id"]),
     }, 200
 
 
@@ -652,13 +649,13 @@ def launch_reusable_flight_execution(
     aviator_id,
     aircraft_id,
 ):
-    flight_log = claim_reusable_flight_execution(
+    flight = claim_reusable_flight_execution(
         flight_execution_id,
         aviator_id,
         aircraft_id,
     )
 
-    if flight_log is None:
+    if flight is None:
         return {
             "status": "rejected",
             "message": (
@@ -669,14 +666,14 @@ def launch_reusable_flight_execution(
 
     launch_navproxy(
         flight_execution_id,
-        flight_log["flight_log_id"],
+        flight["flight_id"],
     )
 
     return {
         "status": "accepted",
         "message": "Flight launched.",
         "flight_execution_id": str(flight_execution_id),
-        "flight_log_id": str(flight_log["flight_log_id"]),
+        "flight_id": str(flight["flight_id"]),
     }, 200
 
 

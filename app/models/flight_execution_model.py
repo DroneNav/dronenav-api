@@ -60,8 +60,6 @@ from app.config.constants import (
     EXECUTION_STATUS_SUSPENDED,
 )
 
-from app.config.constants import FLIGHT_LOG_STATUS_PRE_FLIGHT
-
 EXECUTION_STATUSES = {
     EXECUTION_STATUS_ACTIVE,
     EXECUTION_STATUS_COMPLETED,
@@ -462,7 +460,7 @@ def select_flight_executions_ready_for_dispatch(
         ]
 
 
-def _create_flight_log(
+def _create_flight(
     connection,
     flight_execution_id,
     aviator_id,
@@ -470,39 +468,81 @@ def _create_flight_log(
     scheduled_departure_utc,
 ):
     """
-    Create and return a Flight Log for a claimed Flight Execution.
+    Create and return the Flight anchor for a claimed Flight Execution.
 
     The caller must already hold the Flight Execution row lock.
     """
 
-    log_result = connection.execute(
+    result = connection.execute(
         text("""
-            INSERT INTO flight_log (
+            INSERT INTO flight (
                 flight_execution_id,
                 aviator_id,
                 aircraft_id,
-                scheduled_departure_utc,
-                flight_log_status
+                scheduled_departure_utc
             )
             VALUES (
                 :flight_execution_id,
                 :aviator_id,
                 :aircraft_id,
-                :scheduled_departure_utc,
-                :flight_log_status
+                :scheduled_departure_utc
             )
-            RETURNING *
+            RETURNING
+                flight_id,
+                flight_execution_id,
+                aviator_id,
+                aircraft_id,
+                scheduled_departure_utc,
+                created_at
         """),
         {
             "flight_execution_id": flight_execution_id,
             "aviator_id": aviator_id,
             "aircraft_id": aircraft_id,
             "scheduled_departure_utc": scheduled_departure_utc,
-            "flight_log_status": FLIGHT_LOG_STATUS_PRE_FLIGHT,
         },
     )
 
-    return dict(log_result.mappings().one())
+    return dict(result.mappings().one())
+
+
+def _create_initial_flight_log(
+    connection,
+    flight,
+):
+    """
+    Append the initial Flight Log entry before NAVProxy is launched.
+    """
+
+    result = connection.execute(
+        text("""
+            INSERT INTO flight_log (
+                flight_id,
+                flight_execution_id,
+                lifecycle_phase,
+                event_type,
+                event_status,
+                message,
+                details
+            )
+            VALUES (
+                :flight_id,
+                :flight_execution_id,
+                'pre_flight',
+                'flight_created',
+                'started',
+                'Flight created and prepared for NAVProxy execution.',
+                NULL
+            )
+            RETURNING flight_log_id
+        """),
+        {
+            "flight_id": flight["flight_id"],
+            "flight_execution_id": flight["flight_execution_id"],
+        },
+    )
+
+    return str(result.scalar_one())
 
 
 def claim_scheduled_flight_execution(
@@ -513,8 +553,9 @@ def claim_scheduled_flight_execution(
     """
     Atomically claim a scheduled Flight Execution.
 
+
     A scheduled Flight Execution may be dispatched only once.
-    Returns the created Flight Log, or None when the execution is
+    Returns the created Flight, or None when the execution is
     no longer eligible.
     """
 
@@ -554,14 +595,20 @@ def claim_scheduled_flight_execution(
         if execution is None:
             return None
 
-        return _create_flight_log(
+        flight = _create_flight(
             connection=connection,
             flight_execution_id=execution["flight_execution_id"],
             aviator_id=aviator_id,
             aircraft_id=aircraft_id,
-            scheduled_departure_utc=
-                execution["scheduled_departure_utc"],
+            scheduled_departure_utc=execution["scheduled_departure_utc"],
         )
+
+        flight["initial_flight_log_id"] = _create_initial_flight_log(
+            connection=connection,
+            flight=flight,
+        )
+
+        return flight
 
 
 def claim_reusable_flight_execution(
@@ -572,8 +619,8 @@ def claim_reusable_flight_execution(
     """
     Atomically claim a reusable Flight Execution.
 
-    A reusable Flight Execution may create multiple Flight Logs.
-    Returns the created Flight Log, or None when the execution is
+    A reusable Flight Execution may create multiple Flights.
+    Returns the created Flight, or None when the execution is
     no longer eligible.
     """
 
@@ -608,14 +655,20 @@ def claim_reusable_flight_execution(
         if execution is None:
             return None
 
-        return _create_flight_log(
+        flight = _create_flight(
             connection=connection,
             flight_execution_id=execution["flight_execution_id"],
             aviator_id=aviator_id,
             aircraft_id=aircraft_id,
-            scheduled_departure_utc=
-                execution["scheduled_departure_utc"],
+            scheduled_departure_utc=execution["scheduled_departure_utc"],
         )
+
+        flight["initial_flight_log_id"] = _create_initial_flight_log(
+            connection=connection,
+            flight=flight,
+        )
+
+        return flight
 
 
 def expire_scheduled_flight_executions(late_launch_minutes):
