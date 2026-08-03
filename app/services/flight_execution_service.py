@@ -124,11 +124,6 @@ def create_flight_execution(data):
             }
         ])
 
-    errors = validate_flight_execution_submission(data)
-
-    if errors:
-        return rejected_response(errors)
-
     operational_timezone = resolve_operational_timezone(data)
 
     if operational_timezone is None:
@@ -143,6 +138,11 @@ def create_flight_execution(data):
             }
         ])
 
+    errors = validate_flight_execution_submission(data, operational_timezone)
+
+    if errors:
+        return rejected_response(errors)
+
     requested_departure_datetime = None
 
     if data["requested_departure_datetime"] is not None:
@@ -155,6 +155,8 @@ def create_flight_execution(data):
     flight_execution_data = {
         "flight_plan_id": str(data["flight_plan_id"]),
         "authority_id": str(data["authority_id"]),
+        "aviator_id": str(data["aviator_id"]),
+        "aircraft_id": str(data["aircraft_id"]),
         "flight_class": data["flight_class"],
         "origin_site_id": str(data["origin_site_id"]),
         "destination_site_id": str(
@@ -209,7 +211,7 @@ def create_flight_execution(data):
     )
 
 
-def validate_flight_execution_submission(data):
+def validate_flight_execution_submission(data, operational_timezone):
     errors = []
 
     required_fields = [
@@ -265,6 +267,7 @@ def validate_flight_execution_submission(data):
         departure_error = (
             validate_requested_departure_datetime(
                 data["requested_departure_datetime"],
+                operational_timezone,
                 active_flight_bands,
             )
         )
@@ -428,6 +431,7 @@ def rejected_response(errors):
 
 def validate_requested_departure_datetime(
     requested_departure_datetime,
+    operational_timezone,
     active_flight_bands,
 ):
     """
@@ -457,6 +461,7 @@ def validate_requested_departure_datetime(
     for flight_band in active_flight_bands:
         if _requested_departure_matches_band(
             requested_datetime,
+            operational_timezone,
             flight_band,
         ):
             return None
@@ -472,7 +477,7 @@ def validate_requested_departure_datetime(
 
 
 def resolve_operational_timezone(data):
-    departure_droneport_id = data["departure_droneport_id"]
+    departure_droneport_id = data.get("departure_droneport_id")
 
     if departure_droneport_id is not None:
         droneport = select_droneport(departure_droneport_id)
@@ -482,7 +487,12 @@ def resolve_operational_timezone(data):
 
         return resolve_droneport_timezone(droneport)
 
-    site = select_site(data["origin_site_id"])
+    origin_site_id = data.get("origin_site_id")
+
+    if not origin_site_id:
+        return None
+
+    site = select_site(origin_site_id)
 
     if site is None:
         return None
@@ -510,7 +520,7 @@ def _parse_requested_departure_datetime(value):
         return None
 
     # Require an aware datetime so its meaning is unambiguous when converted
-    # into each Flight Band's configured timezone.
+    # into the operational timezone of the Flight Execution.
     if (
         parsed_datetime.tzinfo is None
         or parsed_datetime.utcoffset() is None
@@ -522,17 +532,18 @@ def _parse_requested_departure_datetime(value):
 
 def _requested_departure_matches_band(
     requested_datetime,
+    operational_timezone,
     flight_band,
 ):
-    timezone_name = flight_band["timezone"]
-
     try:
-        flight_band_timezone = ZoneInfo(timezone_name)
+        operational_timezone_info = ZoneInfo(
+            operational_timezone
+        )
     except ZoneInfoNotFoundError:
         return False
 
     local_datetime = requested_datetime.astimezone(
-        flight_band_timezone
+        operational_timezone_info 
     )
 
     day_of_week = _to_flight_band_day_of_week(local_datetime)
@@ -593,19 +604,29 @@ def launch_navproxy(
 
     navproxy_project_dir = os.environ["NAVPROXY_PROJECT_DIR"]
 
-    subprocess.Popen(
-        [
-            sys.executable,
-            "-u",
-            "-m",
-            "app.navproxy",
-            "--flight-execution-id",
-            str(flight_execution_id),
-            "--flight-id",
-            str(flight_id),
-        ],
-        cwd=navproxy_project_dir,
+    navproxy_log_path = os.environ.get(
+        "NAVPROXY_LOG_PATH",
+        os.path.expanduser("~/logs/navproxy.log"),
     )
+
+    with open(navproxy_log_path, "a", encoding="utf-8") as log_file:
+        subprocess.Popen(
+            [
+                sys.executable,
+                "-u",
+                "-m",
+                "app.navproxy",
+                "--flight-execution-id",
+                str(flight_execution_id),
+                "--flight-id",
+                str(flight_id),
+            ],
+            cwd=navproxy_project_dir,
+            stdin=subprocess.DEVNULL,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
 
 
 # ----------------------------------------------------------------------
@@ -733,6 +754,12 @@ def format_flight_execution(row):
         ),
         "authority_id": str(
             row["authority_id"]
+        ),
+        "aviator_id": str(
+            row["aviator_id"]
+        ),
+        "aircraft_id": str(
+            row["aircraft_id"]
         ),
         "flight_class": row["flight_class"],
         "origin_site_id": str(

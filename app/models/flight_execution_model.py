@@ -84,6 +84,8 @@ def insert_flight_execution_record(data):
                 INSERT INTO flight_executions (
                     flight_plan_id,
                     authority_id,
+                    aviator_id,
+                    aircraft_id,
                     flight_class,
                     origin_site_id,
                     destination_site_id,
@@ -97,6 +99,8 @@ def insert_flight_execution_record(data):
                 VALUES (
                     :flight_plan_id,
                     :authority_id,
+                    :aviator_id,
+                    :aircraft_id,
                     :flight_class,
                     :origin_site_id,
                     :destination_site_id,
@@ -111,6 +115,8 @@ def insert_flight_execution_record(data):
                     flight_execution_id,
                     flight_plan_id,
                     authority_id,
+                    aviator_id,
+                    aircraft_id,
                     flight_class,
                     origin_site_id,
                     destination_site_id,
@@ -126,6 +132,8 @@ def insert_flight_execution_record(data):
             {
                 "flight_plan_id": data["flight_plan_id"],
                 "authority_id": data["authority_id"],
+                "aviator_id": data["aviator_id"],
+                "aircraft_id": data["aircraft_id"],
                 "flight_class": data["flight_class"],
                 "origin_site_id": data["origin_site_id"],
                 "destination_site_id": data["destination_site_id"],
@@ -163,6 +171,8 @@ def select_flight_execution(flight_execution_id):
                     flight_execution_id,
                     flight_plan_id,
                     authority_id,
+                    aviator_id,
+                    aircraft_id,
                     flight_class,
                     origin_site_id,
                     destination_site_id,
@@ -200,6 +210,8 @@ def select_flight_execution_by_flight_plan(flight_plan_id):
                     flight_execution_id,
                     flight_plan_id,
                     authority_id,
+                    aviator_id,
+                    aircraft_id,
                     flight_class,
                     origin_site_id,
                     destination_site_id,
@@ -258,6 +270,8 @@ def select_flight_executions(
             flight_execution_id,
             flight_plan_id,
             authority_id,
+            aviator_id,
+            aircraft_id,
             flight_class,
             origin_site_id,
             destination_site_id,
@@ -424,6 +438,8 @@ def select_flight_executions_ready_for_dispatch(
                 SELECT
                     flight_execution_id,
                     flight_plan_id,
+                    aviator_id,
+                    aircraft_id,
                     requested_departure_datetime
                 FROM flight_executions
                 WHERE requested_departure_datetime IS NOT NULL

@@ -56,8 +56,8 @@ Responsibilities:
 import logging
 
 from app.config.constants import (
-    PREFLIGHT_WINDOW_MINUTES,
-    EXPIRATION_GRACE_MINUTES,
+    SCHEDULER_PREFLIGHT_WINDOW_MINUTES,
+    SCHEDULER_EXPIRATION_GRACE_MINUTES,
 )
 
 from app.models.flight_execution_model import (
@@ -86,15 +86,15 @@ def run_scheduler():
     # Expire scheduled Flight Executions.
     #
     expire_scheduled_flight_executions(
-        EXPIRATION_GRACE_MINUTES
+        SCHEDULER_EXPIRATION_GRACE_MINUTES
     )
 
     #
     # Find Flight Executions ready for dispatch.
     #
     executions = select_flight_executions_ready_for_dispatch(
-        PREFLIGHT_WINDOW_MINUTES,
-        EXPIRATION_GRACE_MINUTES,
+        SCHEDULER_PREFLIGHT_WINDOW_MINUTES,
+        SCHEDULER_EXPIRATION_GRACE_MINUTES,
     )
 
     if not executions:
@@ -109,29 +109,29 @@ def run_scheduler():
     )
 
     for execution in executions:
-
         try:
-
-            flight_log = launch_scheduled_flight_execution(
-                execution["flight_execution_id"]
+            response, status_code = launch_scheduled_flight_execution(
+                execution["flight_execution_id"],
+                execution["aviator_id"],
+                execution["aircraft_id"],
             )
 
-            if flight_log is None:
-
+            if status_code != 200:
                 logger.info(
-                    "Flight Execution %s already claimed.",
+                    "Flight Execution %s was not dispatched: %s",
                     execution["flight_execution_id"],
+                    response,
                 )
 
                 continue
 
             logger.info(
-                "Flight Execution %s dispatched.",
+                "Flight Execution %s dispatched as Flight %s.",
                 execution["flight_execution_id"],
+                response["flight_id"],
             )
 
         except Exception:
-
             logger.exception(
                 "Failed dispatch of Flight Execution %s",
                 execution["flight_execution_id"],

@@ -71,7 +71,7 @@ LAUNCH_WINDOW_PREFLIGHT_MINUTES = 15
 SCHEDULER_PREFLIGHT_WINDOW_MINUTES = 5
 # Scheduled flights older than this are considered missed.
 # They will not be dispatched by the scheduler.
-SCHEDULER_EXPIRATION_GRACE_MINUTES = 5
+SCHEDULER_EXPIRATION_GRACE_MINUTES = 45
 
 # ------------------------------------------------------------------
 # FLIGHT LOG STATUS
