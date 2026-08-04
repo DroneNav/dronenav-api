@@ -62,6 +62,7 @@ from app.models.flight_execution_model import (
     insert_flight_execution_record,
     select_flight_execution_by_flight_plan,
     claim_scheduled_flight_execution,
+    release_scheduled_flight_execution,
     claim_reusable_flight_execution,
     select_flight_executions,
     select_flight_execution,
@@ -662,6 +663,32 @@ def launch_scheduled_flight_execution(
         "message": "Flight launched.",
         "flight_execution_id": str(flight_execution_id),
         "flight_id": str(flight["flight_id"]),
+    }, 200
+
+
+def release_scheduled_flight_execution_service(
+    flight_execution_id,
+):
+    """
+    Return a preflight-failed scheduled Flight Execution to active status.
+    """
+
+    released_execution = release_scheduled_flight_execution(
+        flight_execution_id
+    )
+
+    if released_execution is None:
+        return {
+            "status": "error",
+            "message": (
+                "Flight Execution could not be released because it is "
+                "not a dispatched, unterminated scheduled execution."
+            ),
+        }, 409
+
+    return {
+        "status": "success",
+        "flight_execution": released_execution,
     }, 200
 
 

@@ -48,6 +48,7 @@ from flask_cors import CORS
 from app.services.flight_execution_service import (
     create_flight_execution,
     launch_reusable_flight_execution,
+    release_scheduled_flight_execution_service,
     list_flight_executions,
     get_flight_execution,
 )
@@ -141,6 +142,27 @@ def get_flight_execution_route(
 
     response, status_code = get_flight_execution(
         flight_execution_id
+    )
+
+    return jsonify(response), status_code
+
+
+@flight_executions_bp.route("/api/flight-executions/<flight_execution_id>/release",
+  methods=["POST", "OPTIONS"])
+def release_flight_execution_route(
+    flight_execution_id,
+):
+    """
+    Return a preflight-failed scheduled Flight Execution to active status.
+    """
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    response, status_code = (
+        release_scheduled_flight_execution_service(
+            flight_execution_id
+        )
     )
 
     return jsonify(response), status_code

@@ -626,6 +626,42 @@ def claim_scheduled_flight_execution(
 
         return flight
 
+def release_scheduled_flight_execution(
+    flight_execution_id,
+):
+    """
+    Return a preflight-failed scheduled Flight Execution to active status.
+
+    Only a dispatched, unterminated scheduled execution may be released.
+    """
+
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE flight_executions
+                SET
+                    execution_status = :active_status,
+                    updated_at = NOW()
+                WHERE flight_execution_id = :flight_execution_id
+                  AND requested_departure_datetime IS NOT NULL
+                  AND flight_termination_datetime IS NULL
+                  AND execution_status = :dispatched_status
+                RETURNING
+                    flight_execution_id,
+                    execution_status,
+                    updated_at
+            """),
+            {
+                "flight_execution_id": flight_execution_id,
+                "active_status": EXECUTION_STATUS_ACTIVE,
+                "dispatched_status": EXECUTION_STATUS_DISPATCHED,
+            },
+        )
+
+        row = result.mappings().first()
+
+        return dict(row) if row is not None else None
+
 
 def claim_reusable_flight_execution(
     flight_execution_id,

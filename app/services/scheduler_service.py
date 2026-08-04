@@ -69,6 +69,11 @@ from app.services.flight_execution_service import (
     launch_scheduled_flight_execution,
 )
 
+from app.navproxy.drupal_update_status import (
+    notify_flight_plan_status,
+)
+
+
 logger = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------
@@ -85,9 +90,20 @@ def run_scheduler():
     #
     # Expire scheduled Flight Executions.
     #
-    expire_scheduled_flight_executions(
+    expired_executions = expire_scheduled_flight_executions(
         SCHEDULER_EXPIRATION_GRACE_MINUTES
     )
+
+    for flight_execution_id in expired_executions:
+        notify_flight_plan_status(
+            flight_execution_id=str(flight_execution_id),
+            status="expired",
+        )
+
+        logger.info(
+            "Flight Execution %s expired.",
+            flight_execution_id,
+        )
 
     #
     # Find Flight Executions ready for dispatch.
