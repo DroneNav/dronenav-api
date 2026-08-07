@@ -232,6 +232,7 @@ EXECUTION_STATUS_DISPATCHED = "dispatched"
 EXECUTION_STATUS_EXPIRED = "expired"
 EXECUTION_STATUS_SUSPENDED = "suspended"
 EXECUTION_STATUS_REVOKED = "revoked"
+EXECUTION_STATUS_CANCELLED = "cancelled"
 
 # -----------------------------------------------------------------
 # Flight Classes

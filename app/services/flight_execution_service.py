@@ -63,6 +63,7 @@ from app.models.flight_execution_model import (
     select_flight_execution_by_flight_plan,
     claim_scheduled_flight_execution,
     release_scheduled_flight_execution,
+    cancel_flight_execution,
     claim_reusable_flight_execution,
     select_flight_executions,
     select_flight_execution,
@@ -689,6 +690,32 @@ def release_scheduled_flight_execution_service(
     return {
         "status": "success",
         "flight_execution": released_execution,
+    }, 200
+
+
+def cancel_flight_execution_service(
+    flight_execution_id,
+):
+    """
+    Cancels a Flight Execution Record.
+    """
+
+    cancelled_execution = cancel_flight_execution(
+        flight_execution_id
+    )
+
+    if cancelled_execution is None:
+        return {
+            "status": "error",
+            "message": (
+                "Flight Execution could not be cancelled because it is "
+                "not an active execution."
+            ),
+        }, 409
+
+    return {
+        "status": "success",
+        "flight_execution": cancelled_execution,
     }, 200
 
 

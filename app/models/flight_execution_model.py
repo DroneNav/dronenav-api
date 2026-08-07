@@ -58,6 +58,7 @@ from app.config.constants import (
     EXECUTION_STATUS_EXPIRED,
     EXECUTION_STATUS_REVOKED,
     EXECUTION_STATUS_SUSPENDED,
+    EXECUTION_STATUS_CANCELLED,
 )
 
 EXECUTION_STATUSES = {
@@ -67,6 +68,7 @@ EXECUTION_STATUSES = {
     EXECUTION_STATUS_EXPIRED,
     EXECUTION_STATUS_SUSPENDED,
     EXECUTION_STATUS_REVOKED,
+    EXECUTION_STATUS_CANCELLED,
 }
 
 
@@ -655,6 +657,42 @@ def release_scheduled_flight_execution(
                 "flight_execution_id": flight_execution_id,
                 "active_status": EXECUTION_STATUS_ACTIVE,
                 "dispatched_status": EXECUTION_STATUS_DISPATCHED,
+            },
+        )
+
+        row = result.mappings().first()
+
+        return dict(row) if row is not None else None
+
+
+def cancel_flight_execution(
+    flight_execution_id,
+):
+    """
+    Cancel a Flight Execution Record.
+
+    Only an active record can be cancelled.
+    """
+
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE flight_executions
+                SET
+                    execution_status = :cancelled_status,
+                    updated_at = NOW()
+                WHERE flight_execution_id = :flight_execution_id
+                  AND flight_termination_datetime IS NULL
+                  AND execution_status = :active_status
+                RETURNING
+                    flight_execution_id,
+                    execution_status,
+                    updated_at
+            """),
+            {
+                "flight_execution_id": flight_execution_id,
+                "cancelled_status": EXECUTION_STATUS_CANCELLED,
+                "active_status": EXECUTION_STATUS_ACTIVE,
             },
         )
 
