@@ -248,6 +248,61 @@ def select_routes_by_site_id(site_id):
         return result.mappings().all()
 
 
+def select_route_segment_conformance(data):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                WITH geometries AS (
+                    SELECT
+                        ST_SetSRID(
+                            ST_MakePoint(
+                                :longitude,
+                                :latitude
+                            ),
+                            :srid
+                        ) AS point_geometry,
+                        ST_SetSRID(
+                            ST_MakeLine(
+                                ST_MakePoint(
+                                    :start_longitude,
+                                    :start_latitude
+                                ),
+                                ST_MakePoint(
+                                    :end_longitude,
+                                    :end_latitude
+                                )
+                            ),
+                            :srid
+                        ) AS segment_geometry
+                )
+                SELECT
+                    ST_DWithin(
+                        point_geometry::geography,
+                        segment_geometry::geography,
+                        (:route_width_ft / 2.0) * 0.3048
+                    ) AS inside,
+                    ST_Distance(
+                        point_geometry::geography,
+                        segment_geometry::geography
+                    ) / 0.3048 AS distance_ft,
+                    :route_width_ft / 2.0 AS half_width_ft
+                FROM geometries
+            """),
+            {
+                "latitude": data["latitude"],
+                "longitude": data["longitude"],
+                "start_latitude": data["start_latitude"],
+                "start_longitude": data["start_longitude"],
+                "end_latitude": data["end_latitude"],
+                "end_longitude": data["end_longitude"],
+                "route_width_ft": data["route_width_ft"],
+                "srid": 4326,
+            },
+        )
+
+        return result.mappings().first()
+
+
 def update_route_record(route_id, data):
     with engine.begin() as connection:
         result = connection.execute(

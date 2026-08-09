@@ -54,6 +54,7 @@ from app.services.route_service import (
     update_route,
     patch_route,
     delete_route,
+    evaluate_route_segment_conformance,
 )
 
 routes_bp = Blueprint("routes", __name__)
@@ -198,6 +199,24 @@ def delete_route_route(route_id):
             "status": "error",
             "message": "Route not found"
         }), 404
+
+    return jsonify(result)
+
+
+@routes_bp.route("/api/routes/segment-conformance", methods=["POST", "OPTIONS"])
+def evaluate_route_segment_conformance_route():
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    result, error = evaluate_route_segment_conformance(data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error,
+        }), 400
 
     return jsonify(result)
 

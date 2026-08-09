@@ -62,6 +62,7 @@ from app.models.route_model import (
     select_route,
     select_routes,
     select_routes_by_site_id,
+    select_route_segment_conformance,
     update_route_record,
     patch_route_record,
     soft_delete_route,
@@ -116,6 +117,36 @@ def validate_route_payload(data):
     return None
 
 
+def validate_route_segment_conformance_payload(data):
+    required_fields = [
+        "latitude",
+        "longitude",
+        "start_latitude",
+        "start_longitude",
+        "end_latitude",
+        "end_longitude",
+        "route_width_ft",
+    ]
+
+    for field in required_fields:
+        if field not in data or data[field] is None:
+            return f"Missing required field: {field}"
+
+    return None
+
+
+def normalize_route_segment_conformance_payload(data):
+    return {
+        "latitude": float(data["latitude"]),
+        "longitude": float(data["longitude"]),
+        "start_latitude": float(data["start_latitude"]),
+        "start_longitude": float(data["start_longitude"]),
+        "end_latitude": float(data["end_latitude"]),
+        "end_longitude": float(data["end_longitude"]),
+        "route_width_ft": float(data["route_width_ft"]),
+    }
+
+
 def normalize_route_payload(data):
     return {
         "origin_site_id": data["origin_site_id"],
@@ -146,6 +177,26 @@ def normalize_route_payload(data):
 	"geometry": data["geometry"],
 	"segment_attributes": data["segment_attributes"],
     }
+
+
+def evaluate_route_segment_conformance(data):
+    error = validate_route_segment_conformance_payload(data)
+
+    if error:
+        return None, error
+
+    normalized_data = normalize_route_segment_conformance_payload(data)
+
+    row = select_route_segment_conformance(normalized_data)
+
+    if row is None:
+        return None, "Route segment conformance could not be evaluated"
+
+    return {
+        "inside": bool(row["inside"]),
+        "distance_ft": round(float(row["distance_ft"]), 3),
+        "half_width_ft": round(float(row["half_width_ft"]), 3),
+    }, None
 
 
 def validate_route_patch(data):
