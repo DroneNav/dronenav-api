@@ -17,7 +17,7 @@ CREATE TABLE droneports (
     deleted_at TIMESTAMPTZ NULL,
     deleted_by VARCHAR(100) NULL,
 
-    droneport_diameter_ft INTEGER NOT NULL DEFAULT 25,
+    droneport_diameter_ft INTEGER NOT NULL DEFAULT 30,
 
     geometry GEOMETRY(POINT, 4326) NOT NULL,
 
