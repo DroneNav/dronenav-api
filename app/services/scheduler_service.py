@@ -95,10 +95,17 @@ def run_scheduler():
     )
 
     for flight_execution_id in expired_executions:
-        notify_flight_plan_status(
-            flight_execution_id=str(flight_execution_id),
-            status="expired",
-        )
+        try:
+            notify_flight_plan_status(
+                flight_execution_id=str(flight_execution_id),
+                status="expired",
+            )
+        except Exception:
+            logger.exception(
+                "Failed to update Flight Plan status for expired "
+                "Flight Execution %s.",
+                flight_execution_id,
+            )
 
         logger.info(
             "Flight Execution %s expired.",
