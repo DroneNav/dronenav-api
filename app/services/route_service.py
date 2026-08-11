@@ -63,6 +63,7 @@ from app.models.route_model import (
     select_routes,
     select_routes_by_site_id,
     select_route_segment_conformance,
+    select_route_segment_boundary_crossing,
     update_route_record,
     patch_route_record,
     soft_delete_route,
@@ -196,6 +197,17 @@ def evaluate_route_segment_conformance(data):
         "inside": bool(row["inside"]),
         "distance_ft": round(float(row["distance_ft"]), 3),
         "half_width_ft": round(float(row["half_width_ft"]), 3),
+    }, None
+
+
+def evaluate_route_segment_boundary_crossing(data):
+    row = select_route_segment_boundary_crossing(data)
+
+    if row is None:
+        return None, "Route segment boundary crossing could not be evaluated"
+
+    return {
+        "crossed": bool(row["crossed"]),
     }, None
 
 

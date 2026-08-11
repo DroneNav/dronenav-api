@@ -55,6 +55,7 @@ from app.services.route_service import (
     patch_route,
     delete_route,
     evaluate_route_segment_conformance,
+    evaluate_route_segment_boundary_crossing,
 )
 
 routes_bp = Blueprint("routes", __name__)
@@ -211,6 +212,24 @@ def evaluate_route_segment_conformance_route():
     data = request.get_json() or {}
 
     result, error = evaluate_route_segment_conformance(data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error,
+        }), 400
+
+    return jsonify(result)
+
+
+@routes_bp.route("/api/routes/segment-boundary-crossing", methods=["POST", "OPTIONS"])
+def evaluate_route_segment_boundary_crossing_route():
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    result, error = evaluate_route_segment_boundary_crossing(data)
 
     if error:
         return jsonify({

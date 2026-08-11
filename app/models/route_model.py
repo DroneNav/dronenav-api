@@ -303,6 +303,73 @@ def select_route_segment_conformance(data):
         return result.mappings().first()
 
 
+def select_route_segment_boundary_crossing(data):
+    """Determine whether a point crossed a Route segment's forward boundary."""
+
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                WITH geometries AS (
+                    SELECT
+                        ST_SetSRID(
+                            ST_MakePoint(
+                                :start_longitude,
+                                :start_latitude
+                            ),
+                            :srid
+                        ) AS start_geometry,
+                        ST_SetSRID(
+                            ST_MakePoint(
+                                :end_longitude,
+                                :end_latitude
+                            ),
+                            :srid
+                        ) AS end_geometry,
+                        ST_SetSRID(
+                            ST_MakePoint(
+                                :longitude,
+                                :latitude
+                            ),
+                            :srid
+                        ) AS point_geometry
+                    ),
+                    projected AS (
+                        SELECT
+                            ST_Transform(start_geometry, 3857) AS start_geometry,
+                            ST_Transform(end_geometry, 3857) AS end_geometry,
+                            ST_Transform(point_geometry, 3857) AS point_geometry
+                        FROM geometries
+                    )
+                    SELECT
+                        (
+                            (
+                                ST_X(end_geometry) - ST_X(start_geometry)
+                            ) * (
+                                ST_X(point_geometry) - ST_X(end_geometry)
+                            )
+                            +
+                            (
+                                ST_Y(end_geometry) - ST_Y(start_geometry)
+                            ) * (
+                                ST_Y(point_geometry) - ST_Y(end_geometry)
+                            )
+                        ) >= 0 AS crossed
+                    FROM projected
+            """),
+            {
+                "start_latitude": data["start_latitude"],
+                "start_longitude": data["start_longitude"],
+                "end_latitude": data["end_latitude"],
+                "end_longitude": data["end_longitude"],
+                "latitude": data["latitude"],
+                "longitude": data["longitude"],
+                "srid": 4326,
+            },
+        )
+
+        return result.mappings().first()
+
+
 def update_route_record(route_id, data):
     with engine.begin() as connection:
         result = connection.execute(
