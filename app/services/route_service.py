@@ -64,6 +64,8 @@ from app.models.route_model import (
     select_routes_by_site_id,
     select_route_segment_conformance,
     select_route_segment_boundary_crossing,
+    select_transition_point_containment,
+    select_coordinate_distance,
     update_route_record,
     patch_route_record,
     soft_delete_route,
@@ -208,6 +210,29 @@ def evaluate_route_segment_boundary_crossing(data):
 
     return {
         "crossed": bool(row["crossed"]),
+    }, None
+
+
+def evaluate_transition_point_containment(data):
+    """Evaluate whether a point is inside a derived transition circle."""
+
+    row = select_transition_point_containment(data)
+
+    return {
+        "inside": bool(row["inside"]),
+    }, None
+
+
+def get_coordinate_distance(data):
+    """Return the distance between two coordinates in feet."""
+
+    row = select_coordinate_distance(data)
+
+    if row is None:
+        return None, "Could not calculate coordinate distance."
+
+    return {
+        "distance_ft": round(float(row["distance_ft"]), 3),
     }, None
 
 

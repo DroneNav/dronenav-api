@@ -370,6 +370,74 @@ def select_route_segment_boundary_crossing(data):
         return result.mappings().first()
 
 
+def select_transition_point_containment(data):
+    """Determine whether a point is inside a derived transition circle."""
+
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT ST_DWithin(
+                    ST_SetSRID(
+                        ST_MakePoint(:longitude, :latitude),
+                        4326
+                    )::geography,
+                    ST_SetSRID(
+                        ST_MakePoint(:center_longitude, :center_latitude),
+                        4326
+                    )::geography,
+                    :radius_meters
+                ) AS inside
+            """),
+            {
+                "latitude": data["latitude"],
+                "longitude": data["longitude"],
+                "center_latitude": data["center_latitude"],
+                "center_longitude": data["center_longitude"],
+                "radius_meters": (
+                    data["diameter_ft"] / 2.0
+                ) * 0.3048,
+            },
+
+        )
+
+        return result.mappings().first()
+
+
+def select_coordinate_distance(data):
+    """Return the distance between two coordinates in feet."""
+
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    ST_Distance(
+                        ST_SetSRID(
+                            ST_MakePoint(
+                                :first_longitude,
+                                :first_latitude
+                            ),
+                            4326
+                        )::geography,
+                        ST_SetSRID(
+                            ST_MakePoint(
+                                :second_longitude,
+                                :second_latitude
+                            ),
+                            4326
+                        )::geography
+                    ) / 0.3048 AS distance_ft
+            """),
+            {
+                "first_latitude": data["first_latitude"],
+                "first_longitude": data["first_longitude"],
+                "second_latitude": data["second_latitude"],
+                "second_longitude": data["second_longitude"],
+            },
+        )
+
+        return result.mappings().first()
+
+
 def update_route_record(route_id, data):
     with engine.begin() as connection:
         result = connection.execute(

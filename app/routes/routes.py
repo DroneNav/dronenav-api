@@ -56,6 +56,8 @@ from app.services.route_service import (
     delete_route,
     evaluate_route_segment_conformance,
     evaluate_route_segment_boundary_crossing,
+    evaluate_transition_point_containment,
+    get_coordinate_distance,
 )
 
 routes_bp = Blueprint("routes", __name__)
@@ -206,6 +208,7 @@ def delete_route_route(route_id):
 
 @routes_bp.route("/api/routes/segment-conformance", methods=["POST", "OPTIONS"])
 def evaluate_route_segment_conformance_route():
+
     if request.method == "OPTIONS":
         return "", 204
 
@@ -224,12 +227,51 @@ def evaluate_route_segment_conformance_route():
 
 @routes_bp.route("/api/routes/segment-boundary-crossing", methods=["POST", "OPTIONS"])
 def evaluate_route_segment_boundary_crossing_route():
+
     if request.method == "OPTIONS":
         return "", 204
 
     data = request.get_json() or {}
 
     result, error = evaluate_route_segment_boundary_crossing(data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error,
+        }), 400
+
+    return jsonify(result)
+
+
+@routes_bp.route("/api/routes/transition-point-containment", methods=["POST", "OPTIONS"])
+def evaluate_transition_point_containment_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    result, error = evaluate_transition_point_containment(data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error,
+        }), 400
+
+    return jsonify(result)
+
+
+@routes_bp.route("/api/routes/coordinate-distance", methods=["POST", "OPTIONS"])
+def get_coordinate_distance_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    result, error = get_coordinate_distance(data)
 
     if error:
         return jsonify({
