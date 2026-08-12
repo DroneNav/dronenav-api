@@ -59,6 +59,7 @@ from app.routes.operational_readiness import operational_readiness_bp
 from app.routes.flight_bands import flight_bands_bp 
 from app.routes.flight_executions import flight_executions_bp
 from app.routes.flight_context import flight_context_bp
+from app.routes.flight_actual_path import flight_actual_path_bp
 
 app = Flask(__name__)
 
@@ -91,6 +92,7 @@ app.register_blueprint(operational_readiness_bp)
 app.register_blueprint(flight_bands_bp)
 app.register_blueprint(flight_executions_bp)
 app.register_blueprint(flight_context_bp)
+app.register_blueprint(flight_actual_path_bp)
 
 
 @app.after_request
