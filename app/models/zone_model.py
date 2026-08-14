@@ -339,3 +339,46 @@ def request_zone_changes(zone_id):
 def submit_zone(zone_id):
     return reject_zone(zone_id)
 
+def select_zone_point_containment(
+    zone_id,
+    data,
+):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                WITH point AS (
+                    SELECT ST_SetSRID(
+                        ST_MakePoint(
+                            :longitude,
+                            :latitude
+                        ),
+                        :srid
+                    ) AS geometry
+                )
+                SELECT
+                    s.zone_id,
+                    ST_Covers(
+                        s.geometry,
+                        point.geometry
+                    ) AS inside,
+                    ST_Touches(
+                        s.geometry,
+                        point.geometry
+                    ) AS on_boundary
+                FROM zones AS s
+                CROSS JOIN point
+                WHERE s.zone_id = :zone_id
+                  AND s.operational_status != :deleted_status
+            """),
+            {
+                "zone_id": zone_id,
+                "longitude": data["longitude"],
+                "latitude": data["latitude"],
+                "srid": DEFAULT_SRID,
+                "deleted_status": ZONE_STATUS_DELETED,
+            },
+        )
+
+        return result.mappings().first()
+
+

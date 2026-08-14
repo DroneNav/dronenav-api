@@ -55,6 +55,7 @@ from app.models.zone_model import (
     select_zone,
     select_zones,
     select_zones_by_site_id,
+    select_zone_point_containment,
     update_zone_record,
     patch_zone_record,
     soft_delete_zone,
@@ -257,4 +258,65 @@ def delete_zone(zone_id, deleted_by):
         "status": "deleted",
         "zone_id": str(row["zone_id"]),
     }
+
+
+def validate_zone_point_containment_payload(data):
+    required_fields = [
+        "latitude",
+        "longitude",
+    ]
+
+    for field in required_fields:
+        if field not in data or data[field] in ("", None):
+            return f"Missing required field: {field}"
+
+    try:
+        latitude = float(data["latitude"])
+        longitude = float(data["longitude"])
+    except (TypeError, ValueError):
+        return "latitude and longitude must be numeric"
+
+    if latitude < -90 or latitude > 90:
+        return "latitude must be between -90 and 90"
+
+    if longitude < -180 or longitude > 180:
+        return "longitude must be between -180 and 180"
+
+    return None
+
+def normalize_zone_point_containment_payload(data):
+    return {
+        "latitude": float(data["latitude"]),
+        "longitude": float(data["longitude"]),
+    }
+
+def format_zone_point_containment(row):
+    if row is None:
+        return None
+
+    return {
+        "zone_id": str(row["zone_id"]),
+        "inside": row["inside"],
+        "on_boundary": row["on_boundary"],
+    }
+
+def evaluate_point_in_zone(zone_id, data):
+    error = validate_zone_point_containment_payload(data)
+
+    if error:
+        return None, error
+
+    normalized_data = normalize_zone_point_containment_payload(
+        data
+    )
+
+    row = select_zone_point_containment(
+        zone_id,
+        normalized_data,
+    )
+
+    if row is None:
+        return None, "Zone not found"
+
+    return format_zone_point_containment(row), None
 

@@ -230,6 +230,7 @@ def delete_site_route(site_id):
 
     return jsonify(result)
 
+
 @sites_bp.route(
     "/api/sites/<site_id>/point-containment",
     methods=["POST", "OPTIONS"],

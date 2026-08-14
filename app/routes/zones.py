@@ -53,6 +53,7 @@ from app.services.zone_service import (
     update_zone,
     patch_zone,
     delete_zone,
+    evaluate_point_in_zone,
 )
 
 zones_bp = Blueprint("zones", __name__)
@@ -180,6 +181,33 @@ def delete_zone_route(zone_id):
             "status": "error",
             "message": "Zone not found"
         }), 404
+
+    return jsonify(result)
+
+
+@zones_bp.route(
+    "/api/zones/<zone_id>/point-containment",
+    methods=["POST", "OPTIONS"],
+)
+def evaluate_point_in_zone_route(zone_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    result, error = evaluate_point_in_zone(
+        zone_id,
+        data,
+    )
+
+    if error:
+        status_code = 404 if error == "Zone not found" else 400
+
+        return jsonify({
+            "status": "error",
+            "message": error,
+        }), status_code
 
     return jsonify(result)
 
