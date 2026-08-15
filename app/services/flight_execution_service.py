@@ -593,6 +593,7 @@ def _to_flight_band_day_of_week(value):
 def launch_navproxy(
     flight_execution_id,
     flight_id,
+    execution_mode="scheduled",
 ):
     """
     Launch the Phase 2 NAVProxy simulator as a separate process.
@@ -622,6 +623,8 @@ def launch_navproxy(
                 str(flight_execution_id),
                 "--flight-id",
                 str(flight_id),
+                "--execution-mode",
+                execution_mode,
             ],
             cwd=navproxy_project_dir,
             stdin=subprocess.DEVNULL,
@@ -742,6 +745,7 @@ def launch_reusable_flight_execution(
     launch_navproxy(
         flight_execution_id,
         flight["flight_id"],
+        execution_mode="reusable",
     )
 
     return {
