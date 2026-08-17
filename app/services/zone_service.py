@@ -177,6 +177,7 @@ def format_zone_summary(row):
         "minimum_altitude_ft": row["minimum_altitude_ft"],
         "maximum_altitude_ft": row["maximum_altitude_ft"],
         "geometry": row["geometry"],
+        "zone_attributes": row["zone_attributes"],
     }
 
 
