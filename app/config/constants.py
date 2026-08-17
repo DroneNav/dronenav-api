@@ -56,6 +56,8 @@ DEFAULT_END_TIME = "23:59"
 DEFAULT_TIMEZONE = "America/New_York"
 DEFAULT_ALLDAYS = (0, 1, 2, 3, 4, 5, 6)
 
+EPQS_URL = "https://epqs.nationalmap.gov/v1/json"
+
 DEFAULT_API_BASE_URL = "https://api.dronenav.org"
 DEFAULT_API_TIMEOUT_SECONDS = 15
 

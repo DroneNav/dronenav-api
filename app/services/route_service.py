@@ -72,6 +72,10 @@ from app.models.route_model import (
     insert_overlay_review,
 )
 
+from app.services.elevation_service import (
+    resolve_coordinate_elevations,
+)
+
 
 def validate_route_payload(data):
     required_fields = [
@@ -342,6 +346,11 @@ def create_route(data):
         return None, error
 
     normalized_data = normalize_route_payload(data)
+
+    normalized_data = enrich_route_segment_elevations(
+        normalized_data
+    )
+
     route_id = insert_route(normalized_data)
 
     insert_overlay_review({
@@ -537,4 +546,21 @@ def delete_route(route_id, deleted_by):
         "status": "deleted",
         "route_id": str(row["route_id"]),
     }
+
+
+def enrich_route_segment_elevations(data):
+    coordinates = data["geometry"]["coordinates"]
+    segment_attributes = data["segment_attributes"]
+
+    elevations = resolve_coordinate_elevations(
+        coordinates[1:]
+    )
+
+    for index, elevation in enumerate(elevations):
+        segment_attributes[index]["ground_elevation_ft"] = (
+            elevation["ground_elevation_ft"]
+        )
+
+    return data
+
 

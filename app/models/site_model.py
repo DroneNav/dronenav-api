@@ -74,7 +74,8 @@ def insert_site(data):
                     maximum_altitude_ft,
                     description,
                     timezone,
-                    geometry
+                    geometry,
+                    site_attributes
                 )
                 VALUES (
                     :authority_id,
@@ -90,13 +91,15 @@ def insert_site(data):
                     ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
-                    )
+                    ),
+                    CAST(:site_attributes AS jsonb)
                 )
                 RETURNING site_id
             """),
             {
                 **data,
                 "geometry": json.dumps(data["geometry"]),
+                "site_attributes": json.dumps(data["site_attributes"]),
                 "srid": DEFAULT_SRID,
             }
         )
@@ -148,7 +151,8 @@ def select_site(site_id):
                     timezone,
                     ST_X(ST_PointOnSurface(geometry)) AS timezone_longitude,
                     ST_Y(ST_PointOnSurface(geometry)) AS timezone_latitude,
-                    ST_AsGeoJSON(geometry)::json AS geometry
+                    ST_AsGeoJSON(geometry)::json AS geometry,
+                    site_attributes
                 FROM sites
                 WHERE site_id = :site_id
                   AND operational_status <> :deleted_status
@@ -181,7 +185,8 @@ def select_sites(survey_status=None):
                     timezone,
                     ST_X(ST_PointOnSurface(geometry)) AS timezone_longitude,
                     ST_Y(ST_PointOnSurface(geometry)) AS timezone_latitude,
-                    ST_AsGeoJSON(geometry)::json AS geometry
+                    ST_AsGeoJSON(geometry)::json AS geometry,
+                    site_attributes
                 FROM sites
                 WHERE operational_status <> :deleted_status
                   AND (
@@ -216,7 +221,8 @@ def update_site_record(site_id, data):
                     geometry = ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
-                    )
+                    ),
+                    site_attributes = CAST(:site_attributes AS jsonb)
                 WHERE site_id = :site_id
                 RETURNING site_id, site_name
             """),
@@ -224,6 +230,7 @@ def update_site_record(site_id, data):
                 **data,
                 "site_id": site_id,
                 "geometry": json.dumps(data["geometry"]),
+                "site_attributes": json.dumps(data["site_attributes"]),
                 "srid": DEFAULT_SRID,
             }
         )
@@ -247,6 +254,29 @@ def patch_site_record(site_id, data):
                 **data,
                 "site_id": site_id,
             }
+        )
+
+        return result.mappings().first()
+
+
+def patch_site_attributes_record(site_id, site_attributes):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE sites
+                SET
+                    site_attributes = CAST(:site_attributes AS jsonb)
+                WHERE site_id = :site_id
+                RETURNING
+                    site_id,
+                    site_name
+            """),
+            {
+                "site_id": site_id,
+                "site_attributes": json.dumps(
+                    site_attributes
+                ),
+            },
         )
 
         return result.mappings().first()
@@ -437,4 +467,5 @@ def select_site_point_containment(
         )
 
         return result.mappings().first()
+
 

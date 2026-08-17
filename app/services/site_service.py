@@ -59,6 +59,7 @@ from app.models.site_model import (
     update_site_record,
     patch_site_record,
     patch_timezone_record,
+    patch_site_attributes_record,
     soft_delete_site,
     insert_overlay_review,
 )
@@ -71,6 +72,10 @@ from app.models.site_model import (
 
 from app.services.timezone_service import (
     derive_timezone_from_coordinates,
+)
+
+from app.services.elevation_service import (
+    resolve_coordinate_elevations,
 )
 
 
@@ -140,6 +145,7 @@ def normalize_site_payload(data):
         ),
         "timezone": data.get("timezone"),
         "geometry": data["geometry"],
+        "site_attributes": data.get("site_attributes", []),
     }
 
 
@@ -185,6 +191,7 @@ def format_site(row):
         "maximum_altitude_ft": row["maximum_altitude_ft"],
         "timezone": resolve_site_timezone(row),
         "geometry": row["geometry"],
+        "site_attributes": row["site_attributes"],
     }
 
 
@@ -203,6 +210,7 @@ def format_site_summary(row):
         "maximum_altitude_ft": row["maximum_altitude_ft"],
         "timezone": resolve_site_timezone(row),
         "geometry": row["geometry"],
+        "site_attributes": row["site_attributes"],
     }
 
 
@@ -213,6 +221,10 @@ def create_site(data):
         return None, error
 
     normalized_data = normalize_site_payload(data)
+
+    normalized_data = enrich_site_elevations(
+        normalized_data
+    )
 
     representative_point = compute_point_on_surface_from_geojson(
         normalized_data["geometry"]
@@ -257,6 +269,11 @@ def update_site(site_id, data):
         return None, error
 
     normalized_data = normalize_site_payload(data)
+
+    normalized_data = enrich_site_elevations(
+        normalized_data
+    )
+
     row = update_site_record(site_id, normalized_data)
 
     if row is None:
@@ -379,5 +396,34 @@ def evaluate_point_in_site(site_id, data):
         return None, "Site not found"
 
     return format_site_point_containment(row), None
+
+
+def enrich_site_elevations(data):
+    coordinates = data["geometry"]["coordinates"][0]
+
+    # Polygon GeoJSON repeats the first vertex at the end.
+    # Ignore the first coordinate and use each segment's ending vertex.
+    elevation_coordinates = coordinates[1:]
+
+    elevations = resolve_coordinate_elevations(
+        elevation_coordinates
+    )
+
+    site_attributes = data.get("site_attributes") or []
+
+    if not site_attributes:
+        site_attributes = [
+            {}
+            for _ in elevation_coordinates
+        ]
+
+    for index, elevation in enumerate(elevations):
+        site_attributes[index]["ground_elevation_ft"] = (
+            elevation["ground_elevation_ft"]
+        )
+
+    data["site_attributes"] = site_attributes
+
+    return data
 
 

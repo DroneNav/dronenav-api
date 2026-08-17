@@ -58,8 +58,13 @@ from app.models.zone_model import (
     select_zone_point_containment,
     update_zone_record,
     patch_zone_record,
+    patch_zone_attributes_record,
     soft_delete_zone,
     insert_overlay_review,
+)
+
+from app.services.elevation_service import (
+    resolve_coordinate_elevations,
 )
 
 
@@ -116,6 +121,7 @@ def normalize_zone_payload(data):
             DEFAULT_MAXIMUM_ALTITUDE_FT
         ),
         "geometry": data["geometry"],
+        "zone_attributes": data.get("zone_attributes", []),
     }
 
 
@@ -154,6 +160,7 @@ def format_zone(row):
         "minimum_altitude_ft": row["minimum_altitude_ft"],
         "maximum_altitude_ft": row["maximum_altitude_ft"],
         "geometry": row["geometry"],
+        "zone_attributes": row["zone_attributes"],
     }
 
 
@@ -180,6 +187,11 @@ def create_zone(data):
         return None, error
 
     normalized_data = normalize_zone_payload(data)
+
+    normalized_data = enrich_zone_elevations(
+        normalized_data
+    )
+
     zone_id = insert_zone(normalized_data)
 
     insert_overlay_review({
@@ -217,6 +229,11 @@ def update_zone(zone_id, data):
         return None, error
 
     normalized_data = normalize_zone_payload(data)
+
+    normalized_data = enrich_zone_elevations(
+        normalized_data
+    )
+
     row = update_zone_record(zone_id, normalized_data)
 
     if row is None:
@@ -319,4 +336,82 @@ def evaluate_point_in_zone(zone_id, data):
         return None, "Zone not found"
 
     return format_zone_point_containment(row), None
+
+def enrich_zone_elevations(data):
+    coordinates = data["geometry"]["coordinates"][0]
+
+    # Polygon GeoJSON repeats the first vertex at the end.
+    # Ignore the first coordinate and use each segment's ending vertex.
+    elevation_coordinates = coordinates[1:]
+
+    elevations = resolve_coordinate_elevations(
+        elevation_coordinates
+    )
+
+    zone_attributes = data.get("zone_attributes") or []
+
+    if not zone_attributes:
+        zone_attributes = [
+            {}
+            for _ in elevation_coordinates
+        ]
+
+    for index, elevation in enumerate(elevations):
+        zone_attributes[index]["ground_elevation_ft"] = (
+            elevation["ground_elevation_ft"]
+        )
+
+    data["zone_attributes"] = zone_attributes
+
+    return data
+
+
+def backfill_zone_elevations():
+    zones = select_zones(None)
+
+    zone_work = []
+    all_coordinates = []
+
+    for zone in zones:
+        coordinates = zone["geometry"]["coordinates"][0]
+
+        elevation_coordinates = coordinates[1:]
+
+        zone_work.append({
+            "zone_id": zone["zone_id"],
+            "coordinate_count": len(elevation_coordinates),
+        })
+
+        all_coordinates.extend(elevation_coordinates)
+
+    elevations = resolve_coordinate_elevations(
+        all_coordinates
+    )
+
+    elevation_index = 0
+    updated_count = 0
+
+    for zone in zone_work:
+        zone_attributes = []
+
+        for _ in range(zone["coordinate_count"]):
+            zone_attributes.append({
+                "ground_elevation_ft": elevations[
+                    elevation_index
+                ]["ground_elevation_ft"]
+            })
+
+            elevation_index += 1
+
+        patch_zone_attributes_record(
+            zone["zone_id"],
+            zone_attributes,
+        )
+
+        updated_count += 1
+
+    return {
+        "zones_updated": updated_count,
+        "elevations_resolved": len(elevations),
+    }
 

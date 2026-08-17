@@ -72,7 +72,8 @@ def insert_zone(data):
                     survey_status,
                     minimum_altitude_ft,
                     maximum_altitude_ft,
-                    geometry
+                    geometry,
+                    zone_attributes
                 )
                 VALUES (
                     :site_id,
@@ -86,13 +87,15 @@ def insert_zone(data):
                     ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
-                    )
+                    ),
+                    CAST(:zone_attributes AS jsonb)
                 )
                 RETURNING zone_id
             """),
             {
                 **data,
                 "geometry": json.dumps(data["geometry"]),
+                "zone_attributes": json.dumps(data["zone_attributes"]),
                 "srid": DEFAULT_SRID,
             }
         )
@@ -140,7 +143,8 @@ def select_zone(zone_id):
                     approved_by,
                     minimum_altitude_ft,
                     maximum_altitude_ft,
-                    ST_AsGeoJSON(geometry)::json AS geometry
+                    ST_AsGeoJSON(geometry)::json AS geometry,
+                    zone_attributes
                 FROM zones 
                 WHERE zone_id = :zone_id
                   AND operational_status <> :deleted_status
@@ -169,7 +173,8 @@ def select_zones(survey_status=None):
                     survey_status,
                     minimum_altitude_ft,
                     maximum_altitude_ft,
-                    ST_AsGeoJSON(geometry)::json AS geometry
+                    ST_AsGeoJSON(geometry)::json AS geometry,
+                    zone_attributes
                 FROM zones
                 WHERE operational_status <> :deleted_status
                   AND (
@@ -202,7 +207,8 @@ def select_zones_by_site_id(site_id):
                     survey_status,
                     minimum_altitude_ft,
                     maximum_altitude_ft,
-                    ST_AsGeoJSON(geometry)::json AS geometry
+                    ST_AsGeoJSON(geometry)::json AS geometry,
+                    zone_attributes
                 FROM zones
                 WHERE operational_status <> :deleted_status
                   AND site_id = :site_id
@@ -232,7 +238,8 @@ def update_zone_record(zone_id, data):
                     geometry = ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
-                    )
+                    ),
+                    zone_attributes = CAST(:zone_attributes AS jsonb)
                 WHERE zone_id = :zone_id
                 RETURNING zone_id, zone_name
             """),
@@ -240,6 +247,7 @@ def update_zone_record(zone_id, data):
                 **data,
                 "zone_id": zone_id,
                 "geometry": json.dumps(data["geometry"]),
+                "zone_attributes": json.dumps(data["zone_attributes"]),
                 "srid": DEFAULT_SRID,
             }
         )
@@ -264,6 +272,32 @@ def patch_zone_record(zone_id, data):
                 **data,
                 "zone_id": zone_id,
             }
+        )
+
+        return result.mappings().first()
+
+
+def patch_zone_attributes_record(
+    zone_id,
+    zone_attributes,
+):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE zones
+                SET
+                    zone_attributes = CAST(:zone_attributes AS jsonb)
+                WHERE zone_id = :zone_id
+                RETURNING
+                    zone_id,
+                    zone_name
+            """),
+            {
+                "zone_id": zone_id,
+                "zone_attributes": json.dumps(
+                    zone_attributes
+                ),
+            },
         )
 
         return result.mappings().first()
