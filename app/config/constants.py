@@ -49,6 +49,7 @@ of the aircraft operator and applicable regulatory authorities.
 # Site Defaults
 # ------------------------------------------------------------------
 
+MISSION_ALTITUDE_MARGIN_FT = 10
 DEFAULT_MINIMUM_ALTITUDE_FT = 0
 DEFAULT_MAXIMUM_ALTITUDE_FT = 400
 DEFAULT_START_TIME = "00:00"
