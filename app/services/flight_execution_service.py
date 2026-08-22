@@ -594,13 +594,14 @@ def launch_navproxy(
     flight_execution_id,
     flight_id,
     execution_mode="scheduled",
+    navproxy_fc_mode=None,
 ):
     """
-    Launch the Phase 2 NAVProxy simulator as a separate process.
+    Launch NAVProxy as a separate process.
     """
 
     logger.info(
-        "Launching NAVProxy simulator: execution=%s flight=%s",
+        "Launching NAVProxy: execution=%s flight=%s",
         flight_execution_id,
         flight_id,
     )
@@ -611,6 +612,11 @@ def launch_navproxy(
         "NAVPROXY_LOG_PATH",
         os.path.expanduser("~/logs/navproxy.log"),
     )
+
+    child_env = os.environ.copy()
+
+    if navproxy_fc_mode is not None:
+        child_env["NAVPROXY_FC_MODE"] = navproxy_fc_mode
 
     with open(navproxy_log_path, "a", encoding="utf-8") as log_file:
         subprocess.Popen(
@@ -627,6 +633,7 @@ def launch_navproxy(
                 execution_mode,
             ],
             cwd=navproxy_project_dir,
+            env=child_env,
             stdin=subprocess.DEVNULL,
             stdout=log_file,
             stderr=subprocess.STDOUT,
@@ -641,6 +648,7 @@ def launch_scheduled_flight_execution(
     flight_execution_id,
     aviator_id,
     aircraft_id,
+    navproxy_fc_mode=None,
 ):
     flight = claim_scheduled_flight_execution(
         flight_execution_id,
@@ -660,6 +668,7 @@ def launch_scheduled_flight_execution(
     launch_navproxy(
         flight_execution_id,
         flight["flight_id"],
+        navproxy_fc_mode=navproxy_fc_mode,
     )
 
     return {

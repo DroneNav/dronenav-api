@@ -76,6 +76,10 @@ SCHEDULER_PREFLIGHT_WINDOW_MINUTES = 5
 # They will not be dispatched by the scheduler.
 SCHEDULER_EXPIRATION_GRACE_MINUTES = 45
 
+# Heartbeat managment
+HEARTBEAT_LOSS_TIMEOUT_SECONDS = 5.0
+HEARTBEAT_RECOVERY_WINDOW_SECONDS = 30.0
+
 # ------------------------------------------------------------------
 # FLIGHT LOG STATUS
 # ------------------------------------------------------------------
