@@ -121,6 +121,52 @@ def validate_route_payload(data):
             f"{segment_count} entries"
         )
 
+    for segment_index, attributes in enumerate(
+        data["segment_attributes"]
+    ):
+        if not isinstance(attributes, dict):
+            return (
+                f"segment_attributes[{segment_index}] "
+                "must be an object"
+            )
+
+        failsafe_coordinate = attributes.get(
+            "failsafe_coordinate"
+        )
+
+        if failsafe_coordinate is None:
+            continue
+
+        if (
+            not isinstance(failsafe_coordinate, list)
+            or len(failsafe_coordinate) != 2
+            or not all(
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                for value in failsafe_coordinate
+            )
+        ):
+            return (
+                f"segment_attributes[{segment_index}]."
+                "failsafe_coordinate must be "
+                "[longitude, latitude]"
+            )
+
+        longitude = failsafe_coordinate[0]
+        latitude = failsafe_coordinate[1]
+
+        if longitude < -180 or longitude > 180:
+            return (
+                f"segment_attributes[{segment_index}]."
+                "failsafe_coordinate longitude is invalid"
+            )
+
+        if latitude < -90 or latitude > 90:
+            return (
+                f"segment_attributes[{segment_index}]."
+                "failsafe_coordinate latitude is invalid"
+            )
+
     return None
 
 
