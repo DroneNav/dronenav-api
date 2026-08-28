@@ -68,6 +68,7 @@ DEFAULT_API_TIMEOUT_SECONDS = 15
 
 LAUNCH_WINDOW_EXPIRES_MINUTES = 30
 LAUNCH_WINDOW_PREFLIGHT_MINUTES = 15
+PREFLIGHT_DURATION_SECONDS = 30
 
 # Scheduler begins pre-flight this many minutes before the
 # scheduled departure time.

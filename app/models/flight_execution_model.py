@@ -51,6 +51,10 @@ from sqlalchemy import bindparam, text
 
 from app.config.database import engine
 
+from app.models.route_occupancy_state_model import (
+    insert_route_occupancy_state,
+)
+
 from app.config.constants import (
     EXECUTION_STATUS_ACTIVE,
     EXECUTION_STATUS_COMPLETED,
@@ -72,12 +76,19 @@ EXECUTION_STATUSES = {
 }
 
 
-def insert_flight_execution_record(data):
+def insert_flight_execution_record(data, planned_route_occupancy=None):
+
     route_ids = _normalize_route_ids(data.get("route_ids", []))
+
+    planned_route_occupancy = (
+        planned_route_occupancy or []
+    )
+
     execution_status = data.get(
         "execution_status",
         EXECUTION_STATUS_ACTIVE,
     )
+
     _validate_execution_status(execution_status)
 
     with engine.begin() as connection:
@@ -161,7 +172,25 @@ def insert_flight_execution_record(data):
             route_ids,
         )
 
+        for occupancy in planned_route_occupancy:
+            insert_route_occupancy_state(
+                connection,
+                route_id=occupancy["route_id"],
+                flight_band_id=occupancy["flight_band_id"],
+                flight_execution_id=record[
+                    "flight_execution_id"
+                ],
+                aircraft_id=occupancy["aircraft_id"],
+                planned_entry_time=occupancy[
+                    "planned_entry_time"
+                ],
+                planned_exit_time=occupancy[
+                    "planned_exit_time"
+                ],
+            )
+
         record["route_ids"] = route_ids
+
         return record
 
 
@@ -865,6 +894,64 @@ def _select_flight_execution_routes(
         row["route_id"]
         for row in result.mappings().all()
     ]
+
+
+def update_flight_execution_route_mission_ranges(
+    flight_execution_id,
+    route_ranges,
+):
+    with engine.begin() as connection:
+        for route_range in route_ranges:
+            connection.execute(
+                text("""
+                    UPDATE flight_execution_routes
+                    SET
+                        start_mission_sequence =
+                            :start_mission_sequence,
+                        end_mission_sequence =
+                            :end_mission_sequence
+                    WHERE flight_execution_id = :flight_execution_id
+                      AND sequence_number = :sequence_number
+                """),
+                {
+                    "flight_execution_id": flight_execution_id,
+                    "sequence_number": (
+                        route_range["route_index"] + 1
+                    ),
+                    "start_mission_sequence": (
+                        route_range["start_mission_sequence"]
+                    ),
+                    "end_mission_sequence": (
+                        route_range["end_mission_sequence"]
+                    ),
+                },
+            )
+
+
+def select_flight_execution_route_ranges(
+    flight_execution_id,
+):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    sequence_number,
+                    route_id,
+                    start_mission_sequence,
+                    end_mission_sequence
+                FROM flight_execution_routes
+                WHERE flight_execution_id = :flight_execution_id
+                ORDER BY sequence_number
+            """),
+            {
+                "flight_execution_id": flight_execution_id,
+            },
+        )
+
+        return [
+            dict(row)
+            for row in result.mappings().all()
+        ]
 
 
 def _select_routes_for_flight_executions(

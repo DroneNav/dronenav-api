@@ -47,7 +47,7 @@ from app.models.flight_band_model import select_active_flight_band_records_by_cl
 from app.services.geospatial_validation_service import (
     validate_operational_geospatial_data,
 )
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.exc import IntegrityError
@@ -55,6 +55,7 @@ from sqlalchemy.exc import IntegrityError
 from app.config.constants import (
     EXECUTION_STATUS_ACTIVE,
     VALID_FLIGHT_CLASSES,
+    PREFLIGHT_DURATION_SECONDS,
 )
 
 from app.models.droneport_model import select_droneport
@@ -73,6 +74,14 @@ from app.models.site_model import select_site
 from app.services.timezone_service import (
     resolve_droneport_timezone,
     resolve_site_timezone,
+)
+
+from app.models.route_model import select_route
+from app.models.route_occupancy_state_model import (
+    insert_route_occupancy_state,
+)
+from app.navproxy.tooling.route_duration import (
+    estimate_route_duration_seconds,
 )
 
 import subprocess
@@ -154,6 +163,21 @@ def create_flight_execution(data):
             )
         )
 
+    matching_flight_band = None
+
+    if requested_departure_datetime is not None:
+        active_flight_bands = (
+            select_active_flight_band_records_by_class(
+                data["flight_class"]
+            )
+        )
+
+        matching_flight_band = get_matching_flight_band(
+            requested_departure_datetime,
+            operational_timezone,
+            active_flight_bands,
+        )
+
     flight_execution_data = {
         "flight_plan_id": str(data["flight_plan_id"]),
         "authority_id": str(data["authority_id"]),
@@ -185,9 +209,28 @@ def create_flight_execution(data):
         ],
     }
 
+    planned_route_occupancy = []
+
+    if requested_departure_datetime is not None:
+        planned_route_occupancy = (
+            build_planned_route_occupancy(
+                route_ids=flight_execution_data["route_ids"],
+                flight_band_id=matching_flight_band[
+                    "flight_band_id"
+                ],
+                aircraft_id=flight_execution_data[
+                    "aircraft_id"
+                ],
+                requested_departure_datetime=(
+                    requested_departure_datetime
+                ),
+            )
+        )
+
     try:
         flight_execution = insert_flight_execution_record(
-            flight_execution_data
+            flight_execution_data,
+            planned_route_occupancy=planned_route_occupancy,
         )
 
     except IntegrityError:
@@ -407,6 +450,49 @@ def validate_flight_execution_submission(data, operational_timezone):
     return errors
 
 
+def build_planned_route_occupancy(
+    *,
+    route_ids,
+    flight_band_id,
+    aircraft_id,
+    requested_departure_datetime,
+):
+    planned_entry_time = (
+        requested_departure_datetime
+        + timedelta(
+            seconds=PREFLIGHT_DURATION_SECONDS
+        )
+    )
+
+    occupancy_rows = []
+
+    for route_id in route_ids:
+        route = select_route(route_id)
+
+        duration_seconds = (
+            estimate_route_duration_seconds(route)
+        )
+
+        planned_exit_time = (
+            planned_entry_time
+            + timedelta(seconds=duration_seconds)
+        )
+
+        occupancy_rows.append(
+            {
+                "route_id": route_id,
+                "flight_band_id": flight_band_id,
+                "aircraft_id": aircraft_id,
+                "planned_entry_time": planned_entry_time,
+                "planned_exit_time": planned_exit_time,
+            }
+        )
+
+        planned_entry_time = planned_exit_time
+
+    return occupancy_rows
+
+
 def accepted_response(
     flight_execution,
     status_code=201,
@@ -429,6 +515,22 @@ def rejected_response(errors):
         "flight_plan_status": "draft",
         "errors": errors,
     }, 422
+
+
+def get_matching_flight_band(
+    requested_datetime,
+    operational_timezone,
+    active_flight_bands,
+):
+    for flight_band in active_flight_bands:
+        if _requested_departure_matches_band(
+            requested_datetime,
+            operational_timezone,
+            flight_band,
+        ):
+            return flight_band
+
+    return None
 
 
 def validate_requested_departure_datetime(
@@ -460,13 +562,14 @@ def validate_requested_departure_datetime(
             ),
         }
 
-    for flight_band in active_flight_bands:
-        if _requested_departure_matches_band(
-            requested_datetime,
-            operational_timezone,
-            flight_band,
-        ):
-            return None
+    matching_flight_band = get_matching_flight_band(
+        requested_datetime,
+        operational_timezone,
+        active_flight_bands,
+    )
+
+    if matching_flight_band is not None:
+        return None
 
     return {
         "field": "requested_departure_datetime",
