@@ -54,6 +54,9 @@ def update_route_occupancy_state(
     flight_execution_id,
     actual_entry_time=None,
     actual_exit_time=None,
+    last_latitude=None,
+    last_longitude=None,
+    last_altitude_ft=None,
     state=None,
 ):
     connection.execute(
@@ -61,12 +64,24 @@ def update_route_occupancy_state(
             UPDATE route_occupancy_state
             SET
                 actual_entry_time = COALESCE(
-                    :actual_entry_time,
-                    actual_entry_time
+                    actual_entry_time,
+                    :actual_entry_time
                 ),
                 actual_exit_time = COALESCE(
-                    :actual_exit_time,
-                    actual_exit_time
+                    actual_exit_time,
+                    :actual_exit_time
+                ),
+                last_latitude = COALESCE(
+                    :last_latitude,
+                    last_latitude
+                ),
+                last_longitude = COALESCE(
+                    :last_longitude,
+                    last_longitude
+                ),
+                last_altitude_ft = COALESCE(
+                    :last_altitude_ft,
+                    last_altitude_ft
                 ),
                 state = COALESCE(
                     :state,
@@ -80,6 +95,9 @@ def update_route_occupancy_state(
             "flight_execution_id": flight_execution_id,
             "actual_entry_time": actual_entry_time,
             "actual_exit_time": actual_exit_time,
+            "last_latitude": last_latitude,
+            "last_longitude": last_longitude,
+            "last_altitude_ft": last_altitude_ft,
             "state": state,
         },
     )
