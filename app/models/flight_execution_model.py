@@ -909,7 +909,9 @@ def update_flight_execution_route_mission_ranges(
                         start_mission_sequence =
                             :start_mission_sequence,
                         end_mission_sequence =
-                            :end_mission_sequence
+                            :end_mission_sequence,
+                        segment_mission_sequences =
+                            :segment_mission_sequences
                     WHERE flight_execution_id = :flight_execution_id
                       AND sequence_number = :sequence_number
                 """),
@@ -923,6 +925,9 @@ def update_flight_execution_route_mission_ranges(
                     ),
                     "end_mission_sequence": (
                         route_range["end_mission_sequence"]
+                    ),
+                    "segment_mission_sequences": (
+                        route_range["segment_mission_sequences"]
                     ),
                 },
             )
@@ -938,7 +943,8 @@ def select_flight_execution_route_ranges(
                     sequence_number,
                     route_id,
                     start_mission_sequence,
-                    end_mission_sequence
+                    end_mission_sequence,
+                    segment_mission_sequences
                 FROM flight_execution_routes
                 WHERE flight_execution_id = :flight_execution_id
                 ORDER BY sequence_number
