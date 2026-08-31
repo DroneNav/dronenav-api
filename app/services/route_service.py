@@ -223,8 +223,8 @@ def normalize_route_payload(data):
 	    "direction",
 	    DEFAULT_ROUTE_DIRECTION
 	),
-	"buffered": data.get(
-	    "buffered",
+	"maximum_aircraft_capacity": data.get(
+	    "maximum_aircraft_capacity",
 	    DEFAULT_ROUTE_BUFFERED
 	),
 	"geometry": data["geometry"],
@@ -299,7 +299,7 @@ def validate_route_patch(data):
         "route_type",
         "minimum_aircraft_weight_lbs",
         "maximum_aircraft_weight_lbs",
-        "buffered",
+        "maximum_aircraft_capacity",
         "direction",
         "segment_attributes",
     }
@@ -322,7 +322,7 @@ def normalize_route_patch(data):
         "route_type",
         "minimum_aircraft_weight_lbs",
         "maximum_aircraft_weight_lbs",
-        "buffered",
+        "maximum_aircraft_capacity",
         "direction",
         "segment_attributes",
     }
@@ -357,7 +357,7 @@ def format_route(row):
         "minimum_aircraft_weight_lbs": row["minimum_aircraft_weight_lbs"],
         "maximum_aircraft_weight_lbs": row["maximum_aircraft_weight_lbs"],
         "direction": row["direction"],
-        "buffered": row["buffered"],
+        "maximum_aircraft_capacity": row["maximum_aircraft_capacity"],
         "geometry": row["geometry"],
         "segment_attributes": row["segment_attributes"],
     }
@@ -379,7 +379,7 @@ def format_route_summary(row):
         "minimum_aircraft_weight_lbs": row["minimum_aircraft_weight_lbs"],
         "maximum_aircraft_weight_lbs": row["maximum_aircraft_weight_lbs"],
         "direction": row["direction"],
-        "buffered": row["buffered"],
+        "maximum_aircraft_capacity": row["maximum_aircraft_capacity"],
         "geometry": row["geometry"],
         "segment_attributes": row["segment_attributes"],
     }

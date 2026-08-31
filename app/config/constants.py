@@ -48,8 +48,11 @@ of the aircraft operator and applicable regulatory authorities.
 # ------------------------------------------------------------------
 # Site Defaults
 # ------------------------------------------------------------------
+VERTICAL_CONFORMANCE_MARGIN_FT = 10
+VERTICAL_LAYER_SEPARATION_FT = 10
+VERTICAL_LAYER_SPACING_FT = ( 2 * VERTICAL_CONFORMANCE_MARGIN_FT
+                              + VERTICAL_LAYER_SEPARATION_FT )
 
-MISSION_ALTITUDE_MARGIN_FT = 10
 DEFAULT_MINIMUM_ALTITUDE_FT = 0
 DEFAULT_MAXIMUM_ALTITUDE_FT = 400
 DEFAULT_START_TIME = "00:00"
@@ -69,6 +72,9 @@ DEFAULT_API_TIMEOUT_SECONDS = 15
 LAUNCH_WINDOW_EXPIRES_MINUTES = 30
 LAUNCH_WINDOW_PREFLIGHT_MINUTES = 15
 PREFLIGHT_DURATION_SECONDS = 30
+
+ROUTE_SLOT_RETRY_COUNT = 5
+ROUTE_SLOT_RETRY_SECONDS = 10
 
 # Scheduler begins pre-flight this many minutes before the
 # scheduled departure time.

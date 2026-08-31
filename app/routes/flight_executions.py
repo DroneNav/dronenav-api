@@ -54,6 +54,10 @@ from app.services.flight_execution_service import (
     get_flight_execution,
 )
 
+from app.services.route_traffic_service import (
+    request_route_vertical_layer,
+)
+
 flight_executions_bp = Blueprint("flight_executions", __name__)
 
 CORS(
@@ -188,4 +192,35 @@ def cancel_flight_execution_route(
     )
 
     return jsonify(response), status_code
+
+
+@flight_executions_bp.route("/api/flight-executions/<flight_execution_id>/route-slot", methods=["POST", "OPTIONS"])
+def request_route_slot_route(flight_execution_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    route_id = data.get("route_id")
+    flight_band_id = data.get("flight_band_id")
+
+    if not route_id:
+        return jsonify({
+            "error": "route_id is required."
+        }), 400
+
+    if not flight_band_id:
+        return jsonify({
+            "error": "flight_band_id is required."
+        }), 400
+
+    response, status_code = request_route_vertical_layer(
+        route_id=route_id,
+        flight_band_id=flight_band_id,
+        flight_execution_id=flight_execution_id,
+    )
+
+    return jsonify(response), status_code
+
 

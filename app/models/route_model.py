@@ -76,7 +76,7 @@ def insert_route(data):
                     minimum_aircraft_weight_lbs,
                     maximum_aircraft_weight_lbs,
                     direction,
-                    buffered,
+                    maximum_aircraft_capacity,
                     geometry,
                     segment_attributes
                 )
@@ -93,7 +93,7 @@ def insert_route(data):
                     :minimum_aircraft_weight_lbs,
                     :maximum_aircraft_weight_lbs,
                     :direction,
-                    :buffered,
+                    :maximum_aircraft_capacity,
                     ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
@@ -157,7 +157,7 @@ def select_route(route_id):
                     minimum_aircraft_weight_lbs,
                     maximum_aircraft_weight_lbs,
                     direction,
-                    buffered,
+                    maximum_aircraft_capacity,
                     ST_AsGeoJSON(geometry)::json AS geometry,
                     segment_attributes
                 FROM routes 
@@ -192,7 +192,7 @@ def select_routes(survey_status=None):
                     minimum_aircraft_weight_lbs,
                     maximum_aircraft_weight_lbs,
                     direction,
-                    buffered,
+                    maximum_aircraft_capacity,
                     ST_AsGeoJSON(geometry)::json AS geometry,
                     segment_attributes
                 FROM routes
@@ -231,7 +231,7 @@ def select_routes_by_site_id(site_id):
                     minimum_aircraft_weight_lbs,
                     maximum_aircraft_weight_lbs,
                     direction,
-                    buffered,
+                    maximum_aircraft_capacity,
                     ST_AsGeoJSON(geometry)::json AS geometry,
                     segment_attributes
                 FROM routes
@@ -454,7 +454,7 @@ def update_route_record(route_id, data):
                     minimum_aircraft_weight_lbs = :minimum_aircraft_weight_lbs,
                     maximum_aircraft_weight_lbs = :maximum_aircraft_weight_lbs,
                     direction = :direction,
-                    buffered = :buffered,
+                    maximum_aircraft_capacity = :maximum_aircraft_capacity,
                     geometry = ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid

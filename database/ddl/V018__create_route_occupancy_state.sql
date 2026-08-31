@@ -29,6 +29,8 @@ CREATE TABLE route_occupancy_state (
     last_longitude numeric,
     last_altitude_ft numeric,
 
+    assigned_relative_altitude_ft integer,
+
     CONSTRAINT route_occupancy_state_state_ck
         CHECK (
             state IN (
@@ -64,19 +66,19 @@ CREATE TABLE route_occupancy_state (
 ALTER TABLE route_occupancy_state
     ADD CONSTRAINT route_occupancy_state_route_fk
     FOREIGN KEY (route_id)
-    REFERENCES routes(id);
+    REFERENCES routes(route_id);
 
 
 ALTER TABLE route_occupancy_state
     ADD CONSTRAINT route_occupancy_state_flight_band_fk
     FOREIGN KEY (flight_band_id)
-    REFERENCES flight_bands(id);
+    REFERENCES flight_bands(flight_band_id);
 
 
 ALTER TABLE route_occupancy_state
     ADD CONSTRAINT route_occupancy_state_flight_execution_fk
     FOREIGN KEY (flight_execution_id)
-    REFERENCES flight_executions(id);
+    REFERENCES flight_executions(flight_execution_id);
 
 
 CREATE UNIQUE INDEX route_occupancy_state_execution_route_uq
@@ -85,13 +87,11 @@ CREATE UNIQUE INDEX route_occupancy_state_execution_route_uq
         route_id
     );
 
-
 CREATE INDEX route_occupancy_state_route_state_idx
     ON route_occupancy_state (
         route_id,
         state
     );
-
 
 CREATE INDEX route_occupancy_state_aircraft_state_idx
     ON route_occupancy_state (

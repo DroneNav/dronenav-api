@@ -20,7 +20,7 @@ CREATE TABLE routes (
     approved_by VARCHAR(100) NULL,
 
     direction INTEGER NOT NULL DEFAULT 0,
-    buffered INTEGER NOT NULL DEFAULT 0,
+    maximum_aircraft_capacity INTEGER NOT NULL DEFAULT 0,
 
     minimum_aircraft_weight_lbs NUMERIC(6,2) NOT NULL DEFAULT 5.00,
     maximum_aircraft_weight_lbs NUMERIC(6,2) NOT NULL DEFAULT 50.00,
@@ -41,8 +41,8 @@ CREATE TABLE routes (
     CONSTRAINT chk_routes_segment_attributes_array
         CHECK (jsonb_typeof(segment_attributes) = 'array'),
 
-    CONSTRAINT chk_routes_buffered
-        CHECK (buffered >= 0),
+    CONSTRAINT chk_routes_maximum_aircraft_capacity
+        CHECK (maximum_aircraft_capacity >= 0),
 
     CONSTRAINT fk_routes_origin_site
         FOREIGN KEY (origin_site_id)

@@ -102,3 +102,118 @@ def update_route_occupancy_state(
         },
     )
 
+def count_active_route_occupancy(
+    connection,
+    *,
+    route_id,
+    flight_band_id,
+):
+    result = connection.execute(
+        text("""
+            SELECT COUNT(*)
+            FROM route_occupancy_state
+            WHERE route_id = :route_id
+              AND flight_band_id = :flight_band_id
+              AND state = 'active'
+        """),
+        {
+            "route_id": route_id,
+            "flight_band_id": flight_band_id,
+        },
+    )
+
+    return result.scalar_one()
+
+
+def has_route_capacity(
+    *,
+    maximum_aircraft_capacity,
+    active_occupancy_count,
+):
+    if maximum_aircraft_capacity == 0:
+        return True
+
+    return (
+        active_occupancy_count
+        < maximum_aircraft_capacity
+    )
+
+
+def select_active_route_occupancy(
+    connection,
+    *,
+    route_id,
+    flight_band_id,
+):
+    result = connection.execute(
+        text("""
+            SELECT
+                route_occupancy_state_id,
+                flight_execution_id,
+                aircraft_id,
+                assigned_relative_altitude_ft,
+                actual_entry_time,
+                last_latitude,
+                last_longitude,
+                last_altitude_ft
+            FROM route_occupancy_state
+            WHERE route_id = :route_id
+              AND flight_band_id = :flight_band_id
+              AND state = 'active'
+            ORDER BY actual_entry_time
+        """),
+        {
+            "route_id": route_id,
+            "flight_band_id": flight_band_id,
+        },
+    )
+
+    return result.mappings().all()
+
+
+def lock_route_flight_band_allocation(
+    connection,
+    *,
+    route_id,
+    flight_band_id,
+):
+    connection.execute(
+        text("""
+            SELECT pg_advisory_xact_lock(
+                hashtext(:route_id),
+                hashtext(:flight_band_id)
+            )
+        """),
+        {
+            "route_id": str(route_id),
+            "flight_band_id": str(flight_band_id),
+        },
+    )
+
+
+def assign_route_occupancy_altitude(
+    connection,
+    *,
+    flight_execution_id,
+    assigned_relative_altitude_ft,
+):
+    result = connection.execute(
+        text("""
+            UPDATE route_occupancy_state
+            SET assigned_relative_altitude_ft =
+                :assigned_relative_altitude_ft
+            WHERE flight_execution_id = :flight_execution_id
+              AND state = 'planned'
+              AND assigned_relative_altitude_ft IS NULL
+            RETURNING route_occupancy_state_id
+        """),
+        {
+            "flight_execution_id": flight_execution_id,
+            "assigned_relative_altitude_ft":
+                assigned_relative_altitude_ft,
+        },
+    )
+
+    return result.scalars().all()
+
+
