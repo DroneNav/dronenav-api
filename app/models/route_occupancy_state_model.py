@@ -47,6 +47,25 @@ def insert_route_occupancy_state(
     return result.scalar_one()
 
 
+def clear_route_occupancy(
+    connection,
+    *,
+    route_occupancy_state_id,
+):
+    connection.execute(
+        text("""
+            UPDATE route_occupancy_state
+            SET cleared = TRUE
+            WHERE route_occupancy_state_id =
+                :route_occupancy_state_id
+        """),
+        {
+            "route_occupancy_state_id":
+                route_occupancy_state_id,
+        },
+    )
+
+
 def update_route_occupancy_state(
     connection,
     *,
@@ -152,6 +171,7 @@ def select_active_route_occupancy(
                 flight_execution_id,
                 aircraft_id,
                 assigned_relative_altitude_ft,
+                cleared,
                 actual_entry_time,
                 last_latitude,
                 last_longitude,

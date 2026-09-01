@@ -2,6 +2,7 @@
 from app.config.constants import (
     VERTICAL_CONFORMANCE_MARGIN_FT,
     VERTICAL_LAYER_SPACING_FT,
+    MINIMUM_LONGITUDINAL_SEPARATION_FT,
 )
 
 from app.models.route_occupancy_state_model import (
@@ -9,6 +10,11 @@ from app.models.route_occupancy_state_model import (
     select_active_route_occupancy,
     assign_route_occupancy_altitude,
     count_active_route_occupancy,
+    clear_route_occupancy,
+)
+
+from app.models.geospatial_model import (
+    select_linestring_progress_feet,
 )
 
 from app.config.database import engine
@@ -88,7 +94,10 @@ def get_active_assigned_layers(
     return {
         row["assigned_relative_altitude_ft"]
         for row in active_occupancy
-        if row["assigned_relative_altitude_ft"] is not None
+        if (
+            row["assigned_relative_altitude_ft"] is not None
+            and row["cleared"] is not True
+        )
     }
 
 
@@ -102,6 +111,90 @@ def select_available_vertical_layer(
             return layer
 
     return None
+
+
+def build_layer_trailing_occupancy(
+    *,
+    route_geometry,
+    active_occupancy,
+):
+    trailing_by_layer = {}
+
+    for occupancy in active_occupancy:
+        layer = occupancy["assigned_relative_altitude_ft"]
+
+        if layer is None:
+            continue
+
+        if occupancy["cleared"] is True:
+            continue
+
+        latitude = occupancy["last_latitude"]
+        longitude = occupancy["last_longitude"]
+
+        if latitude is None or longitude is None:
+            continue
+
+        progress = select_linestring_progress_feet(
+            route_geometry,
+            longitude=float(longitude),
+            latitude=float(latitude),
+        )
+
+        if progress is None:
+            continue
+
+        distance_ft = progress.get("distance_ft")
+
+        if distance_ft is None:
+            continue
+
+        candidate = {
+            "occupancy": occupancy,
+            "distance_ft": float(distance_ft),
+        }
+
+        current = trailing_by_layer.get(layer)
+
+        if (
+            current is None
+            or candidate["distance_ft"] < current["distance_ft"]
+        ):
+            trailing_by_layer[layer] = candidate
+
+    return trailing_by_layer
+
+
+def select_reusable_vertical_layer(
+    *,
+    trailing_by_layer,
+):
+    selected_layer = None
+    selected_candidate = None
+
+    for layer, candidate in trailing_by_layer.items():
+        if (
+            selected_candidate is None
+            or candidate["distance_ft"]
+            > selected_candidate["distance_ft"]
+        ):
+            selected_layer = layer
+            selected_candidate = candidate
+
+    if selected_candidate is None:
+        return None
+
+    if (
+        selected_candidate["distance_ft"]
+        < MINIMUM_LONGITUDINAL_SEPARATION_FT
+    ):
+        return None
+
+    return {
+        "layer": selected_layer,
+        "occupancy": selected_candidate["occupancy"],
+        "distance_ft": selected_candidate["distance_ft"],
+    }
 
 
 def select_route_vertical_layer(
@@ -178,10 +271,34 @@ def allocate_route_vertical_layer(
         active_occupancy
     )
 
-    return select_available_vertical_layer(
+    available_layer = select_available_vertical_layer(
         vertical_layers=vertical_layers,
         active_assigned_layers=active_assigned_layers,
     )
+
+    if available_layer is not None:
+        return available_layer
+
+    trailing_by_layer = build_layer_trailing_occupancy(
+        route_geometry=route["geometry"],
+        active_occupancy=active_occupancy,
+    )
+
+    reusable_layer = select_reusable_vertical_layer(
+        trailing_by_layer=trailing_by_layer,
+    )
+
+    if reusable_layer is None:
+        return None
+
+    clear_route_occupancy(
+        connection,
+        route_occupancy_state_id=reusable_layer[
+            "occupancy"
+        ]["route_occupancy_state_id"],
+    )
+
+    return reusable_layer["layer"]
 
 
 def allocate_and_assign_route_vertical_layer(

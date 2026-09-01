@@ -51,6 +51,7 @@ from app.config.constants import (
     DEFAULT_ROUTE_BUFFERED,
     DEFAULT_ROUTE_STATUS,
     DEFAULT_SURVEY_STATUS,
+    MINIMUM_LONGITUDINAL_SEPARATION_FT,
 )
 
 from app.models.overlay_package_model import (
@@ -70,6 +71,10 @@ from app.models.route_model import (
     patch_route_record,
     soft_delete_route,
     insert_overlay_review,
+)
+
+from app.models.geospatial_model import (
+    select_geometry_length_feet,
 )
 
 from app.services.elevation_service import (
@@ -166,6 +171,24 @@ def validate_route_payload(data):
                 f"segment_attributes[{segment_index}]."
                 "failsafe_coordinate latitude is invalid"
             )
+
+    route_length = select_geometry_length_feet(
+        geometry
+    )
+
+    if route_length is None:
+        return "Unable to determine Route geometry length"
+
+    length_ft = route_length.get("length_ft")
+
+    if length_ft is None:
+        return "Unable to determine Route geometry length"
+
+    if float(length_ft) < MINIMUM_LONGITUDINAL_SEPARATION_FT:
+        return (
+            f"Route must be at least "
+            f"{MINIMUM_LONGITUDINAL_SEPARATION_FT} feet long"
+        )
 
     return None
 
