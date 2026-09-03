@@ -64,6 +64,7 @@ DEFAULT_ALLDAYS = (0, 1, 2, 3, 4, 5, 6)
 EPQS_URL = "https://epqs.nationalmap.gov/v1/json"
 FAA_TFR_WFS_URL = "https://tfr.faa.gov/geoserver/TFR/ows"
 FAA_TFR_AIXM_URL = "https://tfr.faa.gov/download"
+FAA_TFR_WEBTEXT_URL = "https://tfr.faa.gov/tfrapi/getWebText"
 FAA_TFR_CACHE_TTL_SECONDS = 300
 
 DEFAULT_API_BASE_URL = "https://api.dronenav.org"

@@ -52,6 +52,7 @@ from app.config.constants import (
     DEFAULT_API_TIMEOUT_SECONDS,
     FAA_TFR_WFS_URL,
     FAA_TFR_AIXM_URL,
+    FAA_TFR_WEBTEXT_URL,
     FAA_TFR_CACHE_TTL_SECONDS,
 )
 
@@ -81,6 +82,7 @@ _TFR_CACHE = {
     "loaded_at": None,
     "features": None,
     "aixm": {},
+    "webtext": {},
 }
 
 
@@ -1047,6 +1049,7 @@ def get_tfrs():
     _TFR_CACHE["loaded_at"] = now
     _TFR_CACHE["features"] = features
     _TFR_CACHE["aixm"] = {}
+    _TFR_CACHE["webtext"] = {}
 
     return features
 
@@ -1772,10 +1775,66 @@ def get_tfrs_for_geometry(
             geometry,
             current_datetime,
         ):
+            tfr["faa_text"] = get_tfr_webtext(
+                notam_id
+            )
+
             applicable_tfrs.append(
                 tfr
             )
 
     return applicable_tfrs
+
+
+def get_tfr(notam_id):
+    """Return normalized FAA TFR detail for one NOTAM ID."""
+
+    if not isinstance(notam_id, str) or not notam_id.strip():
+        raise ValueError(
+            "TFR NOTAM ID is required"
+        )
+
+    return parse_tfr_aixm(
+        get_tfr_aixm(
+            notam_id.strip()
+        )
+    )
+
+
+def get_tfr_webtext(notam_id):
+    cached_webtext = _TFR_CACHE["webtext"].get(
+        notam_id
+    )
+
+    if cached_webtext is not None:
+        return cached_webtext
+
+    response = requests.get(
+        FAA_TFR_WEBTEXT_URL,
+        params={
+            "notamId": notam_id,
+        },
+        timeout=DEFAULT_API_TIMEOUT_SECONDS,
+    )
+
+    response.raise_for_status()
+
+    data = response.json()
+
+    if not isinstance(data, list) or not data:
+        raise ValueError(
+            "FAA TFR web text response is invalid"
+        )
+
+    text = data[0].get("text")
+
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError(
+            "FAA TFR web text is missing"
+        )
+
+    _TFR_CACHE["webtext"][notam_id] = text
+
+    return text
 
 

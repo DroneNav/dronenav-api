@@ -46,6 +46,7 @@ from flask import Blueprint, jsonify, request
 from flask_cors import CORS
 
 from app.services.tfr_service import (
+    get_tfr,
     get_tfrs,
     get_tfrs_for_geometry,
 )
@@ -77,6 +78,26 @@ def get_tfrs_route():
 
     return jsonify({
         "tfrs": tfrs
+    })
+
+
+@tfrs_bp.route("/api/tfrs/<path:notam_id>", methods=["GET", "OPTIONS"])
+def get_tfr_route(notam_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    try:
+        tfr = get_tfr(
+            notam_id
+        )
+    except ValueError as exc:
+        return jsonify({
+            "error": str(exc)
+        }), 400
+
+    return jsonify({
+        "tfr": tfr
     })
 
 
