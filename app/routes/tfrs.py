@@ -45,8 +45,9 @@ of the aircraft operator and applicable regulatory authorities.
 from flask import Blueprint, jsonify, request
 from flask_cors import CORS
 
-from app.services.tfrs_service import (
+from app.services.tfr_service import (
     get_tfrs,
+    get_tfrs_for_geometry,
 )
 
 tfrs_bp = Blueprint("tfrs", __name__)
@@ -73,6 +74,35 @@ def get_tfrs_route():
         return "", 204
 
     tfrs = get_tfrs()
+
+    return jsonify({
+        "tfrs": tfrs
+    })
+
+
+@tfrs_bp.route("/api/tfrs/applicability", methods=["POST", "OPTIONS"])
+def get_tfr_applicability_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    geometry = data.get("geometry")
+
+    if geometry is None:
+        return jsonify({
+            "error": "Missing geometry"
+        }), 400
+
+    try:
+        tfrs = get_tfrs_for_geometry(
+            geometry
+        )
+    except ValueError as exc:
+        return jsonify({
+            "error": str(exc)
+        }), 400
 
     return jsonify({
         "tfrs": tfrs

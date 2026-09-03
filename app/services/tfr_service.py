@@ -52,6 +52,14 @@ from app.config.constants import (
     DEFAULT_API_TIMEOUT_SECONDS,
     FAA_TFR_WFS_URL,
     FAA_TFR_AIXM_URL,
+    FAA_TFR_CACHE_TTL_SECONDS,
+)
+
+from app.models.geospatial_model import (
+    select_geodesic_arc_points,
+    select_geodesic_circle_polygon,
+    select_geometry_difference,
+    select_geometries_intersect,
 )
 
 
@@ -67,6 +75,12 @@ TFR_WEEKDAY_MAP = {
     "FRI": 4,
     "SAT": 5,
     "SUN": 6,
+}
+
+_TFR_CACHE = {
+    "loaded_at": None,
+    "features": None,
+    "aixm": {},
 }
 
 
@@ -88,17 +102,31 @@ def normalize_tfr_feature(feature):
 
 
 def get_tfr_aixm(notam_id):
-    filename = f"detail_{notam_id.replace('/', '_')}.aixm50"
-    url = f"{FAA_TFR_AIXM_URL}/{filename}"
+    cached_aixm = _TFR_CACHE["aixm"].get(
+        notam_id
+    )
+
+    if cached_aixm is not None:
+        return cached_aixm
+
+    filename = (
+        "detail_"
+        + notam_id.replace("/", "_")
+        + ".aixm50"
+    )
 
     response = requests.get(
-        url,
+        f"{FAA_TFR_AIXM_URL}/{filename}",
         timeout=DEFAULT_API_TIMEOUT_SECONDS,
     )
 
     response.raise_for_status()
 
-    return response.content
+    aixm_data = response.content
+
+    _TFR_CACHE["aixm"][notam_id] = aixm_data
+
+    return aixm_data
 
 
 def get_tfr_traditional_short_text(root):
@@ -976,6 +1004,23 @@ def parse_tfr_aixm(aixm_data):
 
 
 def get_tfrs():
+    now = datetime.now(
+        timezone.utc
+    )
+
+    loaded_at = _TFR_CACHE["loaded_at"]
+    features = _TFR_CACHE["features"]
+
+    if (
+        loaded_at is not None
+        and features is not None
+        and (
+            now - loaded_at
+        ).total_seconds()
+        < FAA_TFR_CACHE_TTL_SECONDS
+    ):
+        return features
+
     response = requests.get(
         FAA_TFR_WFS_URL,
         params={
@@ -994,10 +1039,16 @@ def get_tfrs():
 
     data = response.json()
 
-    return [
+    features = [
         normalize_tfr_feature(feature)
         for feature in data["features"]
     ]
+
+    _TFR_CACHE["loaded_at"] = now
+    _TFR_CACHE["features"] = features
+    _TFR_CACHE["aixm"] = {}
+
+    return features
 
 
 def resolve_tfr_schedule_date(
@@ -1338,5 +1389,393 @@ def is_tfr_layer_schedule_active(
         return True
 
     return False
+
+
+def build_tfr_circle_geojson(geometry):
+    """Convert normalized FAA circle geometry to GeoJSON."""
+
+    if geometry.get("type") != "circle":
+        raise ValueError(
+            "FAA TFR geometry is not a circle"
+        )
+
+    center = geometry.get("center")
+    radius = geometry.get("radius") or {}
+
+    if (
+        not isinstance(center, list)
+        or len(center) != 2
+    ):
+        raise ValueError(
+            "FAA TFR circle center is invalid"
+        )
+
+    if radius.get("unit") != "NM":
+        raise ValueError(
+            "Unsupported FAA TFR circle radius unit: "
+            f"{radius.get('unit')}"
+        )
+
+    radius_value = radius.get("value")
+
+    if (
+        not isinstance(radius_value, (int, float))
+        or radius_value <= 0
+    ):
+        raise ValueError(
+            "FAA TFR circle radius is invalid"
+        )
+
+    geometry = select_geodesic_circle_polygon(
+        longitude=center[0],
+        latitude=center[1],
+        radius_nm=radius_value,
+    )
+
+    if geometry is None:
+        raise ValueError(
+            "FAA TFR circle produced no geometry"
+        )
+
+    return geometry
+
+
+def build_tfr_polygon_geojson(geometry):
+    """Convert normalized FAA polygon geometry to GeoJSON."""
+
+    if geometry.get("type") != "polygon":
+        raise ValueError(
+            "FAA TFR geometry is not a polygon"
+        )
+
+    segments = geometry.get("segments")
+
+    if not segments:
+        raise ValueError(
+            "FAA TFR polygon contains no segments"
+        )
+
+    ring = []
+
+    for segment in segments:
+        segment_type = segment.get("type")
+
+        if segment_type == "line":
+            points = segment.get("points")
+
+            if not points:
+                raise ValueError(
+                    "FAA TFR polygon line contains no points"
+                )
+
+        elif segment_type == "arc":
+            radius = segment.get("radius") or {}
+
+            if radius.get("unit") != "NM":
+                raise ValueError(
+                    "Unsupported FAA TFR arc radius unit: "
+                    f"{radius.get('unit')}"
+                )
+
+            points = select_geodesic_arc_points(
+                start=segment["start"],
+                end=segment["end"],
+                center=segment["center"],
+                radius_nm=radius["value"],
+                direction=segment["direction"],
+            )
+
+            if not points:
+                raise ValueError(
+                    "FAA TFR polygon arc produced no points"
+                )
+
+        else:
+            raise ValueError(
+                "Unsupported FAA TFR polygon segment type: "
+                f"{segment_type}"
+            )
+
+        for point in points:
+            normalized_point = [
+                float(point[0]),
+                float(point[1]),
+            ]
+
+            if (
+                ring
+                and ring[-1] == normalized_point
+            ):
+                continue
+
+            ring.append(normalized_point)
+
+    if len(ring) < 3:
+        raise ValueError(
+            "FAA TFR polygon contains insufficient coordinates"
+        )
+
+    if ring[0] != ring[-1]:
+        ring.append(list(ring[0]))
+
+    return {
+        "type": "Polygon",
+        "coordinates": [
+            ring,
+        ],
+    }
+
+
+def build_tfr_geometry_component_geojson(component):
+    """Convert a normalized FAA geometry component to GeoJSON."""
+
+    geometry = component.get("geometry")
+
+    if not geometry:
+        raise ValueError(
+            "FAA TFR geometry component has no geometry"
+        )
+
+    geometry_type = geometry.get("type")
+
+    if geometry_type == "circle":
+        return build_tfr_circle_geojson(
+            geometry
+        )
+
+    if geometry_type == "polygon":
+        return build_tfr_polygon_geojson(
+            geometry
+        )
+
+    raise ValueError(
+        "Unsupported FAA TFR geometry type: "
+        f"{geometry_type}"
+    )
+
+
+def build_tfr_airspace_usage_geojson(airspace_usage):
+    """Build effective GeoJSON for one FAA AirspaceUsage."""
+
+    components = airspace_usage.get(
+        "geometry_components"
+    )
+
+    if not components:
+        raise ValueError(
+            "FAA TFR airspace usage has no geometry components"
+        )
+
+    base_geometries = []
+    subtract_geometries = []
+
+    for component in components:
+        operation = component.get("operation")
+
+        geometry = build_tfr_geometry_component_geojson(
+            component
+        )
+
+        if operation == "BASE":
+            base_geometries.append(
+                geometry
+            )
+
+        elif operation == "SUBTR":
+            subtract_geometries.append(
+                geometry
+            )
+
+        else:
+            raise ValueError(
+                "Unsupported FAA TFR geometry operation: "
+                f"{operation}"
+            )
+
+    if len(base_geometries) != 1:
+        raise ValueError(
+            "FAA TFR airspace usage must contain "
+            "exactly one BASE geometry"
+        )
+
+    geometry = select_geometry_difference(
+        base_geometries[0],
+        subtract_geometries,
+    )
+
+    if geometry is None:
+        raise ValueError(
+            "FAA TFR airspace usage produced no geometry"
+        )
+
+    return geometry
+
+
+def does_tfr_airspace_usage_intersect_geometry(
+    airspace_usage,
+    geometry,
+):
+    """Return whether an FAA AirspaceUsage intersects GeoJSON geometry."""
+
+    tfr_geometry = build_tfr_airspace_usage_geojson(
+        airspace_usage
+    )
+
+    intersects = select_geometries_intersect(
+        tfr_geometry,
+        geometry,
+    )
+
+    if intersects is None:
+        raise ValueError(
+            "FAA TFR geometry intersection produced no result"
+        )
+
+    return intersects
+
+
+def does_tfr_intersect_geometry(
+    tfr,
+    geometry,
+):
+    """Return whether any AirspaceUsage in a TFR intersects geometry."""
+
+    airspace_usages = tfr.get(
+        "airspace_usages"
+    )
+
+    if not airspace_usages:
+        raise ValueError(
+            "FAA TFR contains no airspace usages"
+        )
+
+    for airspace_usage in airspace_usages:
+        if does_tfr_airspace_usage_intersect_geometry(
+            airspace_usage,
+            geometry,
+        ):
+            return True
+
+    return False
+
+
+def is_tfr_airspace_usage_active(
+    airspace_usage,
+    current_datetime,
+    tfr_begins_at,
+    tfr_ends_at,
+):
+    """Return whether any layer in an AirspaceUsage is active."""
+
+    layers = airspace_usage.get("layers")
+
+    if not layers:
+        raise ValueError(
+            "FAA TFR airspace usage contains no layers"
+        )
+
+    for layer in layers:
+        if is_tfr_layer_schedule_active(
+            layer,
+            current_datetime,
+            tfr_begins_at,
+            tfr_ends_at,
+        ):
+            return True
+
+    return False
+
+
+def is_tfr_applicable_to_geometry(
+    tfr,
+    geometry,
+    current_datetime,
+):
+    """Return whether an active TFR intersects GeoJSON geometry."""
+
+    airspace_usages = tfr.get(
+        "airspace_usages"
+    )
+
+    if not airspace_usages:
+        raise ValueError(
+            "FAA TFR contains no airspace usages"
+        )
+
+    for airspace_usage in airspace_usages:
+        if not is_tfr_airspace_usage_active(
+            airspace_usage,
+            current_datetime,
+            tfr["begins_at"],
+            tfr["ends_at"],
+        ):
+            continue
+
+        if does_tfr_airspace_usage_intersect_geometry(
+            airspace_usage,
+            geometry,
+        ):
+            return True
+
+    return False
+
+
+def get_tfrs_for_geometry(
+    geometry,
+    current_datetime=None,
+):
+    """Return current FAA TFRs applicable to GeoJSON geometry."""
+
+    if current_datetime is None:
+        current_datetime = datetime.now(
+            timezone.utc
+        )
+
+    if current_datetime.tzinfo is None:
+        raise ValueError(
+            "TFR applicability requires timezone-aware datetime"
+        )
+
+    candidate_notam_ids = set()
+
+    for tfr_feature in get_tfrs():
+        feature_geometry = tfr_feature.get(
+            "geometry"
+        )
+
+        if not feature_geometry:
+            continue
+
+        intersects = select_geometries_intersect(
+            feature_geometry,
+            geometry,
+        )
+
+        if intersects:
+            candidate_notam_ids.add(
+                tfr_feature["notam_id"]
+            )
+
+    applicable_tfrs = []
+
+    for notam_id in sorted(
+        candidate_notam_ids
+    ):
+        tfr = parse_tfr_aixm(
+            get_tfr_aixm(
+                notam_id
+            )
+        )
+
+        if is_tfr_applicable_to_geometry(
+            tfr,
+            geometry,
+            current_datetime,
+        ):
+            applicable_tfrs.append(
+                tfr
+            )
+
+    return applicable_tfrs
 
 
