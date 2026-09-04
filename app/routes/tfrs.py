@@ -45,6 +45,14 @@ of the aircraft operator and applicable regulatory authorities.
 from flask import Blueprint, jsonify, request
 from flask_cors import CORS
 
+from app.services.tfr_availability_service import (
+    get_scheduled_flight_tfr_conflicts,
+)
+
+from app.services.flight_execution_service import (
+    _parse_requested_departure_datetime,
+)
+
 from app.services.tfr_service import (
     get_tfr,
     get_tfrs,
@@ -129,4 +137,51 @@ def get_tfr_applicability_route():
         "tfrs": tfrs
     })
 
+
+@tfrs_bp.route("/api/tfrs/flight-plan-conflicts", methods=["POST", "OPTIONS"])
+def get_flight_plan_tfr_conflicts_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    requested_departure_datetime = (
+        data.get("requested_departure_datetime")
+    )
+
+    if requested_departure_datetime is None:
+        return jsonify({
+            "tfr_conflicts": []
+        })
+
+    evaluation_datetime = (
+        _parse_requested_departure_datetime(
+            requested_departure_datetime
+        )
+    )
+
+    if evaluation_datetime is None:
+        return jsonify({
+            "error": (
+                "requested_departure_datetime must be a valid "
+                "ISO 8601 datetime with a timezone offset."
+            )
+        }), 400
+
+    try:
+        conflicts = (
+            get_scheduled_flight_tfr_conflicts(
+                data,
+                evaluation_datetime,
+            )
+        )
+    except (KeyError, ValueError) as exc:
+        return jsonify({
+            "error": str(exc)
+        }), 400
+
+    return jsonify({
+        "tfr_conflicts": conflicts
+    })
 

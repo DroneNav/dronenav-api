@@ -47,6 +47,9 @@ from app.models.flight_band_model import select_active_flight_band_records_by_cl
 from app.services.geospatial_validation_service import (
     validate_operational_geospatial_data,
 )
+from app.services.tfr_availability_service import (
+    get_scheduled_flight_tfr_conflicts,
+)
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -360,9 +363,11 @@ def validate_flight_execution_submission(data, operational_timezone):
     if errors:
         return errors
 
-    requested_departure_datetime = data[
-        "requested_departure_datetime"
-    ]
+    requested_departure_datetime = (
+        _parse_requested_departure_datetime(
+            data["requested_departure_datetime"]
+        )
+    )
     departure_droneport_id = data[
         "departure_droneport_id"
     ]
@@ -446,6 +451,28 @@ def validate_flight_execution_submission(data, operational_timezone):
         validate_operational_geospatial_data(data)
     )
     errors.extend(geospatial_errors)
+
+    if errors:
+        return errors
+
+    if requested_departure_datetime is not None:
+        tfr_conflicts = (
+            get_scheduled_flight_tfr_conflicts(
+                data,
+                requested_departure_datetime,
+            )
+        )
+
+        if tfr_conflicts:
+            errors.append({
+                "field": "flight_path_ids",
+                "code": "tfr_conflict",
+                "message": (
+                    "Flight Plan conflicts with an applicable "
+                    "FAA Temporary Flight Restriction."
+                ),
+                "tfr_conflicts": tfr_conflicts,
+            })
 
     return errors
 

@@ -440,3 +440,36 @@ def select_geometries_intersect(
         return bool(row["intersects"])
 
 
+def select_geodesic_buffer_geometry(
+    geometry,
+    buffer_feet,
+):
+    """Return GeoJSON geometry buffered geodesically by feet."""
+
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    ST_AsGeoJSON(
+                        ST_Buffer(
+                            ST_SetSRID(
+                                ST_GeomFromGeoJSON(:geometry),
+                                4326
+                            )::geography,
+                            :buffer_feet * 0.3048
+                        )::geometry
+                    )::json AS geometry
+            """),
+            {
+                "geometry": json.dumps(geometry),
+                "buffer_feet": buffer_feet,
+            },
+        )
+
+        row = result.mappings().first()
+
+        if row is None or row["geometry"] is None:
+            return None
+
+        return row["geometry"]
+
