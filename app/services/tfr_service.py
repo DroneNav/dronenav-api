@@ -78,7 +78,7 @@ TFR_WEEKDAY_MAP = {
     "SUN": 6,
 }
 
-DEMO_TFR_ENABLED = True
+DEMO_TFR_ENABLED = False
 
 _TFR_CACHE = {
     "loaded_at": None,
