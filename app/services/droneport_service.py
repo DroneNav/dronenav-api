@@ -57,7 +57,6 @@ from app.models.droneport_model import (
     select_droneport_point_containment,
     update_droneport_record,
     patch_droneport_record,
-    patch_timezone_record,
     soft_delete_droneport,
     insert_overlay_review,
 )
@@ -173,6 +172,7 @@ def format_droneport(row):
     return {
         "droneport_id": str(row["droneport_id"]),
         "site_id": str(row["site_id"]),
+        "route_node_id": str(row["route_node_id"]),
         "droneport_name": row["droneport_name"],
         "droneport_type": row["droneport_type"],
         "created_by": row["created_by"],
@@ -193,6 +193,7 @@ def format_droneport_summary(row):
     return {
         "droneport_id": str(row["droneport_id"]),
         "site_id": str(row["site_id"]),
+        "route_node_id": str(row["route_node_id"]),
         "droneport_name": row["droneport_name"],
         "droneport_type": row["droneport_type"],
         "created_by": row["created_by"],
@@ -284,26 +285,6 @@ def patch_droneport(droneport_id, data):
         "status": "updated",
         "droneport_id": str(row["droneport_id"]),
         "droneport_name": row["droneport_name"],
-    }, None
-
-
-def patch_timezone(droneport_id, timezone):
-    error = validate_timezone_patch(timezone)
-
-    if error:
-        return None, error
-
-    normalized_data = normalize_timezone_patch(timezone)
-    row = patch_timezone_record(droneport_id, normalized_data)
-
-    if row is None:
-        return None, "DronePort timezone not found"
-
-    return {
-        "status": "updated",
-        "droneport_id": str(row["droneport_id"]),
-        "droneport_name": row["droneport_name"],
-        "timezone": row.get("timezone"),
     }, None
 
 

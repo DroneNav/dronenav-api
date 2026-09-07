@@ -49,6 +49,7 @@ from app.models.zone_model import select_zones_by_site_id
 from app.models.droneport_model import select_droneport
 from app.models.droneport_model import select_droneports_by_site_id
 from app.models.route_model import select_route
+from app.models.droneport_model import select_droneport_by_route_node_id
 
 
 def get_flight_context(
@@ -329,16 +330,14 @@ class FlightContextService:
         routes: list[dict[str, Any]],
     ) -> dict[str, list[dict[str, Any]]]:
         site_ids = self._find_endpoint_site_ids(routes)
-        droneport_ids = self._find_endpoint_droneport_ids(
+        droneports = self._find_endpoint_droneports(
             routes
         )
 
         return {
             "sites": self._load_sites(site_ids),
             "zones": self._load_zones_for_sites(site_ids),
-            "droneports": self._load_droneports(
-                droneport_ids
-            ),
+            "droneports": droneports,
             "routes": [],
         }
 
@@ -453,28 +452,37 @@ class FlightContextService:
 
         return site_ids
 
-    def _find_endpoint_droneport_ids(
+    def _find_endpoint_droneports(
         self,
         routes: list[dict[str, Any]],
-    ) -> list[str]:
-        droneport_ids: list[str] = []
+    ) -> list[dict[str, Any]]:
+        droneports: list[dict[str, Any]] = []
         seen: set[str] = set()
 
         for route in routes:
             for field_name in (
-                "origin_droneport_id",
-                "destination_droneport_id",
+                "origin_route_node_id",
+                "destination_route_node_id",
             ):
-                droneport_id = route.get(field_name)
+                route_node_id = route.get(field_name)
 
-                if droneport_id is not None:
-                    droneport_id = str(droneport_id)
+                if route_node_id is None:
+                    continue
 
-                    if droneport_id not in seen:
-                        seen.add(droneport_id)
-                        droneport_ids.append(droneport_id)
+                droneport = select_droneport_by_route_node_id(
+                    str(route_node_id)
+                )
 
-        return droneport_ids
+                if droneport is None:
+                    continue
+
+                droneport_id = str(droneport["droneport_id"])
+
+                if droneport_id not in seen:
+                    seen.add(droneport_id)
+                    droneports.append(dict(droneport))
+
+        return droneports
 
     def _calculate_bounds(
         self,

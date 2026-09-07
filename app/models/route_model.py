@@ -68,6 +68,8 @@ def insert_route(data):
                     destination_site_id,
                     origin_droneport_id,
                     destination_droneport_id,
+                    origin_route_node_id,
+                    destination_route_node_id,
                     route_name,
                     route_type,
                     created_by,
@@ -85,6 +87,16 @@ def insert_route(data):
                     :destination_site_id,
                     :origin_droneport_id,
                     :destination_droneport_id,
+                    (
+                        SELECT route_node_id
+                        FROM droneports
+                        WHERE droneport_id = :origin_droneport_id
+                    ),
+                    (
+                        SELECT route_node_id
+                        FROM droneports
+                        WHERE droneport_id = :destination_droneport_id
+                    ),
                     :route_name,
                     :route_type,
                     :created_by,
@@ -140,29 +152,39 @@ def select_route(route_id):
         result = connection.execute(
             text("""
                 SELECT
-                    route_id,
-                    origin_site_id,
-                    destination_site_id,
-                    origin_droneport_id,
-                    destination_droneport_id,
-                    route_name,
-                    route_type,
-                    created_by,
-                    created_at,
-                    operational_status,
-                    survey_status,
-                    last_surveyed_at,
-                    surveyed_by,
-                    approved_by,
-                    minimum_aircraft_weight_lbs,
-                    maximum_aircraft_weight_lbs,
-                    direction,
-                    maximum_aircraft_capacity,
-                    ST_AsGeoJSON(geometry)::json AS geometry,
-                    segment_attributes
-                FROM routes 
-                WHERE route_id = :route_id
-                  AND operational_status <> :deleted_status
+                    routes.route_id,
+                    routes.origin_site_id,
+                    routes.destination_site_id,
+                    routes.origin_route_node_id,
+                    routes.destination_route_node_id,
+                    origin_droneport.droneport_id AS origin_droneport_id,
+                    destination_droneport.droneport_id AS destination_droneport_id,
+                    routes.route_name,
+                    routes.route_type,
+                    routes.created_by,
+                    routes.created_at,
+                    routes.operational_status,
+                    routes.survey_status,
+                    routes.last_surveyed_at,
+                    routes.surveyed_by,
+                    routes.approved_by,
+                    routes.minimum_aircraft_weight_lbs,
+                    routes.maximum_aircraft_weight_lbs,
+                    routes.direction,
+                    routes.maximum_aircraft_capacity,
+                    ST_AsGeoJSON(routes.geometry)::json AS geometry,
+                    routes.segment_attributes
+                FROM routes
+                LEFT JOIN route_nodes AS origin_node
+                    ON origin_node.route_node_id = routes.origin_route_node_id
+                LEFT JOIN droneports AS origin_droneport
+                    ON origin_droneport.route_node_id = origin_node.route_node_id
+                LEFT JOIN route_nodes AS destination_node
+                    ON destination_node.route_node_id = routes.destination_route_node_id
+                LEFT JOIN droneports AS destination_droneport
+                    ON destination_droneport.route_node_id = destination_node.route_node_id
+                WHERE routes.route_id = :route_id
+                  AND routes.operational_status <> :deleted_status
             """),
             {
                 "route_id": route_id,
@@ -178,30 +200,40 @@ def select_routes(survey_status=None):
         result = connection.execute(
             text("""
                 SELECT
-                    route_id,
-                    origin_site_id,
-                    destination_site_id,
-                    origin_droneport_id,
-                    destination_droneport_id,
-                    route_name,
-                    route_type,
-                    created_by,
-                    created_at,
-                    operational_status,
-                    survey_status,
-                    minimum_aircraft_weight_lbs,
-                    maximum_aircraft_weight_lbs,
-                    direction,
-                    maximum_aircraft_capacity,
-                    ST_AsGeoJSON(geometry)::json AS geometry,
-                    segment_attributes
+                    routes.route_id,
+                    routes.origin_site_id,
+                    routes.destination_site_id,
+                    routes.origin_route_node_id,
+                    routes.destination_route_node_id,
+                    origin_droneport.droneport_id AS origin_droneport_id,
+                    destination_droneport.droneport_id AS destination_droneport_id,
+                    routes.route_name,
+                    routes.route_type,
+                    routes.created_by,
+                    routes.created_at,
+                    routes.operational_status,
+                    routes.survey_status,
+                    routes.minimum_aircraft_weight_lbs,
+                    routes.maximum_aircraft_weight_lbs,
+                    routes.direction,
+                    routes.maximum_aircraft_capacity,
+                    ST_AsGeoJSON(routes.geometry)::json AS geometry,
+                    routes.segment_attributes
                 FROM routes
-                WHERE operational_status <> :deleted_status
+                LEFT JOIN route_nodes AS origin_node
+                    ON origin_node.route_node_id = routes.origin_route_node_id
+                LEFT JOIN droneports AS origin_droneport
+                    ON origin_droneport.route_node_id = origin_node.route_node_id
+                LEFT JOIN route_nodes AS destination_node
+                    ON destination_node.route_node_id = routes.destination_route_node_id
+                LEFT JOIN droneports AS destination_droneport
+                    ON destination_droneport.route_node_id = destination_node.route_node_id
+                WHERE routes.operational_status <> :deleted_status
                   AND (
-                      :survey_status IS NULL
-                      OR survey_status = :survey_status
+                        :survey_status IS NULL
+                        OR routes.survey_status = :survey_status
                   )
-                ORDER BY created_at DESC
+                ORDER BY routes.created_at DESC
             """),
             {
                 "deleted_status": ROUTE_STATUS_DELETED,
@@ -217,27 +249,40 @@ def select_routes_by_site_id(site_id):
         result = connection.execute(
             text("""
                 SELECT
-                    route_id,
-                    origin_site_id,
-                    destination_site_id,
-                    origin_droneport_id,
-                    destination_droneport_id,
-                    route_name,
-                    route_type,
-                    created_by,
-                    created_at,
-                    operational_status,
-                    survey_status,
-                    minimum_aircraft_weight_lbs,
-                    maximum_aircraft_weight_lbs,
-                    direction,
-                    maximum_aircraft_capacity,
-                    ST_AsGeoJSON(geometry)::json AS geometry,
-                    segment_attributes
+                    routes.route_id,
+                    routes.origin_site_id,
+                    routes.destination_site_id,
+                    routes.origin_route_node_id,
+                    routes.destination_route_node_id,
+                    origin_droneport.droneport_id AS origin_droneport_id,
+                    destination_droneport.droneport_id AS destination_droneport_id,
+                    routes.route_name,
+                    routes.route_type,
+                    routes.created_by,
+                    routes.created_at,
+                    routes.operational_status,
+                    routes.survey_status,
+                    routes.minimum_aircraft_weight_lbs,
+                    routes.maximum_aircraft_weight_lbs,
+                    routes.direction,
+                    routes.maximum_aircraft_capacity,
+                    ST_AsGeoJSON(routes.geometry)::json AS geometry,
+                    routes.segment_attributes
                 FROM routes
-                WHERE operational_status <> :deleted_status
-                  AND (origin_site_id = :site_id OR destination_site_id = :site_id)
-                ORDER BY created_at DESC
+                LEFT JOIN route_nodes AS origin_node
+                    ON origin_node.route_node_id = routes.origin_route_node_id
+                LEFT JOIN droneports AS origin_droneport
+                    ON origin_droneport.route_node_id = origin_node.route_node_id
+                LEFT JOIN route_nodes AS destination_node
+                    ON destination_node.route_node_id = routes.destination_route_node_id
+                LEFT JOIN droneports AS destination_droneport
+                    ON destination_droneport.route_node_id = destination_node.route_node_id
+                WHERE routes.operational_status <> :deleted_status
+                  AND (
+                        routes.origin_site_id = :site_id
+                        OR routes.destination_site_id = :site_id
+                  )
+                ORDER BY routes.created_at DESC
             """),
             {
                 "site_id": site_id,
@@ -448,6 +493,16 @@ def update_route_record(route_id, data):
                     destination_site_id = :destination_site_id,
                     origin_droneport_id = :origin_droneport_id,
                     destination_droneport_id = :destination_droneport_id,
+                    origin_route_node_id = (
+                        SELECT route_node_id
+                        FROM droneports
+                        WHERE droneport_id = :origin_droneport_id
+                    ),
+                    destination_route_node_id = (
+                        SELECT route_node_id
+                        FROM droneports
+                        WHERE droneport_id = :destination_droneport_id
+                    ),
                     route_name = :route_name,
                     route_type = :route_type,
                     created_by = :created_by,
@@ -580,4 +635,55 @@ def request_route_changes(route_id):
 
 def submit_route(route_id):
     return reject_route(route_id)
+
+
+def select_orphaned_route_nodes():
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    rn.route_node_id,
+                    rn.site_id,
+                    ST_AsGeoJSON(rn.geometry)::json AS geometry
+                FROM route_nodes AS rn
+                LEFT JOIN droneports AS d
+                    ON d.route_node_id = rn.route_node_id
+                LEFT JOIN routes AS r_origin
+                    ON r_origin.origin_route_node_id = rn.route_node_id
+                LEFT JOIN routes AS r_destination
+                    ON r_destination.destination_route_node_id = rn.route_node_id
+                WHERE d.route_node_id IS NULL
+                  AND r_origin.route_id IS NULL
+                  AND r_destination.route_id IS NULL
+                ORDER BY rn.route_node_id
+            """)
+        )
+
+        return [dict(row) for row in result.mappings().all()]
+
+
+def delete_orphaned_route_nodes():
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                DELETE FROM route_nodes AS rn
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM droneports AS d
+                    WHERE d.route_node_id = rn.route_node_id
+                )
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM routes AS r
+                    WHERE r.origin_route_node_id = rn.route_node_id
+                       OR r.destination_route_node_id = rn.route_node_id
+                )
+                RETURNING
+                    rn.route_node_id,
+                    rn.site_id
+            """)
+        )
+
+        return [dict(row) for row in result.mappings().all()]
+
 

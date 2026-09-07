@@ -60,10 +60,35 @@ from app.config.database import engine
 
 def insert_droneport(data):
     with engine.begin() as connection:
+        route_node_result = connection.execute(
+            text("""
+                INSERT INTO route_nodes (
+                    site_id,
+                    geometry
+                )
+                VALUES (
+                    :site_id,
+                    ST_SetSRID(
+                        ST_GeomFromGeoJSON(:geometry),
+                        :srid
+                    )
+                )
+                RETURNING route_node_id
+            """),
+            {
+                "site_id": data["site_id"],
+                "geometry": json.dumps(data["geometry"]),
+                "srid": DEFAULT_SRID,
+            }
+        )
+
+        route_node_id = route_node_result.scalar()
+
         result = connection.execute(
             text("""
                 INSERT INTO droneports (
                     site_id,
+                    route_node_id,
                     droneport_name,
                     droneport_type,
                     created_by,
@@ -75,6 +100,7 @@ def insert_droneport(data):
                 )
                 VALUES (
                     :site_id,
+                    :route_node_id,
                     :droneport_name,
                     :droneport_type,
                     :created_by,
@@ -91,6 +117,7 @@ def insert_droneport(data):
             """),
             {
                 **data,
+                "route_node_id": route_node_id,
                 "geometry": json.dumps(data["geometry"]),
                 "srid": DEFAULT_SRID,
             }
@@ -128,6 +155,7 @@ def select_droneport(droneport_id):
                 SELECT
                     droneport_id,
                     site_id,
+                    route_node_id,
                     droneport_name,
                     droneport_type,
                     created_by,
@@ -155,6 +183,41 @@ def select_droneport(droneport_id):
         return result.mappings().first()
 
 
+def select_droneport_by_route_node_id(route_node_id):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    droneport_id,
+                    site_id,
+                    route_node_id,
+                    droneport_name,
+                    droneport_type,
+                    created_by,
+                    created_at,
+                    operational_status,
+                    survey_status,
+                    last_surveyed_at,
+                    surveyed_by,
+                    approved_by,
+                    droneport_diameter_ft,
+                    timezone,
+                    ST_X(geometry) AS longitude,
+                    ST_Y(geometry) AS latitude,
+                    ST_AsGeoJSON(geometry)::json AS geometry
+                FROM droneports
+                WHERE route_node_id = :route_node_id
+                  AND operational_status <> :deleted_status
+            """),
+            {
+                "route_node_id": route_node_id,
+                "deleted_status": DRONEPORT_STATUS_DELETED,
+            }
+        )
+
+        return result.mappings().first()
+
+
 def select_droneports(survey_status=None):
     with engine.connect() as connection:
         result = connection.execute(
@@ -162,6 +225,7 @@ def select_droneports(survey_status=None):
                 SELECT
                     droneport_id,
                     site_id,
+                    route_node_id,
                     droneport_name,
                     droneport_type,
                     created_by,
@@ -197,6 +261,7 @@ def select_droneports_by_site_id(site_id):
                 SELECT
                     droneport_id,
                     site_id,
+                    route_node_id,
                     droneport_name,
                     droneport_type,
                     created_by,
@@ -228,24 +293,16 @@ def update_droneport_record(droneport_id, data):
             text("""
                 UPDATE droneports
                 SET
-                    site_id = :site_id,
                     droneport_name = :droneport_name,
                     droneport_type = :droneport_type,
                     created_by = :created_by,
-                    droneport_diameter_ft = :droneport_diameter_ft,
-                    timezone = :timezone,
-                    geometry = ST_SetSRID(
-                        ST_GeomFromGeoJSON(:geometry),
-                        :srid
-                    )
+                    droneport_diameter_ft = :droneport_diameter_ft
                 WHERE droneport_id = :droneport_id
                 RETURNING droneport_id, droneport_name
             """),
             {
                 **data,
                 "droneport_id": droneport_id,
-                "geometry": json.dumps(data["geometry"]),
-                "srid": DEFAULT_SRID,
             }
         )
 
@@ -267,24 +324,6 @@ def patch_droneport_record(droneport_id, data):
             {
                 **data,
                 "droneport_id": droneport_id,
-            }
-        )
-
-        return result.mappings().first()
-
-
-def patch_timezone_record(droneport_id, timezone):
-    with engine.begin() as connection:
-        result = connection.execute(
-            text("""
-                UPDATE droneports
-                SET timezone = :timezone
-                WHERE droneport_id = :droneport_id
-                RETURNING droneport_id, timezone
-            """),
-            {
-                "droneport_id": droneport_id,
-                "timezone": timezone,
             }
         )
 
@@ -369,6 +408,7 @@ def select_droneports_by_site(site_id):
                 SELECT
                     droneport_id,
                     site_id,
+                    route_node_id,
                     timezone,
                     created_at
                 FROM droneports

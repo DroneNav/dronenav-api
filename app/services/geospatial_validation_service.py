@@ -102,6 +102,9 @@ def validate_operational_geospatial_data(data):
 
     departure_droneport_id = data.get("departure_droneport_id")
 
+    departure_droneport = None
+    arrival_droneport = None
+
     if departure_droneport_id is not None:
         departure_droneport = select_droneport(
             str(departure_droneport_id)
@@ -177,8 +180,8 @@ def validate_operational_geospatial_data(data):
     errors.extend(
         _validate_ordered_route_sequence(
             routes=routes,
-            origin_site_id=origin_site_id,
-            destination_site_id=destination_site_id,
+            departure_droneport=departure_droneport,
+            arrival_droneport=arrival_droneport,
         )
     )
 
@@ -187,7 +190,6 @@ def validate_operational_geospatial_data(data):
 
     errors.extend(
         _validate_terminal_droneports(
-            routes=routes,
             departure_droneport_id=departure_droneport_id,
             arrival_droneport_id=arrival_droneport_id,
         )
@@ -197,14 +199,10 @@ def validate_operational_geospatial_data(data):
 
 
 def _validate_terminal_droneports(
-    routes,
     departure_droneport_id,
     arrival_droneport_id,
 ):
     errors = []
-
-    first_route = routes[0]
-    last_route = routes[-1]
 
     if departure_droneport_id is None:
         errors.append({
@@ -215,17 +213,6 @@ def _validate_terminal_droneports(
                 "is specified."
             ),
         })
-    elif str(first_route["origin_droneport_id"]) != str(
-        departure_droneport_id
-    ):
-        errors.append({
-            "field": "departure_droneport_id",
-            "code": "departure_droneport_route_mismatch",
-            "message": (
-                "The selected departure DronePort must be the origin "
-                "DronePort of the first Route in the Flight Path."
-            ),
-        })
 
     if arrival_droneport_id is None:
         errors.append({
@@ -234,17 +221,6 @@ def _validate_terminal_droneports(
             "message": (
                 "An arrival DronePort is required when a Flight Path "
                 "is specified."
-            ),
-        })
-    elif str(last_route["destination_droneport_id"]) != str(
-        arrival_droneport_id
-    ):
-        errors.append({
-            "field": "arrival_droneport_id",
-            "code": "arrival_droneport_route_mismatch",
-            "message": (
-                "The selected arrival DronePort must be the destination "
-                "DronePort of the final Route in the Flight Path."
             ),
         })
 
@@ -415,44 +391,98 @@ def _load_and_validate_routes(
 
 def _validate_ordered_route_sequence(
     routes,
-    origin_site_id,
-    destination_site_id,
+    departure_droneport,
+    arrival_droneport,
 ):
     errors = []
 
     if not routes:
         return errors
 
-    current_site_id = str(origin_site_id)
+    if departure_droneport is None or arrival_droneport is None:
+        return errors
+
+    current_route_node_id = str(
+        departure_droneport["route_node_id"]
+    )
 
     for index, route in enumerate(routes):
-        route_origin_site_id = str(route["origin_site_id"])
-        route_destination_site_id = str(route["destination_site_id"])
+        origin_route_node_id = str(
+            route["origin_route_node_id"]
+        )
+        destination_route_node_id = str(
+            route["destination_route_node_id"]
+        )
+        direction = route["direction"]
 
-        if current_site_id == route_origin_site_id:
-            current_site_id = route_destination_site_id
-        elif current_site_id == route_destination_site_id:
-            current_site_id = route_origin_site_id
+        if direction == 0:
+            if current_route_node_id != origin_route_node_id:
+                errors.append({
+                    "field": "flight_path_ids",
+                    "code": "disconnected_route_sequence",
+                    "message": (
+                        f"Route at Flight Path position {index + 1} does not "
+                        "connect to the preceding Route or departure "
+                        "DronePort in its permitted direction."
+                    ),
+                })
+                return errors
+
+            current_route_node_id = destination_route_node_id
+
+        elif direction == 1:
+            if current_route_node_id != destination_route_node_id:
+                errors.append({
+                    "field": "flight_path_ids",
+                    "code": "disconnected_route_sequence",
+                    "message": (
+                        f"Route at Flight Path position {index + 1} does not "
+                        "connect to the preceding Route or departure "
+                        "DronePort in its permitted direction."
+                    ),
+                })
+                return errors
+
+            current_route_node_id = origin_route_node_id
+
+        elif direction == 2:
+            if current_route_node_id == origin_route_node_id:
+                current_route_node_id = destination_route_node_id
+            elif current_route_node_id == destination_route_node_id:
+                current_route_node_id = origin_route_node_id
+            else:
+                errors.append({
+                    "field": "flight_path_ids",
+                    "code": "disconnected_route_sequence",
+                    "message": (
+                        f"Route at Flight Path position {index + 1} does not "
+                        "connect to the preceding Route or departure "
+                        "DronePort."
+                    ),
+                })
+                return errors
+
         else:
             errors.append({
                 "field": "flight_path_ids",
-                "code": "disconnected_route_sequence",
+                "code": "invalid_route_direction",
                 "message": (
-                    f"Route at Flight Path position {index + 1} does not "
-                    "connect to the preceding Route or the Flight Plan "
-                    "origin Site."
+                    f"Route at Flight Path position {index + 1} has an "
+                    "invalid direction value."
                 ),
             })
-
             return errors
 
-    if current_site_id != str(destination_site_id):
+    if (
+        current_route_node_id
+        != str(arrival_droneport["route_node_id"])
+    ):
         errors.append({
             "field": "flight_path_ids",
             "code": "route_destination_mismatch",
             "message": (
                 "The ordered Flight Path does not terminate at the "
-                "Flight Plan destination Site."
+                "selected arrival DronePort."
             ),
         })
 
