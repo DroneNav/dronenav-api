@@ -1279,8 +1279,8 @@ def approve_site_review_package_record(site_id, reviewed_by):
                 route_state = classify_site_package_review_route(route)
                 route_id = route["overlay_id"]
 
-                origin_site_id = str(route["origin_site_id"])
-                destination_site_id = str(route["destination_site_id"])
+                origin_site_id = route["origin_site_id"]
+                destination_site_id = route["destination_site_id"]
 
                 is_shared_route = (
                     origin_site_id != destination_site_id
@@ -1558,8 +1558,8 @@ def reject_site_review_package_record(
                 route_state = classify_site_package_review_route(route)
                 route_id = route["overlay_id"]
 
-                origin_site_id = str(route["origin_site_id"])
-                destination_site_id = str(route["destination_site_id"])
+                origin_site_id = route["origin_site_id"]
+                destination_site_id = route["destination_site_id"]
 
                 is_shared_route = (
                     origin_site_id != destination_site_id

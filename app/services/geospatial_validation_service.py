@@ -345,8 +345,22 @@ def _load_and_validate_routes(
                 "message": f"Route {route_id} is not operational.",
             })
 
-        endpoint_site_ids.add(str(route["origin_site_id"]))
-        endpoint_site_ids.add(str(route["destination_site_id"]))
+        origin_site_id = route["origin_site_id"]
+        destination_site_id = route["destination_site_id"]
+
+        if origin_site_id is None or destination_site_id is None:
+            errors.append({
+                "field": "flight_path_ids",
+                "code": "route_site_missing",
+                "message": (
+                    f"Route {route_id} does not have both endpoint Sites "
+                    "required for Flight Plan governance."
+                ),
+            })
+            continue
+
+        endpoint_site_ids.add(str(origin_site_id))
+        endpoint_site_ids.add(str(destination_site_id))
 
     endpoint_sites = {
         site_id: select_site(site_id)

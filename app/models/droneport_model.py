@@ -60,29 +60,95 @@ from app.config.database import engine
 
 def insert_droneport(data):
     with engine.begin() as connection:
-        route_node_result = connection.execute(
+
+        existing_route_node_result = connection.execute(
             text("""
-                INSERT INTO route_nodes (
-                    site_id,
-                    geometry
-                )
-                VALUES (
-                    :site_id,
+                SELECT
+                    route_node_id,
+                    site_id
+                FROM route_nodes
+                WHERE ST_DWithin(
+                    geometry::geography,
                     ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
-                    )
+                    )::geography,
+                    :snap_distance_meters
                 )
-                RETURNING route_node_id
             """),
             {
-                "site_id": data["site_id"],
                 "geometry": json.dumps(data["geometry"]),
                 "srid": DEFAULT_SRID,
+                "snap_distance_meters": 0.1,
             }
         )
 
-        route_node_id = route_node_result.scalar()
+        existing_route_nodes = (
+            existing_route_node_result.mappings().all()
+        )
+
+        if len(existing_route_nodes) > 1:
+            raise RuntimeError(
+                "Multiple Route Nodes exist at the DronePort coordinate."
+            )
+
+        if len(existing_route_nodes) == 1:
+            route_node_id = existing_route_nodes[0]["route_node_id"]
+            route_node_site_id = existing_route_nodes[0]["site_id"]
+            requested_site_id = data.get("site_id")
+
+            if (
+                requested_site_id is not None
+                and route_node_site_id is not None
+                and str(requested_site_id) != str(route_node_site_id)
+            ):
+                raise RuntimeError(
+                    "DronePort Site does not match the existing Route Node Site."
+                )
+
+            data["site_id"] = route_node_site_id
+
+            existing_droneport_result = connection.execute(
+                text("""
+                    SELECT
+                        droneport_id
+                    FROM droneports
+                    WHERE route_node_id = :route_node_id
+                """),
+                {
+                    "route_node_id": route_node_id,
+                }
+            )
+
+            if existing_droneport_result.first() is not None:
+                raise RuntimeError(
+                    "A DronePort already exists at this Route Node."
+                )
+
+        else:
+            route_node_result = connection.execute(
+                text("""
+                    INSERT INTO route_nodes (
+                        site_id,
+                        geometry
+                    )
+                    VALUES (
+                        :site_id,
+                        ST_SetSRID(
+                            ST_GeomFromGeoJSON(:geometry),
+                            :srid
+                        )
+                    )
+                    RETURNING route_node_id
+                """),
+                {
+                    "site_id": data.get("site_id"),
+                    "geometry": json.dumps(data["geometry"]),
+                    "srid": DEFAULT_SRID,
+                }
+            )
+
+            route_node_id = route_node_result.scalar()
 
         result = connection.execute(
             text("""

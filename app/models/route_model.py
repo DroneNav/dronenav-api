@@ -49,6 +49,7 @@ from sqlalchemy import text
 
 from app.config.constants import (
     DEFAULT_SRID,
+    SITE_STATUS_DELETED,
     ROUTE_STATUS_DELETED,
     ROUTE_STATUS_INACTIVE,
     ROUTE_STATUS_ACTIVE,
@@ -59,15 +60,153 @@ from app.config.constants import (
 from app.config.database import engine
 
 
+def resolve_or_create_route_node(
+    connection,
+    longitude,
+    latitude,
+):
+    existing_result = connection.execute(
+        text("""
+            SELECT
+                route_node_id,
+                site_id
+            FROM route_nodes
+            WHERE ST_DWithin(
+                geometry::geography,
+                ST_SetSRID(
+                    ST_MakePoint(
+                        :longitude,
+                        :latitude
+                    ),
+                    :srid
+                )::geography,
+                :snap_distance_meters
+            )
+        """),
+        {
+            "longitude": longitude,
+            "latitude": latitude,
+            "srid": DEFAULT_SRID,
+            "snap_distance_meters": 0.1,
+        },
+    )
+
+    existing_nodes = existing_result.mappings().all()
+
+    if len(existing_nodes) > 1:
+        raise RuntimeError(
+            "Multiple Route Nodes exist at the same endpoint coordinate."
+        )
+
+    if len(existing_nodes) == 1:
+        return (
+            str(existing_nodes[0]["route_node_id"]),
+            existing_nodes[0]["site_id"],
+        )
+
+    site_result = connection.execute(
+        text("""
+            WITH point AS (
+                SELECT ST_SetSRID(
+                    ST_MakePoint(
+                        :longitude,
+                        :latitude
+                    ),
+                    :srid
+                ) AS geometry
+            )
+            SELECT
+                site_id
+            FROM sites
+            CROSS JOIN point
+            WHERE ST_Covers(
+                sites.geometry,
+                point.geometry
+            )
+              AND sites.operational_status != :deleted_status
+        """),
+        {
+            "longitude": longitude,
+            "latitude": latitude,
+            "srid": DEFAULT_SRID,
+            "deleted_status": SITE_STATUS_DELETED,
+        },
+    )
+
+    containing_sites = site_result.mappings().all()
+
+    if len(containing_sites) > 1:
+        raise RuntimeError(
+            "Route endpoint is contained by multiple Sites."
+        )
+
+    site_id = (
+        containing_sites[0]["site_id"]
+        if len(containing_sites) == 1
+        else None
+    )
+
+    result = connection.execute(
+        text("""
+            INSERT INTO route_nodes (
+                site_id,
+                geometry
+            )
+            VALUES (
+                :site_id,
+                ST_SetSRID(
+                    ST_MakePoint(
+                        :longitude,
+                        :latitude
+                    ),
+                    :srid
+                )
+            )
+            RETURNING route_node_id
+        """),
+        {
+            "site_id": site_id,
+            "longitude": longitude,
+            "latitude": latitude,
+            "srid": DEFAULT_SRID,
+        },
+    )
+
+    return (
+        str(result.scalar()),
+        site_id,
+    )
+
+
 def insert_route(data):
+
     with engine.begin() as connection:
+        coordinates = data["geometry"]["coordinates"]
+
+        origin_longitude, origin_latitude = coordinates[0]
+        destination_longitude, destination_latitude = coordinates[-1]
+
+        origin_route_node_id, origin_site_id = (
+            resolve_or_create_route_node(
+                connection,
+                origin_longitude,
+                origin_latitude,
+            )
+        )
+
+        destination_route_node_id, destination_site_id = (
+            resolve_or_create_route_node(
+                connection,
+                destination_longitude,
+                destination_latitude,
+            )
+        )
+
         result = connection.execute(
             text("""
                 INSERT INTO routes (
                     origin_site_id,
                     destination_site_id,
-                    origin_droneport_id,
-                    destination_droneport_id,
                     origin_route_node_id,
                     destination_route_node_id,
                     route_name,
@@ -85,18 +224,8 @@ def insert_route(data):
                 VALUES (
                     :origin_site_id,
                     :destination_site_id,
-                    :origin_droneport_id,
-                    :destination_droneport_id,
-                    (
-                        SELECT route_node_id
-                        FROM droneports
-                        WHERE droneport_id = :origin_droneport_id
-                    ),
-                    (
-                        SELECT route_node_id
-                        FROM droneports
-                        WHERE droneport_id = :destination_droneport_id
-                    ),
+                    :origin_route_node_id,
+                    :destination_route_node_id,
                     :route_name,
                     :route_type,
                     :created_by,
@@ -116,6 +245,10 @@ def insert_route(data):
             """),
             {
                 **data,
+                "origin_site_id": origin_site_id,
+                "destination_site_id": destination_site_id,
+                "origin_route_node_id": origin_route_node_id,
+                "destination_route_node_id": destination_route_node_id,
                 "geometry": json.dumps(data["geometry"]),
                 "segment_attributes": json.dumps(data["segment_attributes"]),
                 "srid": DEFAULT_SRID,
@@ -157,8 +290,6 @@ def select_route(route_id):
                     routes.destination_site_id,
                     routes.origin_route_node_id,
                     routes.destination_route_node_id,
-                    origin_droneport.droneport_id AS origin_droneport_id,
-                    destination_droneport.droneport_id AS destination_droneport_id,
                     routes.route_name,
                     routes.route_type,
                     routes.created_by,
@@ -175,14 +306,6 @@ def select_route(route_id):
                     ST_AsGeoJSON(routes.geometry)::json AS geometry,
                     routes.segment_attributes
                 FROM routes
-                LEFT JOIN route_nodes AS origin_node
-                    ON origin_node.route_node_id = routes.origin_route_node_id
-                LEFT JOIN droneports AS origin_droneport
-                    ON origin_droneport.route_node_id = origin_node.route_node_id
-                LEFT JOIN route_nodes AS destination_node
-                    ON destination_node.route_node_id = routes.destination_route_node_id
-                LEFT JOIN droneports AS destination_droneport
-                    ON destination_droneport.route_node_id = destination_node.route_node_id
                 WHERE routes.route_id = :route_id
                   AND routes.operational_status <> :deleted_status
             """),
@@ -205,8 +328,6 @@ def select_routes(survey_status=None):
                     routes.destination_site_id,
                     routes.origin_route_node_id,
                     routes.destination_route_node_id,
-                    origin_droneport.droneport_id AS origin_droneport_id,
-                    destination_droneport.droneport_id AS destination_droneport_id,
                     routes.route_name,
                     routes.route_type,
                     routes.created_by,
@@ -220,14 +341,6 @@ def select_routes(survey_status=None):
                     ST_AsGeoJSON(routes.geometry)::json AS geometry,
                     routes.segment_attributes
                 FROM routes
-                LEFT JOIN route_nodes AS origin_node
-                    ON origin_node.route_node_id = routes.origin_route_node_id
-                LEFT JOIN droneports AS origin_droneport
-                    ON origin_droneport.route_node_id = origin_node.route_node_id
-                LEFT JOIN route_nodes AS destination_node
-                    ON destination_node.route_node_id = routes.destination_route_node_id
-                LEFT JOIN droneports AS destination_droneport
-                    ON destination_droneport.route_node_id = destination_node.route_node_id
                 WHERE routes.operational_status <> :deleted_status
                   AND (
                         :survey_status IS NULL
@@ -254,8 +367,6 @@ def select_routes_by_site_id(site_id):
                     routes.destination_site_id,
                     routes.origin_route_node_id,
                     routes.destination_route_node_id,
-                    origin_droneport.droneport_id AS origin_droneport_id,
-                    destination_droneport.droneport_id AS destination_droneport_id,
                     routes.route_name,
                     routes.route_type,
                     routes.created_by,
@@ -269,14 +380,6 @@ def select_routes_by_site_id(site_id):
                     ST_AsGeoJSON(routes.geometry)::json AS geometry,
                     routes.segment_attributes
                 FROM routes
-                LEFT JOIN route_nodes AS origin_node
-                    ON origin_node.route_node_id = routes.origin_route_node_id
-                LEFT JOIN droneports AS origin_droneport
-                    ON origin_droneport.route_node_id = origin_node.route_node_id
-                LEFT JOIN route_nodes AS destination_node
-                    ON destination_node.route_node_id = routes.destination_route_node_id
-                LEFT JOIN droneports AS destination_droneport
-                    ON destination_droneport.route_node_id = destination_node.route_node_id
                 WHERE routes.operational_status <> :deleted_status
                   AND (
                         routes.origin_site_id = :site_id
@@ -491,18 +594,8 @@ def update_route_record(route_id, data):
                 SET
                     origin_site_id = :origin_site_id,
                     destination_site_id = :destination_site_id,
-                    origin_droneport_id = :origin_droneport_id,
-                    destination_droneport_id = :destination_droneport_id,
-                    origin_route_node_id = (
-                        SELECT route_node_id
-                        FROM droneports
-                        WHERE droneport_id = :origin_droneport_id
-                    ),
-                    destination_route_node_id = (
-                        SELECT route_node_id
-                        FROM droneports
-                        WHERE droneport_id = :destination_droneport_id
-                    ),
+                    origin_route_node_id = :origin_route_node_id,
+                    destination_route_node_id = :destination_route_node_id,
                     route_name = :route_name,
                     route_type = :route_type,
                     created_by = :created_by,
@@ -635,6 +728,63 @@ def request_route_changes(route_id):
 
 def submit_route(route_id):
     return reject_route(route_id)
+
+
+def count_routes_for_route_node(route_node_id):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT COUNT(*)
+                FROM routes
+                WHERE origin_route_node_id = :route_node_id
+                   OR destination_route_node_id = :route_node_id
+            """),
+            {
+                "route_node_id": route_node_id,
+            },
+        )
+
+        return result.scalar_one()
+
+
+def select_shared_route_node(
+    from_route_id,
+    to_route_id,
+):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT route_node_id
+                FROM (
+                    SELECT origin_route_node_id AS route_node_id
+                    FROM routes
+                    WHERE route_id = :from_route_id
+
+                    UNION
+
+                    SELECT destination_route_node_id AS route_node_id
+                    FROM routes
+                    WHERE route_id = :from_route_id
+                ) AS from_nodes
+                WHERE route_node_id IN (
+                    SELECT origin_route_node_id
+                    FROM routes
+                    WHERE route_id = :to_route_id
+
+                    UNION
+
+                    SELECT destination_route_node_id
+                    FROM routes
+                    WHERE route_id = :to_route_id
+                )
+            """),
+            {
+                "from_route_id": from_route_id,
+                "to_route_id": to_route_id,
+            },
+        )
+
+        return result.scalar_one_or_none()
 
 
 def select_orphaned_route_nodes():

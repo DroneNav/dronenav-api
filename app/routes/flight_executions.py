@@ -58,6 +58,10 @@ from app.services.route_traffic_service import (
     request_route_vertical_layer,
 )
 
+from app.services.intersection_state_service import (
+    reserve_intersection_slot,
+)
+
 flight_executions_bp = Blueprint("flight_executions", __name__)
 
 CORS(
@@ -222,5 +226,64 @@ def request_route_slot_route(flight_execution_id):
     )
 
     return jsonify(response), status_code
+
+
+@flight_executions_bp.route(
+    "/api/flight-executions/<flight_execution_id>/intersection",
+    methods=["POST", "OPTIONS"],
+)
+def request_intersection_slot_route(flight_execution_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    route_node_id = data.get("route_node_id")
+    flight_band_id = data.get("flight_band_id")
+    assigned_relative_altitude_ft = data.get(
+        "assigned_relative_altitude_ft"
+    )
+    from_route_id = data.get("from_route_id")
+    to_route_id = data.get("to_route_id")
+
+    if not route_node_id:
+        return jsonify({
+            "error": "route_node_id is required."
+        }), 400
+
+    if not flight_band_id:
+        return jsonify({
+            "error": "flight_band_id is required."
+        }), 400
+
+    if assigned_relative_altitude_ft is None:
+        return jsonify({
+            "error": "assigned_relative_altitude_ft is required."
+        }), 400
+
+    if not from_route_id:
+        return jsonify({
+            "error": "from_route_id is required."
+        }), 400
+
+    if not to_route_id:
+        return jsonify({
+            "error": "to_route_id is required."
+        }), 400
+
+    intersection_state_id = reserve_intersection_slot(
+        route_node_id=route_node_id,
+        flight_band_id=flight_band_id,
+        assigned_relative_altitude_ft=assigned_relative_altitude_ft,
+        flight_execution_id=flight_execution_id,
+        from_route_id=from_route_id,
+        to_route_id=to_route_id,
+    )
+
+    return jsonify({
+        "intersection_state_id": intersection_state_id,
+        "reserved": intersection_state_id is not None,
+    }), 200
 
 

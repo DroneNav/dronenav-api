@@ -67,7 +67,6 @@ from app.services.timezone_service import derive_timezone_from_coordinates
 
 def validate_droneport_payload(data):
     required_fields = [
-        "site_id",
         "droneport_name",
         "droneport_type",
         "created_by",
@@ -125,7 +124,7 @@ def normalize_droneport_payload(data):
     )
 
     return {
-        "site_id": data["site_id"],
+        "site_id": data.get("site_id"),
         "droneport_name": data["droneport_name"],
         "droneport_type": data["droneport_type"],
         "created_by": data["created_by"],
@@ -170,8 +169,12 @@ def format_droneport(row):
         return None
 
     return {
+        "site_id": (
+            str(row["site_id"])
+            if row["site_id"] is not None
+            else None
+        ),
         "droneport_id": str(row["droneport_id"]),
-        "site_id": str(row["site_id"]),
         "route_node_id": str(row["route_node_id"]),
         "droneport_name": row["droneport_name"],
         "droneport_type": row["droneport_type"],
@@ -191,8 +194,12 @@ def format_droneport(row):
 
 def format_droneport_summary(row):
     return {
+        "site_id": (
+            str(row["site_id"])
+            if row["site_id"] is not None
+            else None
+        ),
         "droneport_id": str(row["droneport_id"]),
-        "site_id": str(row["site_id"]),
         "route_node_id": str(row["route_node_id"]),
         "droneport_name": row["droneport_name"],
         "droneport_type": row["droneport_type"],

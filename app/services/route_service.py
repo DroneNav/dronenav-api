@@ -59,6 +59,7 @@ from app.models.overlay_package_model import (
 )
 
 from app.models.route_model import (
+    count_routes_for_route_node,
     insert_route,
     select_route,
     select_routes,
@@ -82,12 +83,32 @@ from app.services.elevation_service import (
 )
 
 
+def validate_route_create_payload(data):
+    required_fields = [
+        "route_name",
+        "route_type",
+        "created_by",
+        "geometry",
+        "segment_attributes",
+    ]
+
+    for field in required_fields:
+        if field not in data or data[field] in ("", None):
+            return f"Missing required field: {field}"
+
+    validation_data = {
+        **data,
+        "origin_route_node_id": "create",
+        "destination_route_node_id": "create",
+    }
+
+    return validate_route_payload(validation_data)
+
+
 def validate_route_payload(data):
     required_fields = [
-        "origin_site_id",
-        "destination_site_id",
-        "origin_droneport_id",
-        "destination_droneport_id",
+        "origin_route_node_id",
+        "destination_route_node_id",
         "route_name",
         "route_type",
         "created_by",
@@ -223,12 +244,42 @@ def normalize_route_segment_conformance_payload(data):
     }
 
 
+def normalize_route_create_payload(data):
+    return {
+        "origin_site_id": None,
+        "destination_site_id": None,
+        "route_name": data["route_name"],
+        "route_type": data["route_type"],
+        "created_by": data["created_by"],
+        "operational_status": DEFAULT_ROUTE_STATUS,
+        "survey_status": DEFAULT_SURVEY_STATUS,
+        "minimum_aircraft_weight_lbs": data.get(
+            "minimum_aircraft_weight_lbs",
+            DEFAULT_MINIMUM_AIRCRAFT_WEIGHT_LBS
+        ),
+        "maximum_aircraft_weight_lbs": data.get(
+            "maximum_aircraft_weight_lbs",
+            DEFAULT_MAXIMUM_AIRCRAFT_WEIGHT_LBS
+        ),
+        "direction": data.get(
+            "direction",
+            DEFAULT_ROUTE_DIRECTION
+        ),
+        "maximum_aircraft_capacity": data.get(
+            "maximum_aircraft_capacity",
+            DEFAULT_ROUTE_BUFFERED
+        ),
+        "geometry": data["geometry"],
+        "segment_attributes": data["segment_attributes"],
+    }
+
+
 def normalize_route_payload(data):
     return {
-        "origin_site_id": data["origin_site_id"],
-        "destination_site_id": data["destination_site_id"],
-        "origin_droneport_id": data["origin_droneport_id"],
-        "destination_droneport_id": data["destination_droneport_id"],
+        "origin_site_id": data.get("origin_site_id"),
+        "destination_site_id": data.get("destination_site_id"),
+        "origin_route_node_id": data["origin_route_node_id"],
+        "destination_route_node_id": data["destination_route_node_id"],
         "route_name": data["route_name"],
         "route_type": data["route_type"],
         "created_by": data["created_by"],
@@ -363,12 +414,18 @@ def format_route(row):
 
     return {
         "route_id": str(row["route_id"]),
-        "origin_site_id": str(row["origin_site_id"]),
-        "destination_site_id": str(row["destination_site_id"]),
+        "origin_site_id": (
+            str(row["origin_site_id"])
+            if row["origin_site_id"] is not None
+            else None
+        ),
+        "destination_site_id": (
+            str(row["destination_site_id"])
+            if row["destination_site_id"] is not None
+            else None
+        ),
         "origin_route_node_id": str(row["origin_route_node_id"]),
         "destination_route_node_id": str(row["destination_route_node_id"]),
-        "origin_droneport_id": str(row["origin_droneport_id"]),
-        "destination_droneport_id": str(row["destination_droneport_id"]),
         "route_name": row["route_name"],
         "route_type": row["route_type"],
         "created_by": row["created_by"],
@@ -391,12 +448,18 @@ def format_route(row):
 def format_route_summary(row):
     return {
         "route_id": str(row["route_id"]),
-        "origin_site_id": str(row["origin_site_id"]),
-        "destination_site_id": str(row["destination_site_id"]),
+        "origin_site_id": (
+            str(row["origin_site_id"])
+            if row["origin_site_id"] is not None
+            else None
+        ),
+        "destination_site_id": (
+            str(row["destination_site_id"])
+            if row["destination_site_id"] is not None
+            else None
+        ),
         "origin_route_node_id": str(row["origin_route_node_id"]),
         "destination_route_node_id": str(row["destination_route_node_id"]),
-        "origin_droneport_id": str(row["origin_droneport_id"]),
-        "destination_droneport_id": str(row["destination_droneport_id"]),
         "route_name": row["route_name"],
         "route_type": row["route_type"],
         "created_by": row["created_by"],
@@ -413,16 +476,18 @@ def format_route_summary(row):
 
 
 def create_route(data):
-    error = validate_route_payload(data)
+    error = validate_route_create_payload(data)
 
     if error:
         return None, error
 
-    normalized_data = normalize_route_payload(data)
+    normalized_data = normalize_route_create_payload(data)
 
-    normalized_data = enrich_route_segment_elevations(
-        normalized_data
-    )
+    # TEMPORARY: EPQS unavailable 2026-09-09.
+    # Re-enable before completing Route creation work.
+    #normalized_data = enrich_route_segment_elevations(
+    #    normalized_data
+    #)
 
     route_id = insert_route(normalized_data)
 
@@ -459,28 +524,29 @@ def get_route_context(route_id):
     origin_site_id = route["origin_site_id"]
     destination_site_id = route["destination_site_id"]
 
-    origin_context, error = get_context_package_record(
-        site_id=origin_site_id
-    )
+    site_ids = []
 
-    if error:
-        return None, error
+    if origin_site_id is not None:
+        site_ids.append(origin_site_id)
 
-    packages = [
-        format_context_package(origin_context),
-    ]
+    if (
+        destination_site_id is not None
+        and destination_site_id not in site_ids
+    ):
+        site_ids.append(destination_site_id)
 
-    if origin_site_id != destination_site_id:
+    packages = []
 
-        destination_context, error = get_context_package_record(
-            site_id=destination_site_id
+    for site_id in site_ids:
+        context, error = get_context_package_record(
+            site_id=site_id
         )
 
         if error:
             return None, error
 
         packages.append(
-            format_context_package(destination_context)
+            format_context_package(context)
         )
 
     return {
@@ -545,7 +611,11 @@ def format_context_droneport(droneport):
 
     return {
         "droneport_id": str(droneport["droneport_id"]),
-        "site_id": str(droneport["site_id"]),
+        "site_id": (
+            str(droneport["site_id"])
+            if droneport["site_id"] is not None
+            else None
+        ),
         "droneport_name": droneport["droneport_name"],
         "droneport_type": droneport["droneport_type"],
         "droneport_diameter_ft": droneport["droneport_diameter_ft"],
@@ -557,8 +627,16 @@ def format_context_route(route):
 
     return {
         "route_id": str(route["route_id"]),
-        "origin_site_id": str(route["origin_site_id"]),
-        "destination_site_id": str(route["destination_site_id"]),
+        "origin_site_id": (
+            str(route["origin_site_id"])
+            if route["origin_site_id"] is not None
+            else None
+        ),
+        "destination_site_id": (
+            str(route["destination_site_id"])
+            if route["destination_site_id"] is not None
+            else None
+        ),
         "route_name": route["route_name"],
         "route_type": route["route_type"],
         "direction": route["direction"],
@@ -636,4 +714,7 @@ def enrich_route_segment_elevations(data):
 
     return data
 
+
+def is_managed_route_node(route_node_id):
+    return count_routes_for_route_node(route_node_id) > 2
 

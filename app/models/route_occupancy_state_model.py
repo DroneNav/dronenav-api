@@ -121,6 +121,36 @@ def update_route_occupancy_state(
         },
     )
 
+
+def select_route_occupancy_state(
+    connection,
+    *,
+    route_id,
+    flight_execution_id,
+):
+    result = connection.execute(
+        text("""
+            SELECT
+                route_occupancy_state_id,
+                route_id,
+                flight_band_id,
+                flight_execution_id,
+                aircraft_id,
+                state,
+                assigned_relative_altitude_ft
+            FROM route_occupancy_state
+            WHERE route_id = :route_id
+              AND flight_execution_id = :flight_execution_id
+        """),
+        {
+            "route_id": route_id,
+            "flight_execution_id": flight_execution_id,
+        },
+    )
+
+    return result.mappings().one_or_none()
+
+
 def count_active_route_occupancy(
     connection,
     *,

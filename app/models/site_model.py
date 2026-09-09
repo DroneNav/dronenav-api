@@ -469,3 +469,36 @@ def select_site_point_containment(
         return result.mappings().first()
 
 
+def select_site_for_point(data):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                WITH point AS (
+                    SELECT ST_SetSRID(
+                        ST_MakePoint(
+                            :longitude,
+                            :latitude
+                        ),
+                        :srid
+                    ) AS geometry
+                )
+                SELECT
+                    s.site_id
+                FROM sites AS s
+                CROSS JOIN point
+                WHERE ST_Covers(
+                    s.geometry,
+                    point.geometry
+                )
+                  AND s.operational_status != :deleted_status
+            """),
+            {
+                "longitude": data["longitude"],
+                "latitude": data["latitude"],
+                "srid": DEFAULT_SRID,
+                "deleted_status": SITE_STATUS_DELETED,
+            },
+        )
+
+        return result.mappings().all()
+
