@@ -483,9 +483,6 @@ def create_route(data):
 
     normalized_data = normalize_route_create_payload(data)
 
-    # TEMPORARY: EPQS unavailable 2026-09-09.
-    # Re-enable before completing Route creation work.
-    # Test with: curl -v --max-time 10 "https://epqs.nationalmap.gov/v1/json?x=-84.30&y=34.07&wkid=4326&units=Feet&includeDate=false"
     normalized_data = enrich_route_segment_elevations(
         normalized_data
     )
@@ -709,6 +706,9 @@ def enrich_route_segment_elevations(data):
     )
 
     for index, elevation in enumerate(elevations):
+        if elevation is None:
+            continue
+
         segment_attributes[index]["ground_elevation_ft"] = (
             elevation["ground_elevation_ft"]
         )

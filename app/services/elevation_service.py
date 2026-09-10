@@ -42,27 +42,41 @@ operations. All operational use remains the responsibility
 of the aircraft operator and applicable regulatory authorities.
 """
 import requests
+import logging
 
 from app.config.constants import EPQS_URL
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def resolve_coordinate_elevation(
     longitude,
     latitude,
 ):
-    response = requests.get(
-        EPQS_URL,
-        params={
-            "x": longitude,
-            "y": latitude,
-            "units": "Feet",
-            "wkid": 4326,
-            "includeDate": "False",
-        },
-        timeout=10,
-    )
+    try:
+        response = requests.get(
+            EPQS_URL,
+            params={
+                "x": longitude,
+                "y": latitude,
+                "units": "Feet",
+                "wkid": 4326,
+                "includeDate": "False",
+            },
+            timeout=10,
+        )
 
-    response.raise_for_status()
+        response.raise_for_status()
+
+    except requests.RequestException as error:
+        LOGGER.error(
+            "EPQS elevation lookup failed for [%s, %s]: %s",
+            longitude,
+            latitude,
+            error,
+        )
+        return None
 
     data = response.json()
 
