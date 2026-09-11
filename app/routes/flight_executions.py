@@ -285,5 +285,3 @@ def request_intersection_slot_route(flight_execution_id):
         "intersection_state_id": intersection_state_id,
         "reserved": intersection_state_id is not None,
     }), 200
-
-
