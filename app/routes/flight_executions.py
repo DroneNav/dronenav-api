@@ -62,6 +62,10 @@ from app.services.intersection_state_service import (
     reserve_intersection_slot,
 )
 
+from app.services.droneport_launch_service import (
+    request_droneport_launch_authorization,
+)
+
 flight_executions_bp = Blueprint("flight_executions", __name__)
 
 CORS(
@@ -222,6 +226,22 @@ def request_route_slot_route(flight_execution_id):
     response, status_code = request_route_vertical_layer(
         route_id=route_id,
         flight_band_id=flight_band_id,
+        flight_execution_id=flight_execution_id,
+    )
+
+    return jsonify(response), status_code
+
+
+@flight_executions_bp.route(
+    "/api/flight-executions/<flight_execution_id>/launch-authorization",
+    methods=["POST", "OPTIONS"],
+)
+def request_launch_authorization_route(flight_execution_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    response, status_code = request_droneport_launch_authorization(
         flight_execution_id=flight_execution_id,
     )
 
