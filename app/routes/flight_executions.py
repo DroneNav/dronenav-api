@@ -66,6 +66,11 @@ from app.services.droneport_launch_service import (
     request_droneport_launch_authorization,
 )
 
+from app.services.droneport_landing_service import (
+    assign_droneport_landing_space,
+)
+
+
 flight_executions_bp = Blueprint("flight_executions", __name__)
 
 CORS(
@@ -242,6 +247,22 @@ def request_launch_authorization_route(flight_execution_id):
         return "", 204
 
     response, status_code = request_droneport_launch_authorization(
+        flight_execution_id=flight_execution_id,
+    )
+
+    return jsonify(response), status_code
+
+
+@flight_executions_bp.route(
+    "/api/flight-executions/<flight_execution_id>/landing-space",
+    methods=["POST", "OPTIONS"],
+)
+def assign_landing_space_route(flight_execution_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    response, status_code = assign_droneport_landing_space(
         flight_execution_id=flight_execution_id,
     )
 

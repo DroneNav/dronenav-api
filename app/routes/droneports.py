@@ -56,6 +56,14 @@ from app.services.droneport_service import (
     evaluate_point_in_droneport,
 )
 
+from app.services.droneport_landing_space_service import (
+    create_droneport_landing_space,
+    get_droneport_landing_space,
+    get_droneport_landing_spaces,
+    update_droneport_landing_space,
+)
+
+
 droneports_bp = Blueprint("droneports", __name__)
 
 CORS(
@@ -214,4 +222,116 @@ def evaluate_point_in_droneport_route(droneport_id):
         }), status_code
 
     return jsonify(result)
+
+
+@droneports_bp.route(
+    "/api/droneport-landing-spaces",
+    methods=["POST", "OPTIONS"],
+)
+def create_droneport_landing_space_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json()
+
+    try:
+        result = create_droneport_landing_space(data)
+    except ValueError as exc:
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 400
+
+    return jsonify(dict(result)), 201
+
+
+@droneports_bp.route(
+    "/api/droneport-landing-spaces",
+    methods=["GET", "OPTIONS"],
+)
+def get_droneport_landing_spaces_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    droneport_id = request.args.get("droneport_id")
+    operational_status = request.args.get(
+        "operational_status"
+    )
+
+    try:
+        landing_spaces = get_droneport_landing_spaces(
+            droneport_id=droneport_id,
+            operational_status=operational_status,
+        )
+    except ValueError as exc:
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 400
+
+    return jsonify({
+        "landing_spaces": [
+            dict(record)
+            for record in landing_spaces
+        ]
+    })
+
+
+@droneports_bp.route(
+    "/api/droneport-landing-spaces/<landing_space_id>",
+    methods=["GET", "OPTIONS"],
+)
+def get_droneport_landing_space_route(
+    landing_space_id,
+):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    landing_space = get_droneport_landing_space(
+        landing_space_id
+    )
+
+    if landing_space is None:
+        return jsonify({
+            "status": "error",
+            "message": "Landing space not found",
+        }), 404
+
+    return jsonify(dict(landing_space))
+
+
+@droneports_bp.route(
+    "/api/droneport-landing-spaces/<landing_space_id>",
+    methods=["PATCH", "OPTIONS"],
+)
+def patch_droneport_landing_space_route(
+    landing_space_id,
+):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json()
+
+    try:
+        result = update_droneport_landing_space(
+            landing_space_id,
+            data,
+        )
+    except ValueError as exc:
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 400
+
+    if result is None:
+        return jsonify({
+            "status": "error",
+            "message": "Landing space not found",
+        }), 404
+
+    return jsonify(dict(result))
 

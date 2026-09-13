@@ -52,6 +52,7 @@ from app.config.constants import (
     DRONEPORT_STATUS_DELETED,
     DRONEPORT_STATUS_INACTIVE,
     DRONEPORT_STATUS_ACTIVE,
+    DRONEPORT_LANDING_SPACE_STATUS_ACTIVE,
     SURVEY_STATUS_APPROVED,
     SURVEY_STATUS_NOT_SURVEYED
 )
@@ -189,7 +190,42 @@ def insert_droneport(data):
             }
         )
 
-        return str(result.scalar())
+        droneport_id = result.scalar()
+
+        connection.execute(
+            text("""
+                INSERT INTO droneport_landing_spaces (
+                    droneport_id,
+                    geometry,
+                    heading_degrees,
+                    charging_capable,
+                    operational_status,
+                    created_by
+                )
+                VALUES (
+                    :droneport_id,
+                    ST_SetSRID(
+                        ST_GeomFromGeoJSON(:geometry),
+                        :srid
+                    ),
+                    0,
+                    FALSE,
+                    :operational_status,
+                    :created_by
+                )
+            """),
+            {
+                "droneport_id": droneport_id,
+                "geometry": json.dumps(data["geometry"]),
+                "srid": DEFAULT_SRID,
+                "operational_status": (
+                    DRONEPORT_LANDING_SPACE_STATUS_ACTIVE
+                ),
+                "created_by": data["created_by"],
+            }
+        )
+
+        return str(droneport_id)
 
 
 def insert_overlay_review(data):
