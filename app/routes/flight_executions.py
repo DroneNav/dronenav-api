@@ -52,6 +52,7 @@ from app.services.flight_execution_service import (
     cancel_flight_execution_service,
     list_flight_executions,
     get_flight_execution,
+    get_next_flight_execution,
 )
 
 from app.services.route_traffic_service import (
@@ -160,6 +161,25 @@ def get_flight_execution_route(
 
     response, status_code = get_flight_execution(
         flight_execution_id
+    )
+
+    return jsonify(response), status_code
+
+
+@flight_executions_bp.route(
+    "/api/flight-executions/<root_flight_execution_id>/next/<current_flight_execution_id>",
+    methods=["GET", "OPTIONS"],
+)
+def get_next_flight_execution_route(
+    root_flight_execution_id,
+    current_flight_execution_id,
+):
+    if request.method == "OPTIONS":
+        return "", 204
+
+    response, status_code = get_next_flight_execution(
+        root_flight_execution_id,
+        current_flight_execution_id,
     )
 
     return jsonify(response), status_code

@@ -17,6 +17,9 @@ CREATE TABLE flight_executions (
 
     flight_execution_id UUID PRIMARY KEY DEFAULT uuidv7(),
 
+    -- For multi-leg flights
+    root_flight_execution_id UUID NULL,
+
     -- Immutable Flight Plan reference (Drupal)
     flight_plan_id UUID NOT NULL,
 
@@ -52,9 +55,6 @@ CREATE TABLE flight_executions (
     -- Constraints
     --------------------------------------------------------------------
 
-    CONSTRAINT uq_flight_execution_plan
-        UNIQUE (flight_plan_id),
-
     CONSTRAINT chk_flight_execution_status
         CHECK (
             execution_status IN (
@@ -84,6 +84,9 @@ CREATE TABLE flight_executions (
         FOREIGN KEY (arrival_droneport_id)
         REFERENCES droneports(droneport_id)
 
+    CONSTRAINT fk_flight_execution_root
+        FOREIGN KEY (root_flight_execution_id)
+        REFERENCES flight_executions(flight_execution_id)
 );
 
 CREATE TABLE flight_execution_routes (

@@ -76,7 +76,7 @@ EXECUTION_STATUSES = {
 }
 
 
-def insert_flight_execution_record(data, planned_route_occupancy=None):
+def insert_flight_execution_record(connection, data, planned_route_occupancy=None):
 
     route_ids = _normalize_route_ids(data.get("route_ids", []))
 
@@ -91,107 +91,110 @@ def insert_flight_execution_record(data, planned_route_occupancy=None):
 
     _validate_execution_status(execution_status)
 
-    with engine.begin() as connection:
-        result = connection.execute(
-            text("""
-                INSERT INTO flight_executions (
-                    flight_plan_id,
-                    authority_id,
-                    aviator_id,
-                    aircraft_id,
-                    flight_class,
-                    origin_site_id,
-                    destination_site_id,
-                    departure_droneport_id,
-                    arrival_droneport_id,
-                    requested_departure_datetime,
-                    flight_termination_datetime,
-                    operational_timezone,
-                    execution_status
-                )
-                VALUES (
-                    :flight_plan_id,
-                    :authority_id,
-                    :aviator_id,
-                    :aircraft_id,
-                    :flight_class,
-                    :origin_site_id,
-                    :destination_site_id,
-                    :departure_droneport_id,
-                    :arrival_droneport_id,
-                    :requested_departure_datetime,
-                    :flight_termination_datetime,
-                    :operational_timezone,
-                    :execution_status
-                )
-                RETURNING
-                    flight_execution_id,
-                    flight_plan_id,
-                    authority_id,
-                    aviator_id,
-                    aircraft_id,
-                    flight_class,
-                    origin_site_id,
-                    destination_site_id,
-                    departure_droneport_id,
-                    arrival_droneport_id,
-                    requested_departure_datetime,
-                    flight_termination_datetime,
-                    operational_timezone,
-                    execution_status,
-                    created_at,
-                    updated_at
-            """),
-            {
-                "flight_plan_id": data["flight_plan_id"],
-                "authority_id": data["authority_id"],
-                "aviator_id": data["aviator_id"],
-                "aircraft_id": data["aircraft_id"],
-                "flight_class": data["flight_class"],
-                "origin_site_id": data["origin_site_id"],
-                "destination_site_id": data["destination_site_id"],
-                "departure_droneport_id":
-                    data.get("departure_droneport_id"),
-                "arrival_droneport_id":
-                    data.get("arrival_droneport_id"),
-                "requested_departure_datetime":
-                    data.get("requested_departure_datetime"),
-                "flight_termination_datetime":
-                    data.get("flight_termination_datetime"),
-                "operational_timezone":
-                    data["operational_timezone"],
-                "execution_status": execution_status,
-            },
-        )
-
-        record = dict(result.mappings().one())
-
-        _insert_flight_execution_routes(
-            connection,
-            record["flight_execution_id"],
-            route_ids,
-        )
-
-        for occupancy in planned_route_occupancy:
-            insert_route_occupancy_state(
-                connection,
-                route_id=occupancy["route_id"],
-                flight_band_id=occupancy["flight_band_id"],
-                flight_execution_id=record[
-                    "flight_execution_id"
-                ],
-                aircraft_id=occupancy["aircraft_id"],
-                planned_entry_time=occupancy[
-                    "planned_entry_time"
-                ],
-                planned_exit_time=occupancy[
-                    "planned_exit_time"
-                ],
+    result = connection.execute(
+        text("""
+            INSERT INTO flight_executions (
+                flight_plan_id,
+                root_flight_execution_id,
+                authority_id,
+                aviator_id,
+                aircraft_id,
+                flight_class,
+                origin_site_id,
+                destination_site_id,
+                departure_droneport_id,
+                arrival_droneport_id,
+                requested_departure_datetime,
+                flight_termination_datetime,
+                operational_timezone,
+                execution_status
             )
+            VALUES (
+                :flight_plan_id,
+                :root_flight_execution_id,
+                :authority_id,
+                :aviator_id,
+                :aircraft_id,
+                :flight_class,
+                :origin_site_id,
+                :destination_site_id,
+                :departure_droneport_id,
+                :arrival_droneport_id,
+                :requested_departure_datetime,
+                :flight_termination_datetime,
+                :operational_timezone,
+                :execution_status
+            )
+            RETURNING
+                flight_execution_id,
+                flight_plan_id,
+                root_flight_execution_id,
+                authority_id,
+                aviator_id,
+                aircraft_id,
+                flight_class,
+                origin_site_id,
+                destination_site_id,
+                departure_droneport_id,
+                arrival_droneport_id,
+                requested_departure_datetime,
+                flight_termination_datetime,
+                operational_timezone,
+                execution_status,
+                created_at,
+                updated_at
+        """),
+        {
+            "flight_plan_id": data["flight_plan_id"],
+            "root_flight_execution_id": data.get("root_flight_execution_id"),
+            "authority_id": data["authority_id"],
+            "aviator_id": data["aviator_id"],
+            "aircraft_id": data["aircraft_id"],
+            "flight_class": data["flight_class"],
+            "origin_site_id": data["origin_site_id"],
+            "destination_site_id": data["destination_site_id"],
+            "departure_droneport_id":
+                data.get("departure_droneport_id"),
+            "arrival_droneport_id":
+                data.get("arrival_droneport_id"),
+            "requested_departure_datetime":
+                data.get("requested_departure_datetime"),
+            "flight_termination_datetime":
+                data.get("flight_termination_datetime"),
+            "operational_timezone":
+                data["operational_timezone"],
+            "execution_status": execution_status,
+        },
+    )
 
-        record["route_ids"] = route_ids
+    record = dict(result.mappings().one())
 
-        return record
+    _insert_flight_execution_routes(
+        connection,
+        record["flight_execution_id"],
+        route_ids,
+    )
+
+    for occupancy in planned_route_occupancy:
+        insert_route_occupancy_state(
+            connection,
+            route_id=occupancy["route_id"],
+            flight_band_id=occupancy["flight_band_id"],
+            flight_execution_id=record[
+                "flight_execution_id"
+            ],
+            aircraft_id=occupancy["aircraft_id"],
+            planned_entry_time=occupancy[
+                "planned_entry_time"
+            ],
+            planned_exit_time=occupancy[
+                "planned_exit_time"
+            ],
+        )
+
+    record["route_ids"] = route_ids
+
+    return record
 
 
 def select_flight_execution(flight_execution_id):
@@ -201,6 +204,7 @@ def select_flight_execution(flight_execution_id):
                 SELECT
                     flight_execution_id,
                     flight_plan_id,
+                    root_flight_execution_id,
                     authority_id,
                     aviator_id,
                     aircraft_id,
@@ -233,13 +237,21 @@ def select_flight_execution(flight_execution_id):
         return record
 
 
-def select_flight_execution_by_flight_plan(flight_plan_id):
+def select_flight_execution_by_flight_plan(flight_plan_id, root=True):
+    root_filter = ""
+
+    if root:
+        root_filter = (
+            "AND root_flight_execution_id IS NULL"
+        )
+
     with engine.connect() as connection:
         result = connection.execute(
-            text("""
+            text(f"""
                 SELECT
                     flight_execution_id,
                     flight_plan_id,
+                    root_flight_execution_id,
                     authority_id,
                     aviator_id,
                     aircraft_id,
@@ -256,9 +268,26 @@ def select_flight_execution_by_flight_plan(flight_plan_id):
                     updated_at
                 FROM flight_executions
                 WHERE flight_plan_id = :flight_plan_id
+                {root_filter}
+                ORDER BY flight_execution_id
             """),
             {"flight_plan_id": flight_plan_id},
         )
+
+        if not root:
+            records = []
+
+            for row in result.mappings().all():
+                record = dict(row)
+                record["route_ids"] = (
+                    _select_flight_execution_routes(
+                        connection,
+                        record["flight_execution_id"],
+                    )
+                )
+                records.append(record)
+
+            return records
 
         row = result.mappings().first()
         if row is None:
@@ -382,6 +411,36 @@ def update_flight_execution_status(
         return dict(row) if row is not None else None
 
 
+def update_requested_departure_datetime(
+    flight_execution_id,
+    requested_departure_datetime,
+):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE flight_executions
+                SET
+                    requested_departure_datetime =
+                        :requested_departure_datetime,
+                    updated_at = NOW()
+                WHERE flight_execution_id = :flight_execution_id
+                  AND requested_departure_datetime IS NULL
+                RETURNING
+                    flight_execution_id,
+                    requested_departure_datetime,
+                    updated_at
+            """),
+            {
+                "flight_execution_id": flight_execution_id,
+                "requested_departure_datetime":
+                    requested_departure_datetime,
+            },
+        )
+
+        row = result.mappings().first()
+        return dict(row) if row is not None else None
+
+
 def update_flight_termination_datetime(
     flight_execution_id,
     flight_termination_datetime,
@@ -446,6 +505,46 @@ def complete_scheduled_flight_execution(
         return dict(row) if row is not None else None
 
 
+def select_next_flight_execution(
+    root_flight_execution_id,
+    current_flight_execution_id,
+):
+    """
+    Return the next active Flight Execution in a root FER series.
+    """
+
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    flight_execution_id,
+                    aviator_id,
+                    aircraft_id
+                FROM flight_executions
+                WHERE root_flight_execution_id =
+                    :root_flight_execution_id
+                  AND flight_execution_id >
+                    :current_flight_execution_id
+                  AND execution_status = :active_status
+                  AND flight_termination_datetime IS NULL
+                ORDER BY flight_execution_id
+                LIMIT 1
+            """),
+            {
+                "root_flight_execution_id":
+                    root_flight_execution_id,
+                "current_flight_execution_id":
+                    current_flight_execution_id,
+                "active_status":
+                    EXECUTION_STATUS_ACTIVE,
+            },
+        )
+
+        row = result.mappings().first()
+
+        return dict(row) if row is not None else None
+
+
 def select_flight_executions_ready_for_dispatch(
     preflight_window_minutes,
     expiration_grace_minutes,
@@ -476,6 +575,7 @@ def select_flight_executions_ready_for_dispatch(
                 WHERE requested_departure_datetime IS NOT NULL
                   AND flight_termination_datetime IS NULL
                   AND execution_status = :active_status
+                  AND root_flight_execution_id IS NULL
                   AND requested_departure_datetime
                       <= NOW()
                          + (
@@ -592,6 +692,57 @@ def _create_initial_flight_log(
     return str(result.scalar_one())
 
 
+def dispatch_child_flight_execution(
+    flight_execution_id,
+    aviator_id,
+    aircraft_id,
+):
+    """
+    Dispatch a child Flight Execution within an owned FER series.
+    """
+
+    with engine.begin() as connection:
+        execution_result = connection.execute(
+            text("""
+                UPDATE flight_executions
+                SET
+                    execution_status = :dispatched_status,
+                    updated_at = NOW()
+                WHERE flight_execution_id = :flight_execution_id
+                  AND root_flight_execution_id IS NOT NULL
+                  AND execution_status = :active_status
+                  AND flight_termination_datetime IS NULL
+                RETURNING
+                    flight_execution_id
+            """),
+            {
+                "flight_execution_id": flight_execution_id,
+                "active_status": EXECUTION_STATUS_ACTIVE,
+                "dispatched_status": EXECUTION_STATUS_DISPATCHED,
+            },
+        )
+
+        execution = execution_result.mappings().first()
+
+        if execution is None:
+            return None
+
+        flight = _create_flight(
+            connection=connection,
+            flight_execution_id=execution["flight_execution_id"],
+            aviator_id=aviator_id,
+            aircraft_id=aircraft_id,
+            scheduled_departure_utc=None,
+        )
+
+        flight["initial_flight_log_id"] = _create_initial_flight_log(
+            connection=connection,
+            flight=flight,
+        )
+
+        return flight
+
+
 def claim_scheduled_flight_execution(
     flight_execution_id,
     aviator_id,
@@ -657,6 +808,7 @@ def claim_scheduled_flight_execution(
 
         return flight
 
+
 def release_scheduled_flight_execution(
     flight_execution_id,
 ):
@@ -675,6 +827,41 @@ def release_scheduled_flight_execution(
                     updated_at = NOW()
                 WHERE flight_execution_id = :flight_execution_id
                   AND requested_departure_datetime IS NOT NULL
+                  AND flight_termination_datetime IS NULL
+                  AND execution_status = :dispatched_status
+                RETURNING
+                    flight_execution_id,
+                    execution_status,
+                    updated_at
+            """),
+            {
+                "flight_execution_id": flight_execution_id,
+                "active_status": EXECUTION_STATUS_ACTIVE,
+                "dispatched_status": EXECUTION_STATUS_DISPATCHED,
+            },
+        )
+
+        row = result.mappings().first()
+
+        return dict(row) if row is not None else None
+
+
+def release_child_flight_execution(
+    flight_execution_id,
+):
+    """
+    Return a preflight-failed child Flight Execution to active status.
+    """
+
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE flight_executions
+                SET
+                    execution_status = :active_status,
+                    updated_at = NOW()
+                WHERE flight_execution_id = :flight_execution_id
+                  AND root_flight_execution_id IS NOT NULL
                   AND flight_termination_datetime IS NULL
                   AND execution_status = :dispatched_status
                 RETURNING

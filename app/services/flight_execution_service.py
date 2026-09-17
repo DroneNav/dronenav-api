@@ -53,8 +53,6 @@ from app.services.tfr_availability_service import (
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy.exc import IntegrityError
-
 from app.config.constants import (
     EXECUTION_STATUS_ACTIVE,
     VALID_FLIGHT_CLASSES,
@@ -67,12 +65,15 @@ from app.models.flight_execution_model import (
     select_flight_execution_by_flight_plan,
     claim_scheduled_flight_execution,
     release_scheduled_flight_execution,
+    release_child_flight_execution,
     cancel_flight_execution,
     claim_reusable_flight_execution,
     select_flight_executions,
     select_flight_execution,
+    select_next_flight_execution,
 )
 from app.models.site_model import select_site
+from app.config.database import engine
 
 from app.services.timezone_service import (
     resolve_droneport_timezone,
@@ -111,7 +112,7 @@ def create_flight_execution(data):
 
     flight_plan_id = data.get("flight_plan_id")
 
-    # A Flight Plan may be translated into only one
+    # A Flight Plan may have only one root
     # Flight Execution Record.
     if flight_plan_id not in (None, ""):
         existing_record = (
@@ -181,8 +182,34 @@ def create_flight_execution(data):
             active_flight_bands,
         )
 
+    with engine.begin() as connection:
+        flight_execution = _create_flight_execution_record(
+            connection=connection,
+            data=data,
+            operational_timezone=operational_timezone,
+            requested_departure_datetime=(
+                requested_departure_datetime
+            ),
+            matching_flight_band=matching_flight_band,
+        )
+
+    return accepted_response(
+        flight_execution,
+        status_code=201,
+    )
+
+
+def _create_flight_execution_record(
+    connection,
+    data,
+    operational_timezone,
+    requested_departure_datetime,
+    matching_flight_band,
+    root_flight_execution_id=None,
+):
     flight_execution_data = {
         "flight_plan_id": str(data["flight_plan_id"]),
+        "root_flight_execution_id": root_flight_execution_id,
         "authority_id": str(data["authority_id"]),
         "aviator_id": str(data["aviator_id"]),
         "aircraft_id": str(data["aircraft_id"]),
@@ -230,33 +257,13 @@ def create_flight_execution(data):
             )
         )
 
-    try:
-        flight_execution = insert_flight_execution_record(
-            flight_execution_data,
-            planned_route_occupancy=planned_route_occupancy,
-        )
-
-    except IntegrityError:
-        # Protect against two concurrent submissions of the
-        # same immutable Flight Plan.
-        existing_record = (
-            select_flight_execution_by_flight_plan(
-                str(data["flight_plan_id"])
-            )
-        )
-
-        if existing_record is not None:
-            return accepted_response(
-                existing_record,
-                status_code=200,
-            )
-
-        raise
-
-    return accepted_response(
-        flight_execution,
-        status_code=201,
+    flight_execution = insert_flight_execution_record(
+        connection,
+        flight_execution_data,
+        planned_route_occupancy=planned_route_occupancy,
     )
+
+    return flight_execution
 
 
 def validate_flight_execution_submission(data, operational_timezone):
@@ -816,9 +823,24 @@ def release_scheduled_flight_execution_service(
     Return a preflight-failed scheduled Flight Execution to active status.
     """
 
-    released_execution = release_scheduled_flight_execution(
+    flight_execution = select_flight_execution(
         flight_execution_id
     )
+
+    if flight_execution is None:
+        return {
+            "status": "error",
+            "message": "Flight Execution was not found.",
+        }, 404
+
+    if flight_execution["root_flight_execution_id"] is None:
+        released_execution = release_scheduled_flight_execution(
+            flight_execution_id
+        )
+    else:
+        released_execution = release_child_flight_execution(
+            flight_execution_id
+        )
 
     if released_execution is None:
         return {
@@ -909,6 +931,31 @@ def get_flight_execution(flight_execution_id):
     return format_flight_execution(
         flight_execution
     ), 200
+
+
+def get_next_flight_execution(
+    root_flight_execution_id,
+    current_flight_execution_id,
+):
+    next_flight_execution = select_next_flight_execution(
+        root_flight_execution_id,
+        current_flight_execution_id,
+    )
+
+    if next_flight_execution is None:
+        return None, 200
+
+    return {
+        "flight_execution_id": str(
+            next_flight_execution["flight_execution_id"]
+        ),
+        "aviator_id": str(
+            next_flight_execution["aviator_id"]
+        ),
+        "aircraft_id": str(
+            next_flight_execution["aircraft_id"]
+        ),
+    }, 200
 
 
 def list_flight_executions(
