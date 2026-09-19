@@ -97,8 +97,164 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 def create_flight_execution(data):
+    if isinstance(data, list):
+        return _create_multi_flight_execution(data)
+
+    return _create_single_flight_execution(data)
+
+
+def _create_multi_flight_execution(data):
+    if not data:
+        return rejected_response([
+            {
+                "field": None,
+                "code": "invalid_payload",
+                "message": (
+                    "Multi-Flight Execution submission must contain "
+                    "at least one Flight Execution."
+                ),
+            }
+        ])
+
+    if not all(isinstance(item, dict) for item in data):
+        return rejected_response([
+            {
+                "field": None,
+                "code": "invalid_payload",
+                "message": (
+                    "Each Flight Execution submission must be "
+                    "a JSON object."
+                ),
+            }
+        ])
+
+    flight_plan_ids = {
+        str(item.get("flight_plan_id"))
+        for item in data
+        if item.get("flight_plan_id") not in (None, "")
+    }
+
+    if len(flight_plan_ids) != 1:
+        return rejected_response([
+            {
+                "field": "flight_plan_id",
+                "code": "invalid_multi_flight_structure",
+                "message": (
+                    "All Flight Executions in a multi-flight "
+                    "submission must belong to the same Flight Plan."
+                ),
+            }
+        ])
+
+    flight_plan_id = next(iter(flight_plan_ids))
+
+    existing_record = select_flight_execution_by_flight_plan(
+        flight_plan_id
+    )
+
+    if existing_record is not None:
+        return accepted_response(
+            existing_record,
+            status_code=200,
+        )
+
+    validation_errors = []
+    prepared_flight_executions = []
+
+    for index, flight_execution_data in enumerate(data):
+
+        operational_timezone = resolve_operational_timezone(
+            flight_execution_data
+        )
+
+        if operational_timezone is None:
+            validation_errors.append({
+                "field": "origin_site_id",
+                "code": "operational_timezone_unavailable",
+                "message": (
+                    "The operational timezone could not be resolved "
+                    "from the departure DronePort or origin Site."
+                ),
+            })
+            continue
+
+        errors = validate_flight_execution_submission(
+            flight_execution_data,
+            operational_timezone,
+            deferred_departure=(index > 0),
+        )
+
+        validation_errors.extend(errors)
+
+        if errors:
+            continue
+
+        requested_departure_datetime = _parse_requested_departure_datetime(
+            flight_execution_data.get("requested_departure_datetime")
+        )
+
+        matching_flight_band = None
+
+        if requested_departure_datetime is not None:
+            active_flight_bands = (
+                select_active_flight_band_records_by_class(
+                    flight_execution_data["flight_class"]
+                )
+            )
+
+            matching_flight_band = get_matching_flight_band(
+                requested_departure_datetime,
+                operational_timezone,
+                active_flight_bands,
+            )
+
+        prepared_flight_executions.append(
+            (
+                flight_execution_data,
+                operational_timezone,
+                requested_departure_datetime,
+                matching_flight_band,
+            )
+        )
+
+    if validation_errors:
+        return rejected_response(validation_errors)
+
+    root_flight_execution = None
+
+    with engine.begin() as connection:
+        for index, (
+            flight_execution_data,
+            operational_timezone,
+            requested_departure_datetime,
+            matching_flight_band,
+        ) in enumerate(prepared_flight_executions):
+            root_flight_execution_id = (
+                None
+                if index == 0
+                else root_flight_execution["flight_execution_id"]
+            )
+
+            flight_execution = _create_flight_execution_record(
+                connection,
+                flight_execution_data,
+                operational_timezone,
+                requested_departure_datetime,
+                matching_flight_band,
+                root_flight_execution_id=root_flight_execution_id,
+            )
+
+            if index == 0:
+                root_flight_execution = flight_execution
+
+    return accepted_response(
+        root_flight_execution,
+        status_code=201,
+    )
+
+
+def _create_single_flight_execution(data):
     if not isinstance(data, dict):
         return rejected_response([
             {
@@ -266,7 +422,12 @@ def _create_flight_execution_record(
     return flight_execution
 
 
-def validate_flight_execution_submission(data, operational_timezone):
+def validate_flight_execution_submission(
+    data,
+    operational_timezone,
+    *,
+    deferred_departure=False,
+):
     errors = []
 
     required_fields = [
@@ -384,7 +545,10 @@ def validate_flight_execution_submission(data, operational_timezone):
     flight_path_ids = data["flight_path_ids"]
 
     # A reusable execution cannot prescribe droneports or a route.
-    if requested_departure_datetime is None:
+    if (
+        requested_departure_datetime is None
+        and not deferred_departure
+    ):
         if departure_droneport_id is not None:
             errors.append({
                 "field": "departure_droneport_id",
@@ -417,7 +581,10 @@ def validate_flight_execution_submission(data, operational_timezone):
 
     # A scheduled execution must prescribe both droneports
     # and at least one Route.
-    else:
+    elif (
+        requested_departure_datetime is not None
+        or deferred_departure
+    ):
         if departure_droneport_id is None:
             errors.append({
                 "field": "departure_droneport_id",
