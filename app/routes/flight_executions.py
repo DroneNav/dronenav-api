@@ -53,6 +53,9 @@ from app.services.flight_execution_service import (
     list_flight_executions,
     get_flight_execution,
     get_next_flight_execution,
+    resume_via_flight_execution_service,
+    get_resumable_flight_execution_by_flight_plan,
+    get_root_flight_execution_id,
 )
 
 from app.services.route_traffic_service import (
@@ -180,6 +183,25 @@ def get_next_flight_execution_route(
     response, status_code = get_next_flight_execution(
         root_flight_execution_id,
         current_flight_execution_id,
+    )
+
+    return jsonify(response), status_code
+
+
+@flight_executions_bp.route(
+    "/api/flight-executions/<flight_execution_id>/resume",
+    methods=["POST", "OPTIONS"],
+)
+def resume_via_flight_execution_route(
+    flight_execution_id,
+):
+    if request.method == "OPTIONS":
+        return "", 204
+
+    response, status_code = (
+        resume_via_flight_execution_service(
+            flight_execution_id
+        )
     )
 
     return jsonify(response), status_code
@@ -346,3 +368,40 @@ def request_intersection_slot_route(flight_execution_id):
         "intersection_state_id": intersection_state_id,
         "reserved": intersection_state_id is not None,
     }), 200
+
+
+@flight_executions_bp.route(
+    "/api/flight-executions/flight-plan/<flight_plan_id>/resumable",
+    methods=["GET", "OPTIONS"],
+)
+def get_resumable_flight_execution_by_flight_plan_route(
+    flight_plan_id,
+):
+    if request.method == "OPTIONS":
+        return "", 204
+
+    response, status_code = (
+        get_resumable_flight_execution_by_flight_plan(
+            flight_plan_id
+        )
+    )
+
+    return jsonify(response), status_code
+
+
+@flight_executions_bp.route(
+    "/api/flight-executions/<flight_execution_id>/root",
+    methods=["GET", "OPTIONS"],
+)
+def get_root_flight_execution_id_route(
+    flight_execution_id,
+):
+    if request.method == "OPTIONS":
+        return "", 204
+
+    response, status_code = get_root_flight_execution_id(
+        flight_execution_id
+    )
+
+    return jsonify(response), status_code
+

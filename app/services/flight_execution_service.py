@@ -50,11 +50,12 @@ from app.services.geospatial_validation_service import (
 from app.services.tfr_availability_service import (
     get_scheduled_flight_tfr_conflicts,
 )
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.config.constants import (
     EXECUTION_STATUS_ACTIVE,
+    EXECUTION_STATUS_HOLDING,
     VALID_FLIGHT_CLASSES,
     PREFLIGHT_DURATION_SECONDS,
 )
@@ -66,11 +67,14 @@ from app.models.flight_execution_model import (
     claim_scheduled_flight_execution,
     release_scheduled_flight_execution,
     release_child_flight_execution,
+    resume_via_flight_execution,
     cancel_flight_execution,
     claim_reusable_flight_execution,
     select_flight_executions,
     select_flight_execution,
     select_next_flight_execution,
+    select_resumable_flight_execution_by_flight_plan,
+    select_root_flight_execution_id,
 )
 from app.models.site_model import select_site
 from app.config.database import engine
@@ -388,7 +392,11 @@ def _create_flight_execution_record(
             requested_departure_datetime,
         "flight_termination_datetime": None,
         "operational_timezone": operational_timezone,
-        "execution_status": EXECUTION_STATUS_ACTIVE,
+        "execution_status": (
+            EXECUTION_STATUS_ACTIVE
+            if root_flight_execution_id is None
+            else EXECUTION_STATUS_HOLDING
+        ),
         "route_ids": [
             str(route_id)
             for route_id in data["flight_path_ids"]
@@ -1122,6 +1130,111 @@ def get_next_flight_execution(
         "aircraft_id": str(
             next_flight_execution["aircraft_id"]
         ),
+        "via_status": next_flight_execution["via_status"]
+    }, 200
+
+
+def resume_via_flight_execution_service(
+    flight_execution_id,
+):
+    flight_execution = select_flight_execution(
+        flight_execution_id
+    )
+
+    if flight_execution is None:
+        return {
+            "error": "Flight Execution Record was not found."
+        }, 404
+
+    resume_datetime = datetime.now(timezone.utc)
+
+    active_flight_bands = (
+        select_active_flight_band_records_by_class(
+            flight_execution["flight_class"]
+        )
+    )
+
+    matching_flight_band = get_matching_flight_band(
+        resume_datetime,
+        flight_execution["operational_timezone"],
+        active_flight_bands,
+    )
+
+    if matching_flight_band is None:
+        return {
+            "error": (
+                "No active Flight Band is available "
+                "for VIA resume."
+            )
+        }, 409
+
+    planned_route_occupancy = build_planned_route_occupancy(
+        route_ids=flight_execution["route_ids"],
+        flight_band_id=matching_flight_band[
+            "flight_band_id"
+        ],
+        aircraft_id=flight_execution["aircraft_id"],
+        requested_departure_datetime=resume_datetime,
+    )
+
+    resumed_execution = resume_via_flight_execution(
+        flight_execution_id,
+        resume_datetime,
+        planned_route_occupancy,
+    )
+
+    if resumed_execution is None:
+        return {
+            "error": (
+                "Flight Execution Record is not eligible "
+                "for VIA resume."
+            )
+        }, 409
+
+    return {
+        "status": "accepted",
+        "flight_execution_id": str(
+            resumed_execution["flight_execution_id"]
+        ),
+        "via_status": resumed_execution["via_status"],
+    }, 200
+
+
+def get_resumable_flight_execution_by_flight_plan(
+    flight_plan_id,
+):
+    flight_execution_id = (
+        select_resumable_flight_execution_by_flight_plan(
+            flight_plan_id
+        )
+    )
+
+    if flight_execution_id is None:
+        return None, 200
+
+    return {
+        "flight_execution_id": str(flight_execution_id),
+    }, 200
+
+
+def get_root_flight_execution_id(
+    flight_execution_id,
+):
+    root_flight_execution_id = (
+        select_root_flight_execution_id(
+            flight_execution_id
+        )
+    )
+
+    if root_flight_execution_id is None:
+        return {
+            "error": "Flight Execution Record was not found."
+        }, 404
+
+    return {
+        "root_flight_execution_id": str(
+            root_flight_execution_id
+        ),
     }, 200
 
 
@@ -1201,6 +1314,7 @@ def format_flight_execution(row):
         "operational_timezone": row[
             "operational_timezone"
         ],
+        "via_status": row["via_status"],
     }
 
 

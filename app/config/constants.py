@@ -48,8 +48,8 @@ of the aircraft operator and applicable regulatory authorities.
 # ------------------------------------------------------------------
 # Site Defaults
 # ------------------------------------------------------------------
-VERTICAL_CONFORMANCE_MARGIN_FT = 10
-VERTICAL_LAYER_SEPARATION_FT = 10
+VERTICAL_CONFORMANCE_MARGIN_FT = 9
+VERTICAL_LAYER_SEPARATION_FT = 9
 VERTICAL_LAYER_SPACING_FT = ( 2 * VERTICAL_CONFORMANCE_MARGIN_FT
                               + VERTICAL_LAYER_SEPARATION_FT )
 MINIMUM_LONGITUDINAL_SEPARATION_FT = 500
@@ -88,6 +88,7 @@ SCHEDULER_PREFLIGHT_WINDOW_MINUTES = 5
 # Scheduled flights older than this are considered missed.
 # They will not be dispatched by the scheduler.
 SCHEDULER_EXPIRATION_GRACE_MINUTES = 45
+VIA_RESUME_POLL_SECONDS = 5
 
 # Heartbeat managment
 HEARTBEAT_LOSS_TIMEOUT_SECONDS = 5.0
@@ -259,6 +260,7 @@ EXECUTION_STATUS_EXPIRED = "expired"
 EXECUTION_STATUS_SUSPENDED = "suspended"
 EXECUTION_STATUS_REVOKED = "revoked"
 EXECUTION_STATUS_CANCELLED = "cancelled"
+EXECUTION_STATUS_HOLDING = "holding"
 
 # -----------------------------------------------------------------
 # Flight Classes

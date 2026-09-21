@@ -64,7 +64,8 @@ CREATE TABLE flight_executions (
                 'expired',
                 'suspended',
                 'revoked',
-                'cancelled'
+                'cancelled',
+                'holding'
             )
         ),
 

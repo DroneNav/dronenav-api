@@ -63,6 +63,7 @@ from app.config.constants import (
     EXECUTION_STATUS_REVOKED,
     EXECUTION_STATUS_SUSPENDED,
     EXECUTION_STATUS_CANCELLED,
+    EXECUTION_STATUS_HOLDING,
 )
 
 EXECUTION_STATUSES = {
@@ -73,6 +74,7 @@ EXECUTION_STATUSES = {
     EXECUTION_STATUS_SUSPENDED,
     EXECUTION_STATUS_REVOKED,
     EXECUTION_STATUS_CANCELLED,
+    EXECUTION_STATUS_HOLDING,
 }
 
 
@@ -96,6 +98,7 @@ def insert_flight_execution_record(connection, data, planned_route_occupancy=Non
             INSERT INTO flight_executions (
                 flight_plan_id,
                 root_flight_execution_id,
+                via_status,
                 authority_id,
                 aviator_id,
                 aircraft_id,
@@ -112,6 +115,7 @@ def insert_flight_execution_record(connection, data, planned_route_occupancy=Non
             VALUES (
                 :flight_plan_id,
                 :root_flight_execution_id,
+                :via_status,
                 :authority_id,
                 :aviator_id,
                 :aircraft_id,
@@ -147,6 +151,7 @@ def insert_flight_execution_record(connection, data, planned_route_occupancy=Non
         {
             "flight_plan_id": data["flight_plan_id"],
             "root_flight_execution_id": data.get("root_flight_execution_id"),
+            "via_status": None,
             "authority_id": data["authority_id"],
             "aviator_id": data["aviator_id"],
             "aircraft_id": data["aircraft_id"],
@@ -205,6 +210,7 @@ def select_flight_execution(flight_execution_id):
                     flight_execution_id,
                     flight_plan_id,
                     root_flight_execution_id,
+                    via_status,
                     authority_id,
                     aviator_id,
                     aircraft_id,
@@ -252,6 +258,7 @@ def select_flight_execution_by_flight_plan(flight_plan_id, root=True):
                     flight_execution_id,
                     flight_plan_id,
                     root_flight_execution_id,
+                    via_status,
                     authority_id,
                     aviator_id,
                     aircraft_id,
@@ -341,6 +348,7 @@ def select_flight_executions(
             flight_termination_datetime,
             operational_timezone,
             execution_status,
+            via_status,
             created_at,
             updated_at
         FROM flight_executions
@@ -510,7 +518,7 @@ def select_next_flight_execution(
     current_flight_execution_id,
 ):
     """
-    Return the next active Flight Execution in a root FER series.
+    Return the next holding Flight Execution in a root FER series.
     """
 
     with engine.connect() as connection:
@@ -519,13 +527,14 @@ def select_next_flight_execution(
                 SELECT
                     flight_execution_id,
                     aviator_id,
-                    aircraft_id
+                    aircraft_id,
+                    via_status
                 FROM flight_executions
                 WHERE root_flight_execution_id =
                     :root_flight_execution_id
                   AND flight_execution_id >
                     :current_flight_execution_id
-                  AND execution_status = :active_status
+                  AND execution_status = :holding_status
                   AND flight_termination_datetime IS NULL
                 ORDER BY flight_execution_id
                 LIMIT 1
@@ -535,14 +544,124 @@ def select_next_flight_execution(
                     root_flight_execution_id,
                 "current_flight_execution_id":
                     current_flight_execution_id,
-                "active_status":
-                    EXECUTION_STATUS_ACTIVE,
+                "holding_status":
+                    EXECUTION_STATUS_HOLDING,
             },
         )
 
         row = result.mappings().first()
 
         return dict(row) if row is not None else None
+
+
+def resume_via_flight_execution(
+    flight_execution_id,
+    resume_datetime,
+    planned_route_occupancy,
+):
+    """
+    Authorize a child Flight Execution to resume after a VIA stop.
+    """
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE flight_executions
+                SET
+                    via_status = 'resumed',
+                    updated_at = NOW(),
+                    requested_departure_datetime =
+                        :resume_datetime
+                WHERE flight_execution_id = :flight_execution_id
+                  AND root_flight_execution_id IS NOT NULL
+                  AND execution_status = :holding_status
+                  AND via_status IS NULL
+                  AND flight_termination_datetime IS NULL
+                RETURNING
+                    flight_execution_id,
+                    via_status,
+                    updated_at
+            """),
+            {
+                "flight_execution_id": flight_execution_id,
+                "resume_datetime": resume_datetime,
+                "holding_status": EXECUTION_STATUS_HOLDING,
+            },
+        )
+
+        row = result.mappings().first()
+
+        if row is None:
+            return None
+
+        for occupancy in planned_route_occupancy:
+            insert_route_occupancy_state(
+                connection,
+                route_id=occupancy["route_id"],
+                flight_band_id=occupancy["flight_band_id"],
+                flight_execution_id=flight_execution_id,
+                aircraft_id=occupancy["aircraft_id"],
+                planned_entry_time=occupancy[
+                    "planned_entry_time"
+                ],
+                planned_exit_time=occupancy[
+                    "planned_exit_time"
+                ],
+            )
+
+        return dict(row)
+
+
+def select_resumable_flight_execution_by_flight_plan(
+    flight_plan_id,
+):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT flight_execution_id
+                FROM flight_executions
+                WHERE flight_plan_id = :flight_plan_id
+                  AND root_flight_execution_id IS NOT NULL
+                  AND via_status IS NULL
+                ORDER BY flight_execution_id
+                LIMIT 1
+            """),
+            {"flight_plan_id": flight_plan_id},
+        )
+
+        row = result.mappings().first()
+
+        return (
+            row["flight_execution_id"]
+            if row is not None
+            else None
+        )
+
+
+def select_root_flight_execution_id(
+    flight_execution_id,
+):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT COALESCE(
+                    root_flight_execution_id,
+                    flight_execution_id
+                ) AS root_flight_execution_id
+                FROM flight_executions
+                WHERE flight_execution_id = :flight_execution_id
+            """),
+            {
+                "flight_execution_id": flight_execution_id,
+            },
+        )
+
+        row = result.mappings().first()
+
+        return (
+            row["root_flight_execution_id"]
+            if row is not None
+            else None
+        )
 
 
 def select_flight_executions_ready_for_dispatch(
@@ -710,14 +829,14 @@ def dispatch_child_flight_execution(
                     updated_at = NOW()
                 WHERE flight_execution_id = :flight_execution_id
                   AND root_flight_execution_id IS NOT NULL
-                  AND execution_status = :active_status
+                  AND execution_status = :holding_status
                   AND flight_termination_datetime IS NULL
                 RETURNING
                     flight_execution_id
             """),
             {
                 "flight_execution_id": flight_execution_id,
-                "active_status": EXECUTION_STATUS_ACTIVE,
+                "holding_status": EXECUTION_STATUS_HOLDING,
                 "dispatched_status": EXECUTION_STATUS_DISPATCHED,
             },
         )
@@ -850,7 +969,7 @@ def release_child_flight_execution(
     flight_execution_id,
 ):
     """
-    Return a preflight-failed child Flight Execution to active status.
+    Return a preflight-failed child Flight Execution to holding status.
     """
 
     with engine.begin() as connection:
@@ -858,7 +977,7 @@ def release_child_flight_execution(
             text("""
                 UPDATE flight_executions
                 SET
-                    execution_status = :active_status,
+                    execution_status = :holding_status,
                     updated_at = NOW()
                 WHERE flight_execution_id = :flight_execution_id
                   AND root_flight_execution_id IS NOT NULL
@@ -871,7 +990,7 @@ def release_child_flight_execution(
             """),
             {
                 "flight_execution_id": flight_execution_id,
-                "active_status": EXECUTION_STATUS_ACTIVE,
+                "holding_status": EXECUTION_STATUS_HOLDING,
                 "dispatched_status": EXECUTION_STATUS_DISPATCHED,
             },
         )
