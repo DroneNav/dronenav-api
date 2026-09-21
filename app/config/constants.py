@@ -48,8 +48,8 @@ of the aircraft operator and applicable regulatory authorities.
 # ------------------------------------------------------------------
 # Site Defaults
 # ------------------------------------------------------------------
-VERTICAL_CONFORMANCE_MARGIN_FT = 9
-VERTICAL_LAYER_SEPARATION_FT = 9
+VERTICAL_CONFORMANCE_MARGIN_FT = 11
+VERTICAL_LAYER_SEPARATION_FT = 10
 VERTICAL_LAYER_SPACING_FT = ( 2 * VERTICAL_CONFORMANCE_MARGIN_FT
                               + VERTICAL_LAYER_SEPARATION_FT )
 MINIMUM_LONGITUDINAL_SEPARATION_FT = 500
