@@ -50,10 +50,12 @@ from app.services.zone_service import (
     create_zone,
     get_zone_by_id,
     get_all_zones,
+    get_regions,
     update_zone,
     patch_zone,
     delete_zone,
     evaluate_point_in_zone,
+    evaluate_region_geometry_intersection,
 )
 
 zones_bp = Blueprint("zones", __name__)
@@ -104,6 +106,19 @@ def get_zones_route():
 
     return jsonify({
         "zones": zones
+    })
+
+
+@zones_bp.route("/api/zones/regions", methods=["GET", "OPTIONS"])
+def get_regions_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    regions = get_regions()
+
+    return jsonify({
+        "regions": regions
     })
 
 
@@ -210,4 +225,32 @@ def evaluate_point_in_zone_route(zone_id):
         }), status_code
 
     return jsonify(result)
+
+
+@zones_bp.route(
+    "/api/zones/regions/<region_id>/intersection",
+    methods=["POST", "OPTIONS"],
+)
+def evaluate_region_geometry_intersection_route(region_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json() or {}
+
+    result, error = evaluate_region_geometry_intersection(
+        region_id,
+        data,
+    )
+
+    if error:
+        status_code = 404 if error == "Region not found" else 400
+
+        return jsonify({
+            "status": "error",
+            "message": error,
+        }), status_code
+
+    return jsonify(result)
+
 

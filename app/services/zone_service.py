@@ -56,6 +56,8 @@ from app.models.zone_model import (
     select_zones,
     select_zones_by_site_id,
     select_zone_point_containment,
+    select_regions,
+    select_region_geometry_intersection,
     update_zone_record,
     patch_zone_record,
     patch_zone_attributes_record,
@@ -221,6 +223,34 @@ def get_zones_by_site_id(site_id):
 def get_all_zones(survey_status):
     rows = select_zones(survey_status)
     return [format_zone_summary(row) for row in rows]
+
+
+def get_regions():
+    rows = select_regions()
+    return [dict(row) for row in rows]
+
+
+def evaluate_region_geometry_intersection(
+    region_id,
+    data,
+):
+    geometry = data.get("geometry")
+
+    if geometry is None:
+        return None, "Geometry is required"
+
+    row = select_region_geometry_intersection(
+        region_id,
+        geometry,
+    )
+
+    if row is None:
+        return None, "Region not found"
+
+    return {
+        "region_id": region_id,
+        "intersects": bool(row["intersects"]),
+    }, None
 
 
 def update_zone(zone_id, data):

@@ -416,3 +416,46 @@ def select_zone_point_containment(
         return result.mappings().first()
 
 
+def select_regions():
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    region_id,
+                    region_code,
+                    region_name
+                FROM regions
+                ORDER BY region_name
+            """)
+        )
+
+        return result.mappings().all()
+
+
+def select_region_geometry_intersection(
+    region_id,
+    geometry,
+):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    ST_Intersects(
+                        regions.geometry,
+                        ST_SetSRID(
+                            ST_GeomFromGeoJSON(:geometry),
+                            4326
+                        )
+                    ) AS intersects
+                FROM regions
+                WHERE region_id = :region_id
+            """),
+            {
+                "region_id": region_id,
+                "geometry": json.dumps(geometry),
+            },
+        )
+
+        return result.mappings().first()
+
+
