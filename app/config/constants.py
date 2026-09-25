@@ -165,6 +165,42 @@ ZONE_STATUS_DELETED = "deleted"
 DEFAULT_ZONE_STATUS = ZONE_STATUS_INACTIVE
 
 # ------------------------------------------------------------------
+# Obstacle Statuses
+# ------------------------------------------------------------------
+
+OBSTACLE_TYPE_UTILITY_POLE = "utility_pole"
+OBSTACLE_TYPE_POWER_LINE = "power_line"
+OBSTACLE_TYPE_TOWER = "tower"
+OBSTACLE_TYPE_ANTENNA = "antenna"
+OBSTACLE_TYPE_BUILDING = "building"
+OBSTACLE_TYPE_TREE = "tree"
+OBSTACLE_TYPE_TREE_LINE = "tree_line"
+OBSTACLE_TYPE_CRANE = "crane"
+OBSTACLE_TYPE_OTHER = "other"
+
+OBSTACLE_TYPES = {
+    OBSTACLE_TYPE_UTILITY_POLE: "Utility Pole",
+    OBSTACLE_TYPE_POWER_LINE: "Power Line",
+    OBSTACLE_TYPE_TOWER: "Tower",
+    OBSTACLE_TYPE_ANTENNA: "Antenna",
+    OBSTACLE_TYPE_BUILDING: "Building",
+    OBSTACLE_TYPE_TREE: "Tree",
+    OBSTACLE_TYPE_TREE_LINE: "Tree Line",
+    OBSTACLE_TYPE_CRANE: "Crane",
+    OBSTACLE_TYPE_OTHER: "Other"
+}
+
+# ------------------------------------------------------------------
+# Obstacle Statuses
+# ------------------------------------------------------------------
+
+OBSTACLE_STATUS_ACTIVE = "active"
+OBSTACLE_STATUS_INACTIVE = "inactive"
+OBSTACLE_STATUS_DELETED = "deleted"
+
+DEFAULT_OBSTACLE_STATUS = OBSTACLE_STATUS_INACTIVE
+
+# ------------------------------------------------------------------
 # Survey Statuses
 # ------------------------------------------------------------------
 
@@ -323,20 +359,22 @@ OVERLAY_TYPE_SITE = "site"
 OVERLAY_TYPE_ZONE = "zone"
 OVERLAY_TYPE_DRONEPORT = "droneport"
 OVERLAY_TYPE_ROUTE = "route"
+OVERLAY_TYPE_OBSTACLE = "obstacle"
 
 VALID_OVERLAY_TYPES = {
     OVERLAY_TYPE_SITE,
     OVERLAY_TYPE_ZONE,
     OVERLAY_TYPE_DRONEPORT,
-    OVERLAY_TYPE_ROUTE
+    OVERLAY_TYPE_ROUTE,
+    OVERLAY_TYPE_OBSTACLE
 }
-
 
 OVERLAY_TYPES = {
   OVERLAY_TYPE_SITE: "Site",
   OVERLAY_TYPE_ZONE: "Zone",
   OVERLAY_TYPE_DRONEPORT: "Droneport",
-  OVERLAY_TYPE_ROUTE: "Route"
+  OVERLAY_TYPE_ROUTE: "Route",
+  OVERLAY_TYPE_OBSTACLE: "Obstacle"
 },
 
 SITE_OPERATIONAL_STATUSES = {
@@ -366,6 +404,12 @@ ROUTE_OPERATIONAL_STATUSES = {
     ROUTE_STATUS_ACTIVE: "Active",
     ROUTE_STATUS_INACTIVE: "Inactive",
     ROUTE_STATUS_DELETED: "Deleted"
+}
+
+OBSTACLE_OPERATIONAL_STATUSES = {
+    OBSTACLE_STATUS_ACTIVE: "Active",
+    OBSTACLE_STATUS_INACTIVE: "Inactive",
+    OBSTACLE_STATUS_DELETED: "Deleted"
 }
 
 SITE_TYPES = {
@@ -443,11 +487,13 @@ def load_reference_data():
         "zone_type": ZONE_TYPES,
         "droneport_type": DRONEPORT_TYPES,
         "route_type":  ROUTE_TYPES,
+        "obstacle_type": OBSTACLE_TYPES,
         "site_operational_status": SITE_OPERATIONAL_STATUSES,
         "zone_operational_status": ZONE_OPERATIONAL_STATUSES,
         "droneport_operational_status": DRONEPORT_OPERATIONAL_STATUSES,
         "droneport_landing_space_operational_status": DRONEPORT_LANDING_SPACE_OPERATIONAL_STATUSES,
         "route_operational_status": ROUTE_OPERATIONAL_STATUSES,
+        "obstacle_operational_status": OBSTACLE_OPERATIONAL_STATUSES,
         "survey_status": SURVEY_STATUSES,
         "overlay_review_status": OVERLAY_REVIEW_STATUSES,
         "flight_class": FLIGHT_CLASSES,

@@ -75,6 +75,14 @@ from app.models.route_model import (
     request_route_changes,
 )
 
+from app.models.obstacle_model import (
+    select_obstacle,
+    approve_obstacle,
+    reject_obstacle,
+    submit_obstacle,
+    request_obstacle_changes,
+)
+
 from app.models.overlay_review_model import (
     select_overlay_review,
     select_overlay_reviews,
@@ -99,6 +107,7 @@ from app.services.site_service import get_site_by_id, format_site
 from app.services.zone_service import get_zone_by_id, format_zone
 from app.services.droneport_service import get_droneport_by_id, format_droneport
 from app.services.route_service import get_route_by_id, format_route
+from app.services.obstacle_service import get_obstacle_by_id, format_obstacle
 
 from app.config.constants import (
     VALID_OVERLAY_TYPES,
@@ -116,7 +125,8 @@ from app.config.constants import (
     OVERLAY_TYPE_SITE,
     OVERLAY_TYPE_ZONE,
     OVERLAY_TYPE_DRONEPORT,
-    OVERLAY_TYPE_ROUTE
+    OVERLAY_TYPE_ROUTE,
+    OVERLAY_TYPE_OBSTACLE
 )
 
 
@@ -276,6 +286,9 @@ def get_overlay_by_type_and_id(overlay_type, overlay_id):
     elif overlay_type == OVERLAY_TYPE_ROUTE:
         row = select_route(overlay_id)
         return format_route(row)
+    elif overlay_type == OVERLAY_TYPE_OBSTACLE:
+        row = select_obstacle(overlay_id)
+        return format_obstacle(row)
     else:
         return None
 
@@ -316,6 +329,8 @@ def approve_overlay(overlay_type, overlay_id, data):
         result = approve_droneport(overlay_id, approved_by)
     elif overlay_type == OVERLAY_TYPE_ROUTE:
         result = approve_route(overlay_id, approved_by)
+    elif overlay_type == OVERLAY_TYPE_OBSTACLE:
+        result = approve_obstacle(overlay_id, approved_by)
     else:
         return None, "Invalid overlay type"
 
@@ -365,6 +380,8 @@ def reject_overlay(overlay_type, overlay_id, data):
         result = reject_droneport(overlay_id)
     elif overlay_type == OVERLAY_TYPE_ROUTE:
         result = reject_route(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_OBSTACLE:
+        result = reject_obstacle(overlay_id)
     else:
         return None, "Invalid overlay type"
 
@@ -414,6 +431,8 @@ def request_changes_overlay(overlay_type, overlay_id, data):
         result = request_droneport_changes(overlay_id)
     elif overlay_type == OVERLAY_TYPE_ROUTE:
         result = request_route_changes(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_OBSTACLE:
+        result = request_obstacle_changes(overlay_id)
     else:
         return None, "Invalid overlay type"
 
@@ -468,6 +487,8 @@ def submit_overlay(overlay_type, overlay_id, data):
         result = submit_droneport(overlay_id)
     elif overlay_type == OVERLAY_TYPE_ROUTE:
         result = submit_route(overlay_id)
+    elif overlay_type == OVERLAY_TYPE_OBSTACLE:
+        result = submit_obstacle(overlay_id)
     else:
         return None, "Invalid overlay type"
 
