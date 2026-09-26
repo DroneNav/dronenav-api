@@ -201,7 +201,6 @@ def patch_obstacle_record(obstacle_id, data):
                 UPDATE obstacles
                 SET
                     obstacle_name = :obstacle_name,
-                    obstacle_type = :obstacle_type,
                     maximum_height_agl_ft = :maximum_height_agl_ft,
                     description = :description
                 WHERE obstacle_id = :obstacle_id

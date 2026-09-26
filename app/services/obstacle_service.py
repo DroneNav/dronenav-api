@@ -100,14 +100,16 @@ def validate_obstacle_payload(data):
 def validate_obstacle_patch(data):
     required_fields = [
         "obstacle_name",
-        "obstacle_type",
     ]
 
     for field in required_fields:
         if field not in data or data[field] in ("", None):
             return f"Missing required field: {field}"
 
-    if data["obstacle_type"] not in OBSTACLE_TYPES:
+    if (
+        "obstacle_type" in data
+        and data["obstacle_type"] not in OBSTACLE_TYPES
+    ):
         return "Invalid obstacle_type"
 
     return None
@@ -130,7 +132,6 @@ def normalize_obstacle_payload(data):
 def normalize_obstacle_patch(data):
     return {
         "obstacle_name": data["obstacle_name"],
-        "obstacle_type": data["obstacle_type"],
         "maximum_height_agl_ft": data.get("maximum_height_agl_ft"),
         "description": data.get("description"),
     }
