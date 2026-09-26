@@ -3,6 +3,7 @@ CREATE TABLE obstacles (
     site_id UUID NULL,
     obstacle_name VARCHAR(200) NOT NULL,
     obstacle_type VARCHAR(50) NOT NULL,
+    source VARCHAR(50) NOT NULL DEFAULT 'dronenav',
     created_by VARCHAR(100) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     operational_status VARCHAR(50) NOT NULL DEFAULT 'inactive',

@@ -145,6 +145,7 @@ def format_obstacle(row):
         "site_id": str(row["site_id"]) if row["site_id"] else None,
         "obstacle_name": row["obstacle_name"],
         "obstacle_type": row["obstacle_type"],
+        "source": row["source"],
         "created_by": row["created_by"],
         "created_at": row["created_at"].isoformat()
             if row["created_at"] else None,
@@ -166,6 +167,7 @@ def format_obstacle_summary(row):
         "site_id": str(row["site_id"]) if row["site_id"] else None,
         "obstacle_name": row["obstacle_name"],
         "obstacle_type": row["obstacle_type"],
+        "source": row["source"],
         "created_by": row["created_by"],
         "created_at": row["created_at"].isoformat()
             if row["created_at"] else None,
