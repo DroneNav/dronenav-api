@@ -60,6 +60,7 @@ from app.services.obstacle_service import (
     add_obstacle_to_collection,
     remove_obstacle_from_collection,
     get_obstacles_by_collection_id,
+    associate_obstacle_site,
 )
 
 
@@ -330,5 +331,21 @@ def remove_obstacle_from_collection_route(
 
     return jsonify(result)
 
+
+@obstacles_bp.route("/api/obstacles/<obstacle_id>/site-association", methods=["PATCH"])
+def associate_obstacle_site_route(obstacle_id):
+    obstacle = associate_obstacle_site(obstacle_id)
+
+    if obstacle is None:
+        return jsonify({
+            "status": "error",
+            "message": "Obstacle not found."
+        }), 404
+
+    return jsonify({
+        "status": "success",
+        "obstacle_id": obstacle["obstacle_id"],
+        "site_id": obstacle["site_id"],
+    }), 200
 
 

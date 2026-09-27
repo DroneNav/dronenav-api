@@ -58,6 +58,9 @@ from app.services.droneport_service import (
 from app.services.route_service import (
     get_routes_by_site_id,
 )
+from app.services.obstacle_service import (
+    get_obstacles_by_site_id,
+)
 from app.services.overlay_package_service import (
     survey_overlay_package,
     survey_overlay,
@@ -102,12 +105,14 @@ def get_overlay_package_route(site_id):
     zones = get_zones_by_site_id(site_id)
     droneports = get_droneports_by_site_id(site_id)
     routes = get_routes_by_site_id(site_id)
+    obstacles = get_obstacles_by_site_id(site_id)
 
     return jsonify({
         "site": site,
         "zones": zones or [],
         "droneports": droneports or [],
         "routes": routes or [],
+        "obstacles": obstacles or [],
     })
 
 

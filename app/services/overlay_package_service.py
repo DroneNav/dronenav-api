@@ -129,6 +129,7 @@ def has_unsubmitted_site_package_surveys(missing):
         bool(missing.get("site"))
         or bool(missing.get("zones"))
         or bool(missing.get("droneports"))
+        or bool(missing.get("obstacles"))
         or bool(missing.get("routes"))
     )
 
@@ -213,6 +214,8 @@ def normalize_overlay_type(overlay_type):
         "droneports": "droneport",
         "route": "route",
         "routes": "route",
+        "obstacle": "obstacle",
+        "obstacles": "obstacle",
     }
 
     return overlay_type_map.get(
@@ -259,6 +262,7 @@ def has_unapproved_site_package_reviews(unapproved):
         bool(unapproved.get("site"))
         or bool(unapproved.get("zones"))
         or bool(unapproved.get("droneports"))
+        or bool(unapproved.get("obstacles"))
         or bool(unapproved.get("routes"))
     )
 

@@ -50,6 +50,8 @@ from app.models.droneport_model import select_droneport
 from app.models.droneport_model import select_droneports_by_site_id
 from app.models.route_model import select_route
 from app.models.droneport_model import select_droneport_by_route_node_id
+from app.models.obstacle_model import select_obstacles_by_site_context
+from app.models.obstacle_model import select_obstacle
 
 
 def get_flight_context(
@@ -74,6 +76,7 @@ class FlightContextService:
         "zones",
         "droneports",
         "routes",
+        "obstacles",
     )
 
     OVERLAY_ID_FIELDS = {
@@ -81,6 +84,7 @@ class FlightContextService:
         "zones": "zone_id",
         "droneports": "droneport_id",
         "routes": "route_id",
+        "obstacles": "obstacle_id",
     }
 
     def get_flight_context(
@@ -174,6 +178,9 @@ class FlightContextService:
             "routes": self._load_routes(
                 request_data["routes"]
             ),
+            "obstacles": self._load_obstacles(
+                request_data["obstacles"]
+            ),
         }
 
     def _build_context(
@@ -194,14 +201,17 @@ class FlightContextService:
 
         self._merge_context(
             context,
-            self._context_from_droneports(
-                selection["droneports"]
-            ),
+            self._context_from_droneports(selection["droneports"]),
         )
 
         self._merge_context(
             context,
             self._context_from_routes(selection["routes"]),
+        )
+
+        self._merge_context(
+            context,
+            self._context_from_obstacles(selection["obstacles"]),
         )
 
         return context
@@ -279,6 +289,9 @@ class FlightContextService:
                 site_ids
             ),
             "routes": [],
+            "obstacles": self._load_obstacles_for_site_context(
+                site_ids
+            ),
         }
 
     def _context_from_zones(
@@ -302,6 +315,9 @@ class FlightContextService:
                 site_ids
             ),
             "routes": [],
+            "obstacles": self._load_obstacles_for_site_context(
+                site_ids
+            ),
         }
 
     def _context_from_droneports(
@@ -323,6 +339,9 @@ class FlightContextService:
             "zones": self._load_zones_for_sites(site_ids),
             "droneports": [],
             "routes": [],
+            "obstacles": self._load_obstacles_for_site_context(
+                site_ids
+            ),
         }
 
     def _context_from_routes(
@@ -339,7 +358,16 @@ class FlightContextService:
             "zones": self._load_zones_for_sites(site_ids),
             "droneports": droneports,
             "routes": [],
+            "obstacles": self._load_obstacles_for_site_context(
+                site_ids
+            ),
         }
+
+    def _context_from_obstacles(
+        self,
+        obstacles: list[dict[str, Any]],
+    ) -> dict[str, list[dict[str, Any]]]:
+        return self._empty_overlay_collection()
 
     def _load_sites(
         self,
@@ -397,6 +425,20 @@ class FlightContextService:
 
         return routes
 
+    def _load_obstacles(
+        self,
+        obstacle_ids: list[str],
+    ) -> list[dict[str, Any]]:
+        obstacles: list[dict[str, Any]] = []
+
+        for obstacle_id in obstacle_ids:
+            obstacle = select_obstacle(obstacle_id)
+
+            if obstacle is not None:
+                obstacles.append(dict(obstacle))
+
+        return obstacles
+
     def _load_zones_for_sites(
         self,
         site_ids: list[str],
@@ -428,6 +470,22 @@ class FlightContextService:
             )
 
         return droneports
+
+    def _load_obstacles_for_site_context(
+        self,
+        site_ids: list[str],
+    ) -> list[dict[str, Any]]:
+        obstacles: list[dict[str, Any]] = []
+
+        for site_id in site_ids:
+            site_obstacles = select_obstacles_by_site_context(site_id)
+
+            obstacles.extend(
+                dict(obstacle)
+                for obstacle in site_obstacles
+            )
+
+        return obstacles
 
     def _find_endpoint_site_ids(
         self,

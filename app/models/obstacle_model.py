@@ -163,6 +163,39 @@ def select_obstacles(survey_status=None):
         return result.mappings().all()
 
 
+def select_obstacles_by_site_context(site_id):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    o.obstacle_id,
+                    o.site_id,
+                    o.obstacle_name,
+                    o.obstacle_type,
+                    o.source,
+                    o.created_by,
+                    o.created_at,
+                    o.operational_status,
+                    o.survey_status,
+                    o.maximum_height_agl_ft,
+                    o.description,
+                    ST_AsGeoJSON(o.geometry)::json AS geometry
+                FROM obstacles o
+                JOIN sites s
+                  ON s.site_id = :site_id
+                WHERE o.operational_status <> :deleted_status
+                  AND ST_Intersects(o.geometry, s.geometry)
+                ORDER BY o.created_at DESC
+            """),
+            {
+                "site_id": site_id,
+                "deleted_status": OBSTACLE_STATUS_DELETED,
+            }
+        )
+
+        return result.mappings().all()
+
+
 def select_obstacles_by_site_id(site_id):
     with engine.connect() as connection:
         result = connection.execute(
@@ -470,6 +503,31 @@ def patch_obstacle_collection(obstacle_collection_id, data):
             {
                 **data,
                 "obstacle_collection_id": obstacle_collection_id,
+            }
+        )
+
+        return result.mappings().first()
+
+
+def update_obstacle_site_association(obstacle_id):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE obstacles
+                SET site_id = (
+                    SELECT s.site_id
+                    FROM sites s
+                    JOIN obstacles o
+                      ON o.obstacle_id = :obstacle_id
+                    WHERE ST_Intersects(o.geometry, s.geometry)
+                    ORDER BY s.site_id
+                    LIMIT 1
+                )
+                WHERE obstacle_id = :obstacle_id
+                RETURNING obstacle_id, site_id
+            """),
+            {
+                "obstacle_id": obstacle_id,
             }
         )
 

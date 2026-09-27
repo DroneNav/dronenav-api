@@ -61,6 +61,8 @@ from app.config.constants import (
     DRONEPORT_STATUS_DELETED,
     ZONE_STATUS_DELETED,
     SITE_STATUS_DELETED,
+    OVERLAY_TYPE_OBSTACLE,
+    OBSTACLE_STATUS_DELETED,
 )
 
 
@@ -126,6 +128,27 @@ def get_context_package_record(site_id):
                 }
             )
 
+            obstacle_result = connection.execute(
+                text("""
+                    SELECT
+                        obstacle_id,
+                        site_id,
+                        obstacle_name,
+                        obstacle_type,
+                        source,
+                        maximum_height_agl_ft,
+                        description,
+                        ST_AsGeoJSON(geometry)::json AS geometry
+                    FROM obstacles
+                    WHERE site_id = :site_id
+                      AND operational_status <> :deleted_status
+                """),
+                {
+                    "site_id": site_id,
+                    "deleted_status": OBSTACLE_STATUS_DELETED,
+                }
+            )
+
             site_result = connection.execute(
                 text("""
                     SELECT
@@ -153,6 +176,7 @@ def get_context_package_record(site_id):
                 "zones": zone_result.mappings().all(),
                 "droneports": droneport_result.mappings().all(),
                 "routes": route_result.mappings().all(),
+                "obstacles": obstacle_result.mappings().all(),
             }, None
 
     except Exception as e:
@@ -215,6 +239,26 @@ def select_unsubmitted_site_package_surveys(site_id):
                         droneport_name AS overlay_name,
                         survey_status
                     FROM droneports
+                    WHERE site_id = :site_id
+                      AND survey_status <> :submitted_status
+                """),
+                {
+                    "site_id": site_id,
+                    "submitted_status": SURVEY_STATUS_SURVEYED,
+                }
+            )
+
+            # --------------------------------------------------------
+            # Obstacles
+            # --------------------------------------------------------
+
+            obstacle_result = connection.execute(
+                text("""
+                    SELECT
+                        obstacle_id AS overlay_id,
+                        obstacle_name AS overlay_name,
+                        survey_status
+                    FROM obstacles
                     WHERE site_id = :site_id
                       AND survey_status <> :submitted_status
                 """),
@@ -303,6 +347,10 @@ def select_unsubmitted_site_package_surveys(site_id):
                 "droneports": [
                     dict(row)
                     for row in droneport_result.mappings().all()
+                ],
+                "obstacles": [
+                    dict(row)
+                    for row in obstacle_result.mappings().all()
                 ],
 
                 # Only Routes that genuinely require survey work block
@@ -555,6 +603,48 @@ def survey_overlay_package_record(site_id, surveyed_by):
             )
 
             # --------------------------------------------------------
+            # Obstacles
+            # --------------------------------------------------------
+
+            obstacle_result = connection.execute(
+                text("""
+                    UPDATE obstacles
+                    SET
+                        survey_status = :survey_status,
+                        surveyed_by = :surveyed_by,
+                        last_surveyed_at = NOW()
+                    WHERE site_id = :site_id
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_by": surveyed_by,
+                }
+            )
+
+            obstacle_review_result = connection.execute(
+                text("""
+                    UPDATE overlay_reviews
+                    SET
+                        survey_status = :survey_status,
+                        surveyed_by = :surveyed_by,
+                        surveyed_at = NOW()
+                    WHERE overlay_type = :overlay_type
+                      AND overlay_id IN (
+                          SELECT obstacle_id
+                          FROM obstacles
+                          WHERE site_id = :site_id
+                      )
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_by": surveyed_by,
+                    "overlay_type": OVERLAY_TYPE_OBSTACLE,
+                }
+            )
+
+            # --------------------------------------------------------
             # Zones exclusive to this Site
             # --------------------------------------------------------
 
@@ -652,6 +742,9 @@ def survey_overlay_package_record(site_id, surveyed_by):
                 "droneports_surveyed": droneport_result.rowcount,
                 "droneport_reviews_updated":
                     droneport_review_result.rowcount,
+                "obstacles_surveyed": obstacle_result.rowcount,
+                "obstacle_reviews_updated":
+                    obstacle_review_result.rowcount,
                 "zones_surveyed": zone_result.rowcount,
                 "zone_reviews_updated": zone_review_result.rowcount,
                 "sites_surveyed": site_result.rowcount,
@@ -681,6 +774,10 @@ def survey_overlay_record(overlay_type, overlay_id, surveyed_by):
         OVERLAY_TYPE_ROUTE: {
             "table": "routes",
             "id_column": "route_id",
+        },
+        OVERLAY_TYPE_OBSTACLE: {
+            "table": "obstacles",
+            "id_column": "obstacle_id",
         },
     }
 
@@ -830,6 +927,44 @@ def expire_survey_overlay_package_record(site_id):
             )
 
             # --------------------------------------------------------
+            # Obstacles for this site
+            # --------------------------------------------------------
+
+            obstacle_result = connection.execute(
+                text("""
+                    UPDATE obstacles
+                    SET
+                        survey_status = :survey_status,
+                        surveyed_by = NULL
+                    WHERE site_id = :site_id
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_NOT_SURVEYED,
+                }
+            )
+
+            obstacle_review_result = connection.execute(
+                text("""
+                    UPDATE overlay_reviews
+                    SET
+                        survey_status = :survey_status,
+                        surveyed_by = NULL
+                    WHERE overlay_type = :overlay_type
+                      AND overlay_id IN (
+                          SELECT obstacle_id
+                          FROM obstacles
+                          WHERE site_id = :site_id
+                      )
+                """),
+                {
+                    "site_id": site_id,
+                    "survey_status": SURVEY_STATUS_NOT_SURVEYED,
+                    "overlay_type": OVERLAY_TYPE_OBSTACLE,
+                }
+            )
+
+            # --------------------------------------------------------
             # Zones for this site
             # --------------------------------------------------------
             zone_result = connection.execute(
@@ -913,6 +1048,8 @@ def expire_survey_overlay_package_record(site_id):
                 "route_reviews_updated": route_review_result.rowcount,
                 "droneports_expired": droneport_result.rowcount,
                 "droneport_reviews_updated": droneport_review_result.rowcount,
+                "obstacles_expired": obstacle_result.rowcount,
+                "obstacle_reviews_updated": obstacle_review_result.rowcount,
                 "zones_expired": zone_result.rowcount,
                 "zone_reviews_updated": zone_review_result.rowcount,
                 "sites_expired": site_result.rowcount,
@@ -941,6 +1078,10 @@ def expire_survey_overlay_record(overlay_type, overlay_id):
         OVERLAY_TYPE_ROUTE: {
             "table": "routes",
             "id_column": "route_id",
+        },
+        OVERLAY_TYPE_OBSTACLE: {
+            "table": "obstacles",
+            "id_column": "obstacle_id",
         },
     }
 
@@ -1066,6 +1207,26 @@ def select_unapproved_site_package_reviews(site_id):
             )
 
             # --------------------------------------------------------
+            # Obstacles
+            # --------------------------------------------------------
+
+            obstacle_result = connection.execute(
+                text("""
+                    SELECT
+                        obstacle_id AS overlay_id,
+                        obstacle_name AS overlay_name,
+                        survey_status
+                    FROM obstacles
+                    WHERE site_id = :site_id
+                      AND survey_status <> :approved_status
+                """),
+                {
+                    "site_id": site_id,
+                    "approved_status": SURVEY_STATUS_APPROVED,
+                }
+            )
+
+            # --------------------------------------------------------
             # Connected Routes
             #
             # Load every connected Route and its current review state.
@@ -1156,6 +1317,10 @@ def select_unapproved_site_package_reviews(site_id):
                 "droneports": [
                     dict(row)
                     for row in droneport_result.mappings().all()
+                ],
+                "obstacles": [
+                    dict(row)
+                    for row in obstacle_result.mappings().all()
                 ],
 
                 # Any Route that has not completed governance blocks the
@@ -1393,6 +1558,38 @@ def approve_site_review_package_record(site_id, reviewed_by):
             )
 
             # --------------------------------------------------------
+            # Obstacles
+            # --------------------------------------------------------
+
+            obstacle_review_result = connection.execute(
+                text("""
+                    UPDATE overlay_reviews
+                    SET
+                        review_status = :review_status,
+                        reviewed_by = :reviewed_by,
+                        reviewed_at = NOW()
+                    WHERE overlay_type = :overlay_type
+                      AND overlay_id IN (
+                          SELECT obstacle_id
+                          FROM obstacles
+                          WHERE site_id = :site_id
+                      )
+                      AND review_status IN (
+                          :review_pending,
+                          :review_submitted
+                      )
+                """),
+                {
+                    "site_id": site_id,
+                    "review_status": REVIEW_STATUS_APPROVED,
+                    "review_pending": REVIEW_STATUS_PENDING,
+                    "review_submitted": REVIEW_STATUS_SUBMITTED,
+                    "overlay_type": OVERLAY_TYPE_OBSTACLE,
+                    "reviewed_by": reviewed_by,
+                }
+            )
+
+            # --------------------------------------------------------
             # Zones exclusive to this Site
             # --------------------------------------------------------
 
@@ -1463,6 +1660,8 @@ def approve_site_review_package_record(site_id, reviewed_by):
                 "routes_governance_complete": len(
                     governance_complete_route_ids
                 ),
+                "obstacle_reviews_updated":
+                    obstacle_review_result.rowcount,
                 "droneport_reviews_updated":
                     droneport_review_result.rowcount,
                 "zone_reviews_updated":
@@ -1668,6 +1867,38 @@ def reject_site_review_package_record(
             )
 
             # --------------------------------------------------------
+            # Obstacles
+            # --------------------------------------------------------
+
+            obstacle_review_result = connection.execute(
+                text("""
+                    UPDATE overlay_reviews
+                    SET
+                        review_status = :review_status,
+                        reviewed_by = :reviewed_by,
+                        reviewed_at = NOW()
+                    WHERE overlay_type = :overlay_type
+                      AND overlay_id IN (
+                          SELECT obstacle_id
+                          FROM obstacles
+                          WHERE site_id = :site_id
+                      )
+                      AND review_status IN (
+                          :review_pending,
+                          :review_submitted
+                      )
+                """),
+                {
+                    "site_id": site_id,
+                    "review_status": REVIEW_STATUS_REJECTED,
+                    "review_pending": REVIEW_STATUS_PENDING,
+                    "review_submitted": REVIEW_STATUS_SUBMITTED,
+                    "overlay_type": OVERLAY_TYPE_OBSTACLE,
+                    "reviewed_by": reviewed_by,
+                }
+            )
+
+            # --------------------------------------------------------
             # Zones exclusive to this Site
             # --------------------------------------------------------
 
@@ -1743,6 +1974,8 @@ def reject_site_review_package_record(
                 "routes_previously_rejected": len(
                     previously_rejected_route_ids
                 ),
+                "obstacle_reviews_updated":
+                    obstacle_review_result.rowcount,
                 "droneport_reviews_updated":
                     droneport_review_result.rowcount,
                 "zone_reviews_updated":

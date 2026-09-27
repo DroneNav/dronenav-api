@@ -64,6 +64,7 @@ from app.models.obstacle_model import (
     select_obstacles_by_collection_id,
     delete_obstacle_collection,
     patch_obstacle_collection,
+    update_obstacle_site_association,
 )
 
 
@@ -409,5 +410,14 @@ def get_obstacles_by_collection_id(obstacle_collection_id):
         format_obstacle_summary(row)
         for row in rows
     ]
+
+
+def associate_obstacle_site(obstacle_id):
+    obstacle = update_obstacle_site_association(obstacle_id)
+
+    if obstacle is None:
+        return None
+
+    return dict(obstacle)
 
 
