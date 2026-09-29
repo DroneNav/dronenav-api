@@ -65,6 +65,8 @@ from app.models.obstacle_model import (
     delete_obstacle_collection,
     patch_obstacle_collection,
     update_obstacle_site_association,
+    select_faa_obstacle_candidates,
+    patch_faa_obstacle_verification,
 )
 
 
@@ -179,6 +181,68 @@ def format_obstacle_summary(row):
         "description": row["description"],
         "geometry": row["geometry"],
     }
+
+
+def get_faa_obstacle_candidates(data):
+    geometry = data.get("geometry")
+
+    if not isinstance(geometry, dict):
+        return None, "Missing required field: geometry"
+
+    if geometry.get("type") != "Point":
+        return None, "FAA obstacle candidate geometry must be a Point"
+
+    coordinates = geometry.get("coordinates")
+
+    if (
+        not isinstance(coordinates, list)
+        or len(coordinates) != 2
+        or not all(
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            for value in coordinates
+        )
+    ):
+        return None, "FAA obstacle candidate Point coordinates are invalid"
+
+    longitude, latitude = coordinates
+
+    if not -180 <= longitude <= 180:
+        return None, "FAA obstacle candidate longitude is invalid"
+
+    if not -90 <= latitude <= 90:
+        return None, "FAA obstacle candidate latitude is invalid"
+
+    rows = select_faa_obstacle_candidates(
+        longitude,
+        latitude,
+    )
+
+    return [
+        dict(row)
+        for row in rows
+    ], None
+
+
+def verify_faa_obstacle(obstacle_id, data):
+    diameter_ft = data.get("diameter_ft")
+
+    if (
+        isinstance(diameter_ft, bool)
+        or not isinstance(diameter_ft, (int, float))
+        or diameter_ft <= 0
+    ):
+        return None, "diameter_ft must be greater than zero"
+
+    row = patch_faa_obstacle_verification(
+        obstacle_id,
+        diameter_ft,
+    )
+
+    if row is None:
+        return None, "FAA obstacle not found"
+
+    return dict(row), None
 
 
 def create_obstacle(data):

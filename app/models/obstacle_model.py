@@ -50,6 +50,7 @@ from app.config.constants import (
     OBSTACLE_STATUS_DELETED,
     SURVEY_STATUS_APPROVED,
     SURVEY_STATUS_NOT_SURVEYED,
+    FAA_OBSTACLE_CANDIDATE_RADIUS_FT,
 )
 
 from app.config.database import engine
@@ -194,6 +195,115 @@ def select_obstacles_by_site_context(site_id):
         )
 
         return result.mappings().all()
+
+
+def select_faa_obstacles_by_site_context(site_id):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    f.faa_obstacle_id AS obstacle_id,
+                    f.oas_number,
+                    f.verification_status,
+                    f.dronenav_verified,
+                    f.obstacle_type,
+                    f.quantity,
+                    f.maximum_height_agl_ft,
+                    f.elevation_amsl_ft,
+                    f.diameter_ft,
+                    f.source,
+                    ST_AsGeoJSON(f.geometry)::json AS geometry
+                FROM faa_obstacles f
+                JOIN sites s
+                  ON s.site_id = :site_id
+                WHERE ST_Intersects(f.geometry, s.geometry)
+                ORDER BY f.oas_number
+            """),
+            {
+                "site_id": site_id,
+            }
+        )
+
+        return result.mappings().all()
+
+
+def select_faa_obstacle_candidates(longitude, latitude):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    f.faa_obstacle_id AS obstacle_id,
+                    f.oas_number,
+                    f.verification_status,
+                    f.dronenav_verified,
+                    f.obstacle_type,
+                    f.quantity,
+                    f.maximum_height_agl_ft,
+                    f.elevation_amsl_ft,
+                    f.diameter_ft,
+                    f.source,
+                    ST_Distance(
+                        f.geometry::geography,
+                        ST_SetSRID(
+                            ST_MakePoint(:longitude, :latitude),
+                            4326
+                        )::geography
+                    ) * 3.28084 AS distance_ft,
+                    ST_AsGeoJSON(f.geometry)::json AS geometry
+                FROM faa_obstacles f
+                WHERE ST_DWithin(
+                    f.geometry::geography,
+                    ST_SetSRID(
+                        ST_MakePoint(:longitude, :latitude),
+                        4326
+                    )::geography,
+                    :radius_meters
+                )
+                ORDER BY distance_ft
+            """),
+            {
+                "longitude": longitude,
+                "latitude": latitude,
+                "radius_meters":
+                    FAA_OBSTACLE_CANDIDATE_RADIUS_FT / 3.28084,
+            }
+        )
+
+        return result.mappings().all()
+
+
+def patch_faa_obstacle_verification(
+    obstacle_id,
+    diameter_ft,
+):
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE faa_obstacles
+                SET
+                    dronenav_verified = TRUE,
+                    diameter_ft = :diameter_ft
+                WHERE faa_obstacle_id = :obstacle_id
+                RETURNING
+                    faa_obstacle_id AS obstacle_id,
+                    oas_number,
+                    verification_status,
+                    dronenav_verified,
+                    obstacle_type,
+                    quantity,
+                    maximum_height_agl_ft,
+                    elevation_amsl_ft,
+                    diameter_ft,
+                    source,
+                    ST_AsGeoJSON(geometry)::json AS geometry
+            """),
+            {
+                "obstacle_id": obstacle_id,
+                "diameter_ft": diameter_ft,
+            }
+        )
+
+        return result.mappings().first()
 
 
 def select_obstacles_by_site_id(site_id):

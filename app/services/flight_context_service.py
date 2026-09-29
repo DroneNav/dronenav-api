@@ -50,8 +50,10 @@ from app.models.droneport_model import select_droneport
 from app.models.droneport_model import select_droneports_by_site_id
 from app.models.route_model import select_route
 from app.models.droneport_model import select_droneport_by_route_node_id
+from app.models.obstacle_model import select_faa_obstacles_by_site_context
 from app.models.obstacle_model import select_obstacles_by_site_context
 from app.models.obstacle_model import select_obstacle
+
 
 
 def get_flight_context(
@@ -483,6 +485,13 @@ class FlightContextService:
             obstacles.extend(
                 dict(obstacle)
                 for obstacle in site_obstacles
+            )
+
+            faa_obstacles = select_faa_obstacles_by_site_context(site_id)
+
+            obstacles.extend(
+                dict(obstacle)
+                for obstacle in faa_obstacles
             )
 
         return obstacles

@@ -67,6 +67,8 @@ FAA_TFR_AIXM_URL = "https://tfr.faa.gov/download"
 FAA_TFR_WEBTEXT_URL = "https://tfr.faa.gov/tfrapi/getWebText"
 FAA_TFR_CACHE_TTL_SECONDS = 300
 
+FAA_OBSTACLE_CANDIDATE_RADIUS_FT = 100
+
 DEFAULT_API_BASE_URL = "https://api.dronenav.org"
 DEFAULT_API_TIMEOUT_SECONDS = 15
 

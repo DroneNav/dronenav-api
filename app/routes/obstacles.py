@@ -50,6 +50,8 @@ from app.services.obstacle_service import (
     get_obstacle_by_id,
     get_obstacles,
     get_obstacles_by_site_id,
+    get_faa_obstacle_candidates,
+    verify_faa_obstacle,
     patch_obstacle,
     delete_obstacle,
     create_obstacle_collection,
@@ -113,6 +115,63 @@ def get_obstacles_route():
     return jsonify({
         "obstacles": obstacles
     })
+
+
+@obstacles_bp.route("/api/obstacles/faa-candidates", methods=["POST", "OPTIONS"])
+def get_faa_obstacle_candidates_route():
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json()
+
+    if data is None:
+        return jsonify({
+            "status": "error",
+            "message": "Request body must contain valid JSON."
+        }), 400
+
+    candidates, error = get_faa_obstacle_candidates(data)
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify({
+        "candidates": candidates
+    }), 200
+
+
+@obstacles_bp.route("/api/obstacles/faa/<obstacle_id>/verify", methods=["PATCH", "OPTIONS"])
+def verify_faa_obstacle_route(obstacle_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json()
+
+    if data is None:
+        return jsonify({
+            "status": "error",
+            "message": "Request body must contain valid JSON."
+        }), 400
+
+    result, error = verify_faa_obstacle(
+        obstacle_id,
+        data,
+    )
+
+    if error:
+        status_code = 404 if error == "FAA obstacle not found" else 400
+
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), status_code
+
+    return jsonify(result)
 
 
 @obstacles_bp.route("/api/obstacles/<obstacle_id>", methods=["GET", "OPTIONS"])
