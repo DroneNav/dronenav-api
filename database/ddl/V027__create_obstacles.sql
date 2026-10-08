@@ -16,6 +16,7 @@ CREATE TABLE obstacles (
     deleted_at TIMESTAMPTZ NULL,
     deleted_by VARCHAR(100) NULL,
     geometry geometry(Geometry,4326) NOT NULL,
+    obstacle_attributes JSONB NOT NULL DEFAULT '[]'::jsonb,
 
     CONSTRAINT fk_obstacles_site
         FOREIGN KEY (site_id)

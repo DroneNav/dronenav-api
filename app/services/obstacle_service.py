@@ -69,6 +69,10 @@ from app.models.obstacle_model import (
     patch_faa_obstacle_verification,
 )
 
+from app.services.elevation_service import (
+    resolve_coordinate_elevations,
+)
+
 
 def validate_obstacle_payload(data):
     required_fields = [
@@ -162,6 +166,7 @@ def format_obstacle(row):
         "maximum_height_agl_ft": row["maximum_height_agl_ft"],
         "description": row["description"],
         "geometry": row["geometry"],
+        "obstacle_attributes": row["obstacle_attributes"],
     }
 
 
@@ -180,6 +185,7 @@ def format_obstacle_summary(row):
         "maximum_height_agl_ft": row["maximum_height_agl_ft"],
         "description": row["description"],
         "geometry": row["geometry"],
+        "obstacle_attributes": row["obstacle_attributes"],
     }
 
 
@@ -252,6 +258,10 @@ def create_obstacle(data):
         return None, error
 
     normalized_data = normalize_obstacle_payload(data)
+
+    normalized_data = enrich_obstacle_elevations(
+        normalized_data
+    )
 
     obstacle_id = insert_obstacle(normalized_data)
 
@@ -483,5 +493,39 @@ def associate_obstacle_site(obstacle_id):
         return None
 
     return dict(obstacle)
+
+
+def enrich_obstacle_elevations(data):
+    geometry = data["geometry"]
+    geometry_type = geometry["type"]
+    coordinates = geometry["coordinates"]
+
+    if geometry_type == "Point":
+        elevation_coordinates = [coordinates]
+
+    elif geometry_type == "LineString":
+        elevation_coordinates = coordinates
+
+    elif geometry_type == "Polygon":
+        # Follow the Site convention: omit the closing vertex.
+        elevation_coordinates = coordinates[0][1:]
+
+    else:
+        raise ValueError(
+            f"Unsupported obstacle geometry type: {geometry_type}"
+        )
+
+    elevations = resolve_coordinate_elevations(
+        elevation_coordinates
+    )
+
+    data["obstacle_attributes"] = [
+        {
+            "ground_elevation_ft": elevation["ground_elevation_ft"]
+        }
+        for elevation in elevations
+    ]
+
+    return data
 
 

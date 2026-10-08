@@ -69,7 +69,8 @@ def insert_obstacle(data):
                     survey_status,
                     maximum_height_agl_ft,
                     description,
-                    geometry
+                    geometry,
+                    obstacle_attributes                    
                 )
                 VALUES (
                     :site_id,
@@ -83,7 +84,8 @@ def insert_obstacle(data):
                     ST_SetSRID(
                         ST_GeomFromGeoJSON(:geometry),
                         :srid
-                    )
+                    ),
+                    CAST(:obstacle_attributes AS jsonb)
                 )
                 RETURNING obstacle_id
             """),
@@ -91,6 +93,9 @@ def insert_obstacle(data):
                 **data,
                 "geometry": json.dumps(data["geometry"]),
                 "srid": DEFAULT_SRID,
+                "obstacle_attributes": json.dumps(
+                    data["obstacle_attributes"]
+                ),
             }
         )
 
@@ -116,6 +121,7 @@ def select_obstacle(obstacle_id):
                     approved_by,
                     maximum_height_agl_ft,
                     description,
+                    obstacle_attributes,
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM obstacles
                 WHERE obstacle_id = :obstacle_id
@@ -146,6 +152,7 @@ def select_obstacles(survey_status=None):
                     survey_status,
                     maximum_height_agl_ft,
                     description,
+                    obstacle_attributes,
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM obstacles
                 WHERE operational_status <> :deleted_status
@@ -180,6 +187,7 @@ def select_obstacles_by_site_context(site_id):
                     o.survey_status,
                     o.maximum_height_agl_ft,
                     o.description,
+                    o.obstacle_attributes,
                     ST_AsGeoJSON(o.geometry)::json AS geometry
                 FROM obstacles o
                 JOIN sites s
@@ -322,6 +330,7 @@ def select_obstacles_by_site_id(site_id):
                     survey_status,
                     maximum_height_agl_ft,
                     description,
+                    obstacle_attributes,
                     ST_AsGeoJSON(geometry)::json AS geometry
                 FROM obstacles
                 WHERE operational_status <> :deleted_status
@@ -566,6 +575,7 @@ def select_obstacles_by_collection_id(obstacle_collection_id):
                     o.survey_status,
                     o.maximum_height_agl_ft,
                     o.description,
+                    o.obstacle_attributes,
                     ST_AsGeoJSON(o.geometry)::json AS geometry
                 FROM obstacles o
                 JOIN obstacle_membership om
