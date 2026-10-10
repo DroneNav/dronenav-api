@@ -200,11 +200,17 @@ def select_unsubmitted_site_package_surveys(site_id):
                         survey_status
                     FROM sites
                     WHERE site_id = :site_id
-                      AND survey_status <> :submitted_status
+                      AND survey_status NOT IN (
+                          :surveyed_status,
+                          :submitted_status,
+                          :approved_status
+                      )
                 """),
                 {
                     "site_id": site_id,
-                    "submitted_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_status": SURVEY_STATUS_SURVEYED,
+                    "submitted_status": SURVEY_STATUS_SUBMITTED,
+                    "approved_status": SURVEY_STATUS_APPROVED,
                 }
             )
 
@@ -220,11 +226,17 @@ def select_unsubmitted_site_package_surveys(site_id):
                         survey_status
                     FROM zones
                     WHERE site_id = :site_id
-                      AND survey_status <> :submitted_status
+                      AND survey_status NOT IN (
+                          :surveyed_status,
+                          :submitted_status,
+                          :approved_status
+                      )
                 """),
                 {
                     "site_id": site_id,
-                    "submitted_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_status": SURVEY_STATUS_SURVEYED,
+                    "submitted_status": SURVEY_STATUS_SUBMITTED,
+                    "approved_status": SURVEY_STATUS_APPROVED,
                 }
             )
 
@@ -240,11 +252,17 @@ def select_unsubmitted_site_package_surveys(site_id):
                         survey_status
                     FROM droneports
                     WHERE site_id = :site_id
-                      AND survey_status <> :submitted_status
+                      AND survey_status NOT IN (
+                          :surveyed_status,
+                          :submitted_status,
+                          :approved_status
+                      )
                 """),
                 {
                     "site_id": site_id,
-                    "submitted_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_status": SURVEY_STATUS_SURVEYED,
+                    "submitted_status": SURVEY_STATUS_SUBMITTED,
+                    "approved_status": SURVEY_STATUS_APPROVED,
                 }
             )
 
@@ -260,11 +278,17 @@ def select_unsubmitted_site_package_surveys(site_id):
                         survey_status
                     FROM obstacles
                     WHERE site_id = :site_id
-                      AND survey_status <> :submitted_status
+                      AND survey_status NOT IN (
+                          :surveyed_status,
+                          :submitted_status,
+                          :approved_status
+                      )
                 """),
                 {
                     "site_id": site_id,
-                    "submitted_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_status": SURVEY_STATUS_SURVEYED,
+                    "submitted_status": SURVEY_STATUS_SUBMITTED,
+                    "approved_status": SURVEY_STATUS_APPROVED,
                 }
             )
 
@@ -572,10 +596,12 @@ def survey_overlay_package_record(site_id, surveyed_by):
                         surveyed_by = :surveyed_by,
                         last_surveyed_at = NOW()
                     WHERE site_id = :site_id
+                      AND survey_status = :surveyed_status
                 """),
                 {
                     "site_id": site_id,
                     "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_status": SURVEY_STATUS_SURVEYED,
                     "surveyed_by": surveyed_by,
                 }
             )
@@ -588,6 +614,7 @@ def survey_overlay_package_record(site_id, surveyed_by):
                         surveyed_by = :surveyed_by,
                         surveyed_at = NOW()
                     WHERE overlay_type = :overlay_type
+                      AND survey_status = :surveyed_status
                       AND overlay_id IN (
                           SELECT droneport_id
                           FROM droneports
@@ -597,6 +624,7 @@ def survey_overlay_package_record(site_id, surveyed_by):
                 {
                     "site_id": site_id,
                     "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_status": SURVEY_STATUS_SURVEYED,
                     "surveyed_by": surveyed_by,
                     "overlay_type": OVERLAY_TYPE_DRONEPORT,
                 }
@@ -614,10 +642,12 @@ def survey_overlay_package_record(site_id, surveyed_by):
                         surveyed_by = :surveyed_by,
                         last_surveyed_at = NOW()
                     WHERE site_id = :site_id
+                      AND survey_status = :surveyed_status
                 """),
                 {
                     "site_id": site_id,
                     "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_status": SURVEY_STATUS_SURVEYED,
                     "surveyed_by": surveyed_by,
                 }
             )
@@ -630,6 +660,7 @@ def survey_overlay_package_record(site_id, surveyed_by):
                         surveyed_by = :surveyed_by,
                         surveyed_at = NOW()
                     WHERE overlay_type = :overlay_type
+                      AND survey_status = :surveyed_status
                       AND overlay_id IN (
                           SELECT obstacle_id
                           FROM obstacles
@@ -639,6 +670,7 @@ def survey_overlay_package_record(site_id, surveyed_by):
                 {
                     "site_id": site_id,
                     "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_status": SURVEY_STATUS_SURVEYED,
                     "surveyed_by": surveyed_by,
                     "overlay_type": OVERLAY_TYPE_OBSTACLE,
                 }
@@ -656,10 +688,12 @@ def survey_overlay_package_record(site_id, surveyed_by):
                         surveyed_by = :surveyed_by,
                         last_surveyed_at = NOW()
                     WHERE site_id = :site_id
+                      AND survey_status = :surveyed_status
                 """),
                 {
                     "site_id": site_id,
                     "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_status": SURVEY_STATUS_SURVEYED,
                     "surveyed_by": surveyed_by,
                 }
             )
@@ -672,6 +706,7 @@ def survey_overlay_package_record(site_id, surveyed_by):
                         surveyed_by = :surveyed_by,
                         surveyed_at = NOW()
                     WHERE overlay_type = :overlay_type
+                      AND survey_status = :surveyed_status
                       AND overlay_id IN (
                           SELECT zone_id
                           FROM zones
@@ -681,6 +716,7 @@ def survey_overlay_package_record(site_id, surveyed_by):
                 {
                     "site_id": site_id,
                     "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_status": SURVEY_STATUS_SURVEYED,
                     "surveyed_by": surveyed_by,
                     "overlay_type": OVERLAY_TYPE_ZONE,
                 }
@@ -698,10 +734,12 @@ def survey_overlay_package_record(site_id, surveyed_by):
                         surveyed_by = :surveyed_by,
                         last_surveyed_at = NOW()
                     WHERE site_id = :site_id
+                      AND survey_status = :surveyed_status
                 """),
                 {
                     "site_id": site_id,
                     "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_status": SURVEY_STATUS_SURVEYED,
                     "surveyed_by": surveyed_by,
                 }
             )
@@ -715,17 +753,16 @@ def survey_overlay_package_record(site_id, surveyed_by):
                         surveyed_at = NOW()
                     WHERE overlay_type = :overlay_type
                       AND overlay_id = :site_id
+                      AND survey_status = :surveyed_status
                 """),
                 {
                     "site_id": site_id,
                     "survey_status": SURVEY_STATUS_SURVEYED,
+                    "surveyed_status": SURVEY_STATUS_SURVEYED,
                     "surveyed_by": surveyed_by,
                     "overlay_type": OVERLAY_TYPE_SITE,
                 }
             )
-
-            if site_result.rowcount != 1:
-                raise Exception(f"Site not found: {site_id}")
 
             return {
                 "status": "surveyed",
