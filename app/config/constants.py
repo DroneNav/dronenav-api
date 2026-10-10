@@ -56,6 +56,7 @@ MINIMUM_LONGITUDINAL_SEPARATION_FT = 500
 
 DEFAULT_MINIMUM_ALTITUDE_FT = 0
 DEFAULT_MAXIMUM_ALTITUDE_FT = 400
+DEFAULT_FLOOR_ALTITUDE_FT = 50
 DEFAULT_START_TIME = "00:00"
 DEFAULT_END_TIME = "23:59"
 DEFAULT_TIMEZONE = "America/New_York"
@@ -499,5 +500,7 @@ def load_reference_data():
         "survey_status": SURVEY_STATUSES,
         "overlay_review_status": OVERLAY_REVIEW_STATUSES,
         "flight_class": FLIGHT_CLASSES,
+        "default_floor_agl_ft": DEFAULT_FLOOR_ALTITUDE_FT,
+        "default_max_agl_ft": DEFAULT_MAXIMUM_ALTITUDE_FT,
     } # end...return
 

@@ -117,6 +117,7 @@ from app.config.constants import (
     REVIEW_STATUS_APPROVED,
     REVIEW_STATUS_REJECTED,
     REVIEW_STATUS_SUBMITTED,
+    SURVEY_STATUS_SUBMITTED,
     SURVEY_STATUS_SURVEYED,
     SURVEY_STATUS_APPROVED
 )
@@ -311,7 +312,11 @@ def approve_overlay(overlay_type, overlay_id, data):
     if overlay is None:
         return None, "Overlay not found"
 
-    if overlay.get("survey_status") != SURVEY_STATUS_SURVEYED:
+    if overlay.get("survey_status") not in (
+        SURVEY_STATUS_SURVEYED,
+        SURVEY_STATUS_SUBMITTED,
+        SURVEY_STATUS_APPROVED,
+    ):
         return None, "Overlay not surveyed"
 
     review_comments = data.get("review_comments", "Approved review")
