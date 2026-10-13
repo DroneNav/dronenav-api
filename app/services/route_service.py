@@ -52,6 +52,10 @@ from app.config.constants import (
     DEFAULT_ROUTE_STATUS,
     DEFAULT_SURVEY_STATUS,
     MINIMUM_LONGITUDINAL_SEPARATION_FT,
+    ROUTE_DIRECTION_FORWARD,
+    ROUTE_DIRECTION_REVERSE,
+    ROUTE_DIRECTION_BIDIRECTIONAL,
+    ROUTE_INTERSECTION_HOLDING_SETBACK_FT,
 )
 
 from app.models.overlay_package_model import (
@@ -76,6 +80,7 @@ from app.models.route_model import (
 
 from app.models.geospatial_model import (
     select_geometry_length_feet,
+    select_route_holding_coordinate,
 )
 
 from app.services.elevation_service import (
@@ -487,6 +492,10 @@ def create_route(data):
         normalized_data
     )
 
+    normalized_data = enrich_route_holding_coordinates(
+        normalized_data
+    )
+
     route_id = insert_route(normalized_data)
 
     insert_overlay_review({
@@ -712,6 +721,52 @@ def enrich_route_segment_elevations(data):
         segment_attributes[index]["ground_elevation_ft"] = (
             elevation["ground_elevation_ft"]
         )
+
+    return data
+
+
+def enrich_route_holding_coordinates(data):
+    coordinates = data["geometry"]["coordinates"]
+    segment_attributes = data["segment_attributes"]
+    direction = data["direction"]
+
+    if direction in (
+        ROUTE_DIRECTION_FORWARD,
+        ROUTE_DIRECTION_BIDIRECTIONAL,
+    ):
+        holding_coordinate = select_route_holding_coordinate(
+            coordinates[-1],
+            coordinates[-2],
+            ROUTE_INTERSECTION_HOLDING_SETBACK_FT,
+        )
+
+        if holding_coordinate is None:
+            raise ValueError(
+                "Final Route segment is shorter than holding setback"
+            )
+
+        segment_attributes[-1][
+            "forward_holding_coordinate"
+        ] = holding_coordinate
+
+    if direction in (
+        ROUTE_DIRECTION_REVERSE,
+        ROUTE_DIRECTION_BIDIRECTIONAL,
+    ):
+        holding_coordinate = select_route_holding_coordinate(
+            coordinates[0],
+            coordinates[1],
+            ROUTE_INTERSECTION_HOLDING_SETBACK_FT,
+        )
+
+        if holding_coordinate is None:
+            raise ValueError(
+                "Initial Route segment is shorter than holding setback"
+            )
+
+        segment_attributes[0][
+            "reverse_holding_coordinate"
+        ] = holding_coordinate
 
     return data
 

@@ -7,6 +7,59 @@ from sqlalchemy import text
 from app.config.database import engine
 
 
+def select_route_holding_coordinate(
+    endpoint,
+    adjacent_coordinate,
+    setback_ft,
+):
+    """Calculate a holding coordinate inward from a Route endpoint."""
+
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                WITH points AS (
+                    SELECT
+                        ST_SetSRID(
+                            ST_MakePoint(:endpoint_lon, :endpoint_lat),
+                            4326
+                        )::geography AS endpoint,
+                        ST_SetSRID(
+                            ST_MakePoint(:adjacent_lon, :adjacent_lat),
+                            4326
+                        )::geography AS adjacent
+                )
+                SELECT
+                    ST_X(holding_point::geometry) AS longitude,
+                    ST_Y(holding_point::geometry) AS latitude
+                FROM (
+                    SELECT
+                        ST_Project(
+                            endpoint,
+                            :setback_ft * 0.3048,
+                            ST_Azimuth(endpoint, adjacent)
+                        ) AS holding_point
+                    FROM points
+                    WHERE ST_Distance(endpoint, adjacent)
+                        >= :setback_ft * 0.3048
+                ) AS projected
+            """),
+            {
+                "endpoint_lon": endpoint[0],
+                "endpoint_lat": endpoint[1],
+                "adjacent_lon": adjacent_coordinate[0],
+                "adjacent_lat": adjacent_coordinate[1],
+                "setback_ft": setback_ft,
+            },
+        )
+
+        row = result.mappings().first()
+
+        if row is None:
+            return None
+
+        return [row["longitude"], row["latitude"]]
+
+
 def select_geometry_length_feet(geometry):
     """Return the geodesic length of a GeoJSON geometry in feet."""
 

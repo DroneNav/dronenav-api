@@ -85,6 +85,38 @@ def select_intersection_state(
     return result.mappings().one_or_none()
 
 
+def select_flight_intersection_state(
+    connection,
+    *,
+    route_node_id,
+    flight_band_id,
+    assigned_relative_altitude_ft,
+    flight_execution_id,
+):
+    """Return the intersection state for a specific Flight Execution."""
+
+    result = connection.execute(
+        text("""
+            SELECT state
+            FROM intersection_states
+            WHERE route_node_id = :route_node_id
+              AND flight_band_id = :flight_band_id
+              AND assigned_relative_altitude_ft =
+                  :assigned_relative_altitude_ft
+              AND flight_execution_id = :flight_execution_id
+        """),
+        {
+            "route_node_id": route_node_id,
+            "flight_band_id": flight_band_id,
+            "assigned_relative_altitude_ft":
+                assigned_relative_altitude_ft,
+            "flight_execution_id": flight_execution_id,
+        },
+    )
+
+    return result.scalar_one_or_none()
+
+
 def insert_intersection_state(
     connection,
     *,

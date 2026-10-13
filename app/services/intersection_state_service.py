@@ -1,3 +1,4 @@
+
 from app.config.database import engine
 
 from app.models.intersection_state_model import (
@@ -9,6 +10,10 @@ from app.models.intersection_state_model import (
     select_intersection_state,
 )
 
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 def reserve_intersection_slot(
     *,
@@ -52,13 +57,24 @@ def reserve_intersection_slot(
         if state["state"] != "clear":
             return None
 
-        return reserve_intersection_state(
+        result = reserve_intersection_state(
             connection,
             intersection_state_id=state["intersection_state_id"],
             flight_execution_id=flight_execution_id,
             from_route_id=from_route_id,
             to_route_id=to_route_id,
         )
+
+        if result is not None:
+            logger.info(
+                "Intersection reserved: route_node_id=%s "
+                "flight_execution_id=%s altitude_ft=%s",
+                route_node_id,
+                flight_execution_id,
+                assigned_relative_altitude_ft,
+            )
+
+        return result
 
 
 def occupy_intersection_slot(
@@ -67,11 +83,21 @@ def occupy_intersection_slot(
     intersection_state_id,
     flight_execution_id,
 ):
-    return occupy_intersection_state(
+    result = occupy_intersection_state(
         connection,
         intersection_state_id=intersection_state_id,
         flight_execution_id=flight_execution_id,
     )
+
+    if result is not None:
+        logger.info(
+            "Intersection occupied: intersection_state_id=%s "
+            "flight_execution_id=%s",
+            intersection_state_id,
+            flight_execution_id,
+        )
+
+    return result
 
 
 def clear_intersection_slot(
@@ -80,10 +106,20 @@ def clear_intersection_slot(
     intersection_state_id,
     flight_execution_id,
 ):
-    return clear_intersection_state(
+    result = clear_intersection_state(
         connection,
         intersection_state_id=intersection_state_id,
         flight_execution_id=flight_execution_id,
     )
+
+    if result is not None:
+        logger.info(
+            "Intersection cleared: intersection_state_id=%s "
+            "flight_execution_id=%s",
+            intersection_state_id,
+            flight_execution_id,
+        )
+
+    return result
 
 
