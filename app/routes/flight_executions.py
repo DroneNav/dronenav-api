@@ -74,6 +74,8 @@ from app.services.droneport_landing_service import (
     assign_droneport_landing_space,
 )
 
+from app.config.database import engine
+
 
 flight_executions_bp = Blueprint("flight_executions", __name__)
 
@@ -355,14 +357,16 @@ def request_intersection_slot_route(flight_execution_id):
             "error": "to_route_id is required."
         }), 400
 
-    intersection_state_id = reserve_intersection_slot(
-        route_node_id=route_node_id,
-        flight_band_id=flight_band_id,
-        assigned_relative_altitude_ft=assigned_relative_altitude_ft,
-        flight_execution_id=flight_execution_id,
-        from_route_id=from_route_id,
-        to_route_id=to_route_id,
-    )
+    with engine.begin() as connection:
+        intersection_state_id = reserve_intersection_slot(
+            connection,
+            route_node_id=route_node_id,
+            flight_band_id=flight_band_id,
+            assigned_relative_altitude_ft=assigned_relative_altitude_ft,
+            flight_execution_id=flight_execution_id,
+            from_route_id=from_route_id,
+            to_route_id=to_route_id,
+        )
 
     return jsonify({
         "intersection_state_id": intersection_state_id,

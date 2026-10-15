@@ -1,6 +1,4 @@
 
-from app.config.database import engine
-
 from app.models.intersection_state_model import (
     clear_intersection_state,
     insert_intersection_state,
@@ -16,6 +14,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def reserve_intersection_slot(
+    connection,
     *,
     route_node_id,
     flight_band_id,
@@ -24,8 +23,22 @@ def reserve_intersection_slot(
     from_route_id,
     to_route_id,
 ):
-    with engine.begin() as connection:
-        lock_intersection_slot(
+    lock_intersection_slot(
+        connection,
+        route_node_id=route_node_id,
+        flight_band_id=flight_band_id,
+        assigned_relative_altitude_ft=assigned_relative_altitude_ft,
+    )
+
+    state = select_intersection_state(
+        connection,
+        route_node_id=route_node_id,
+        flight_band_id=flight_band_id,
+        assigned_relative_altitude_ft=assigned_relative_altitude_ft,
+    )
+
+    if state is None:
+        insert_intersection_state(
             connection,
             route_node_id=route_node_id,
             flight_band_id=flight_band_id,
@@ -39,42 +52,27 @@ def reserve_intersection_slot(
             assigned_relative_altitude_ft=assigned_relative_altitude_ft,
         )
 
-        if state is None:
-            insert_intersection_state(
-                connection,
-                route_node_id=route_node_id,
-                flight_band_id=flight_band_id,
-                assigned_relative_altitude_ft=assigned_relative_altitude_ft,
-            )
+    if state["state"] != "clear":
+        return None
 
-            state = select_intersection_state(
-                connection,
-                route_node_id=route_node_id,
-                flight_band_id=flight_band_id,
-                assigned_relative_altitude_ft=assigned_relative_altitude_ft,
-            )
+    result = reserve_intersection_state(
+        connection,
+        intersection_state_id=state["intersection_state_id"],
+        flight_execution_id=flight_execution_id,
+        from_route_id=from_route_id,
+        to_route_id=to_route_id,
+    )
 
-        if state["state"] != "clear":
-            return None
-
-        result = reserve_intersection_state(
-            connection,
-            intersection_state_id=state["intersection_state_id"],
-            flight_execution_id=flight_execution_id,
-            from_route_id=from_route_id,
-            to_route_id=to_route_id,
+    if result is not None:
+        logger.info(
+            "Intersection reserved: route_node_id=%s "
+            "flight_execution_id=%s altitude_ft=%s",
+            route_node_id,
+            flight_execution_id,
+            assigned_relative_altitude_ft,
         )
 
-        if result is not None:
-            logger.info(
-                "Intersection reserved: route_node_id=%s "
-                "flight_execution_id=%s altitude_ft=%s",
-                route_node_id,
-                flight_execution_id,
-                assigned_relative_altitude_ft,
-            )
-
-        return result
+    return result
 
 
 def occupy_intersection_slot(

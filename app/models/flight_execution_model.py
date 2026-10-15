@@ -1245,15 +1245,99 @@ def select_flight_execution_route_ranges(
     with engine.connect() as connection:
         result = connection.execute(
             text("""
+                WITH RECURSIVE route_path AS (
+                    SELECT
+                        fer.flight_execution_id,
+                        fer.sequence_number,
+                        fer.route_id,
+                        fer.start_mission_sequence,
+                        fer.end_mission_sequence,
+                        fer.segment_mission_sequences,
+                        r.origin_route_node_id,
+                        r.destination_route_node_id,
+                        r.direction,
+                        d.route_node_id AS entry_node_id,
+                        CASE
+                            WHEN r.direction = 0
+                                THEN r.destination_route_node_id
+                            WHEN r.direction = 1
+                                THEN r.origin_route_node_id
+                            WHEN d.route_node_id = r.origin_route_node_id
+                                THEN r.destination_route_node_id
+                            ELSE r.origin_route_node_id
+                        END AS exit_node_id
+                    FROM flight_execution_routes fer
+                    JOIN flight_executions fe
+                        ON fe.flight_execution_id = fer.flight_execution_id
+                    JOIN droneports d
+                        ON d.droneport_id = fe.departure_droneport_id
+                    JOIN routes r
+                        ON r.route_id = fer.route_id
+                    WHERE fer.flight_execution_id = :flight_execution_id
+                      AND fer.sequence_number = (
+                          SELECT MIN(sequence_number)
+                          FROM flight_execution_routes
+                          WHERE flight_execution_id = :flight_execution_id
+                      )
+
+                    UNION ALL
+
+                    SELECT
+                        fer.flight_execution_id,
+                        fer.sequence_number,
+                        fer.route_id,
+                        fer.start_mission_sequence,
+                        fer.end_mission_sequence,
+                        fer.segment_mission_sequences,
+                        r.origin_route_node_id,
+                        r.destination_route_node_id,
+                        r.direction,
+                        previous.exit_node_id,
+                        CASE
+                            WHEN r.direction = 0
+                                THEN r.destination_route_node_id
+                            WHEN r.direction = 1
+                                THEN r.origin_route_node_id
+                            WHEN previous.exit_node_id = r.origin_route_node_id
+                                THEN r.destination_route_node_id
+                            ELSE r.origin_route_node_id
+                        END
+                    FROM route_path previous
+                    JOIN flight_execution_routes fer
+                        ON fer.flight_execution_id = previous.flight_execution_id
+                       AND fer.sequence_number = (
+                           SELECT MIN(sequence_number)
+                           FROM flight_execution_routes
+                           WHERE flight_execution_id = previous.flight_execution_id
+                             AND sequence_number > previous.sequence_number
+                       )
+                    JOIN routes r
+                        ON r.route_id = fer.route_id
+                )
                 SELECT
-                    sequence_number,
-                    route_id,
-                    start_mission_sequence,
-                    end_mission_sequence,
-                    segment_mission_sequences
-                FROM flight_execution_routes
-                WHERE flight_execution_id = :flight_execution_id
-                ORDER BY sequence_number
+                    path.sequence_number,
+                    path.route_id,
+                    path.start_mission_sequence,
+                    path.end_mission_sequence,
+                    path.segment_mission_sequences,
+                    d.route_node_id AS intersection_route_node_id,
+                    d.droneport_id AS intersection_droneport_id,
+                    d.droneport_diameter_ft AS intersection_diameter_ft,
+                    ST_X(d.geometry) AS intersection_longitude,
+                    ST_Y(d.geometry) AS intersection_latitude
+                FROM route_path path
+                LEFT JOIN flight_execution_routes next_fer
+                    ON next_fer.flight_execution_id = path.flight_execution_id
+                   AND next_fer.sequence_number = (
+                       SELECT MIN(sequence_number)
+                       FROM flight_execution_routes
+                       WHERE flight_execution_id = path.flight_execution_id
+                         AND sequence_number > path.sequence_number
+                   )
+                LEFT JOIN droneports d
+                    ON d.route_node_id = path.exit_node_id
+                   AND next_fer.route_id IS NOT NULL
+                ORDER BY path.sequence_number
             """),
             {
                 "flight_execution_id": flight_execution_id,

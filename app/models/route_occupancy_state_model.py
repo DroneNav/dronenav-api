@@ -76,6 +76,7 @@ def update_route_occupancy_state(
     last_latitude=None,
     last_longitude=None,
     last_altitude_ft=None,
+    last_state_change_at=None,
     state=None,
 ):
     connection.execute(
@@ -84,7 +85,12 @@ def update_route_occupancy_state(
             SET
                 actual_entry_time = COALESCE(
                     actual_entry_time,
-                    :actual_entry_time
+                    :actual_entry_time,
+                    CASE
+                        WHEN :state = 'exited'
+                        THEN CAST(:actual_exit_time AS timestamptz)
+                        ELSE NULL
+                    END
                 ),
                 actual_exit_time = COALESCE(
                     actual_exit_time,
@@ -102,12 +108,29 @@ def update_route_occupancy_state(
                     :last_altitude_ft,
                     last_altitude_ft
                 ),
+                last_state_change_at = CASE
+                    WHEN :state IS NOT NULL
+                         AND :state <> state
+                    THEN :last_state_change_at
+                    ELSE last_state_change_at
+                END,
                 state = COALESCE(
                     :state,
                     state
                 )
             WHERE route_id = :route_id
               AND flight_execution_id = :flight_execution_id
+              AND (
+                  :state IS NULL
+                  OR (
+                      state = 'planned'
+                      AND :state IN ('active', 'exited')
+                  )
+                  OR (
+                      state = 'active'
+                      AND :state IN ('active', 'exited')
+                  )
+              )
         """),
         {
             "route_id": route_id,
@@ -117,6 +140,7 @@ def update_route_occupancy_state(
             "last_latitude": last_latitude,
             "last_longitude": last_longitude,
             "last_altitude_ft": last_altitude_ft,
+            "last_state_change_at": last_state_change_at,
             "state": state,
         },
     )

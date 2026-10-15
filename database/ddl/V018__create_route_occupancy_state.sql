@@ -28,6 +28,7 @@ CREATE TABLE route_occupancy_state (
     last_latitude numeric,
     last_longitude numeric,
     last_altitude_ft numeric,
+    last_state_change_at timestamptz,
 
     assigned_relative_altitude_ft integer,
 
