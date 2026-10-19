@@ -9,6 +9,8 @@ CREATE TABLE flight_bands (
     min_agl_ft INTEGER NOT NULL DEFAULT 0,
     max_agl_ft INTEGER NOT NULL DEFAULT 500,
 
+    commanded_cruise_speed_ft_s NUMERIC(8,2) NOT NULL DEFAULT 10.00,
+
     start_time TIME NOT NULL DEFAULT '00:00:00',
     end_time   TIME NOT NULL DEFAULT '23:59:59',
 
@@ -24,6 +26,7 @@ CREATE TABLE flight_bands (
     CHECK (max_agl_ft > min_agl_ft),
     CHECK (start_time < end_time),
     CHECK (operational_status IN ('active', 'inactive'))
+    CHECK (commanded_cruise_speed_ft_s > 0 AND commanded_cruise_speed_ft_s <= 199.99),
 
 );
 

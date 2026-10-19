@@ -63,6 +63,7 @@ from app.config.constants import (
 )
 
 DEFAULT_OPERATIONAL_STATUS = "active"
+DEFAULT_COMMANDED_CRUISE_SPEED_FT_S = 10.0
 VALID_OPERATIONAL_STATUSES = ("active", "inactive")
 
 
@@ -122,6 +123,7 @@ def validate_flight_band_patch(data):
         "band_name",
         "min_agl_ft",
         "max_agl_ft",
+        "commanded_cruise_speed_ft_s",
         "start_time",
         "end_time",
         "operational_status",
@@ -140,6 +142,19 @@ def validate_flight_band_values(data):
     if "flight_class" in data:
         if data["flight_class"] not in VALID_FLIGHT_CLASSES:
             return "flight_class is not valid"
+
+    if "commanded_cruise_speed_ft_s" in data:
+        speed = data["commanded_cruise_speed_ft_s"]
+
+        if (
+            isinstance(speed, bool)
+            or not isinstance(speed, (int, float))
+            or not 0 < speed <= 199.99
+        ):
+            return (
+                "commanded_cruise_speed_ft_s must be "
+                "a positive number no greater than 199.99"
+            )
 
     min_agl_ft = data.get("min_agl_ft", DEFAULT_MINIMUM_ALTITUDE_FT)
     max_agl_ft = data.get("max_agl_ft", DEFAULT_MAXIMUM_ALTITUDE_FT)
@@ -207,12 +222,10 @@ def normalize_flight_band_payload(data):
         "band_name": data["band_name"],
         "min_agl_ft": data.get("min_agl_ft", DEFAULT_MINIMUM_ALTITUDE_FT),
         "max_agl_ft": data.get("max_agl_ft", DEFAULT_MAXIMUM_ALTITUDE_FT),
+        "commanded_cruise_speed_ft_s": data.get("commanded_cruise_speed_ft_s", DEFAULT_COMMANDED_CRUISE_SPEED_FT_S),
         "start_time": normalize_time(data.get("start_time", DEFAULT_START_TIME)),
         "end_time": normalize_time(data.get("end_time", DEFAULT_END_TIME)),
-        "operational_status": data.get(
-            "operational_status",
-            DEFAULT_OPERATIONAL_STATUS
-        ),
+        "operational_status": data.get("operational_status", DEFAULT_OPERATIONAL_STATUS),
         "created_by": data["created_by"],
         "updated_by": data.get("updated_by"),
         "days": data.get("days", list(DEFAULT_ALLDAYS)),
@@ -225,12 +238,10 @@ def normalize_flight_band_update(data):
         "band_name": data["band_name"],
         "min_agl_ft": data.get("min_agl_ft", DEFAULT_MINIMUM_ALTITUDE_FT),
         "max_agl_ft": data.get("max_agl_ft", DEFAULT_MAXIMUM_ALTITUDE_FT),
+        "commanded_cruise_speed_ft_s": data.get("commanded_cruise_speed_ft_s"),
         "start_time": normalize_time(data.get("start_time", DEFAULT_START_TIME)),
         "end_time": normalize_time(data.get("end_time", DEFAULT_END_TIME)),
-        "operational_status": data.get(
-            "operational_status",
-            DEFAULT_OPERATIONAL_STATUS
-        ),
+        "operational_status": data.get("operational_status", DEFAULT_OPERATIONAL_STATUS),
         "updated_by": data["updated_by"],
         "days": data.get("days", list(DEFAULT_ALLDAYS)),
     }
@@ -244,6 +255,7 @@ def normalize_flight_band_patch(data):
         "band_name",
         "min_agl_ft",
         "max_agl_ft",
+        "commanded_cruise_speed_ft_s",
         "operational_status",
         "updated_by",
         "days",
@@ -280,6 +292,7 @@ def format_flight_band(row):
         "band_name": row["band_name"],
         "min_agl_ft": row["min_agl_ft"],
         "max_agl_ft": row["max_agl_ft"],
+        "commanded_cruise_speed_ft_s": float(row["commanded_cruise_speed_ft_s"]),
         "start_time": format_time(row["start_time"]),
         "end_time": format_time(row["end_time"]),
         "operational_status": row["operational_status"],
