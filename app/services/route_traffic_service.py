@@ -21,9 +21,31 @@ from app.config.database import engine
 
 from app.models.route_model import select_route
 
+from app.models.flight_execution_model import (
+    select_flight_execution_route_ranges,
+)
+
 from app.models.flight_band_model import (
     select_flight_band_record,
 )
+
+import logging
+
+
+LOGGER = logging.getLogger(__name__)
+
+LOGGER.setLevel(logging.INFO)
+
+if not LOGGER.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s %(levelname)s %(name)s: %(message)s"
+        )
+    )
+    LOGGER.addHandler(handler)
+
+LOGGER.propagate = False
 
 
 def has_route_capacity(
@@ -117,8 +139,11 @@ def build_layer_trailing_occupancy(
     *,
     route_geometry,
     active_occupancy,
+    route_id,
+    entry_node_id,
 ):
     trailing_by_layer = {}
+    blocked_layers = set()
 
     for occupancy in active_occupancy:
         layer = occupancy["assigned_relative_altitude_ft"]
@@ -129,10 +154,34 @@ def build_layer_trailing_occupancy(
         if occupancy["cleared"] is True:
             continue
 
+        occupancy_route_ranges = (
+            select_flight_execution_route_ranges(
+                occupancy["flight_execution_id"]
+            )
+        )
+
+        occupancy_route_range = next(
+            (
+                route_range
+                for route_range in occupancy_route_ranges
+                if str(route_range["route_id"]) == str(route_id)
+            ),
+            None,
+        )
+
+        if (
+            occupancy_route_range is None
+            or str(occupancy_route_range["entry_node_id"])
+            != str(entry_node_id)
+        ):
+            blocked_layers.add(layer)
+            continue
+
         latitude = occupancy["last_latitude"]
         longitude = occupancy["last_longitude"]
 
         if latitude is None or longitude is None:
+            blocked_layers.add(layer)
             continue
 
         progress = select_linestring_progress_feet(
@@ -142,11 +191,13 @@ def build_layer_trailing_occupancy(
         )
 
         if progress is None:
+            blocked_layers.add(layer)
             continue
 
         distance_ft = progress.get("distance_ft")
 
         if distance_ft is None:
+            blocked_layers.add(layer)
             continue
 
         candidate = {
@@ -162,39 +213,34 @@ def build_layer_trailing_occupancy(
         ):
             trailing_by_layer[layer] = candidate
 
-    return trailing_by_layer
+    return {
+        "trailing_by_layer": trailing_by_layer,
+        "blocked_layers": blocked_layers,
+    }
 
 
 def select_reusable_vertical_layer(
     *,
     trailing_by_layer,
+    blocked_layers,
 ):
-    selected_layer = None
-    selected_candidate = None
+    for layer in sorted(trailing_by_layer):
+        if layer in blocked_layers:
+            continue
 
-    for layer, candidate in trailing_by_layer.items():
+        candidate = trailing_by_layer[layer]
+
         if (
-            selected_candidate is None
-            or candidate["distance_ft"]
-            > selected_candidate["distance_ft"]
+            candidate["distance_ft"]
+            >= MINIMUM_LONGITUDINAL_SEPARATION_FT
         ):
-            selected_layer = layer
-            selected_candidate = candidate
+            return {
+                "layer": layer,
+                "occupancy": candidate["occupancy"],
+                "distance_ft": candidate["distance_ft"],
+            }
 
-    if selected_candidate is None:
-        return None
-
-    if (
-        selected_candidate["distance_ft"]
-        < MINIMUM_LONGITUDINAL_SEPARATION_FT
-    ):
-        return None
-
-    return {
-        "layer": selected_layer,
-        "occupancy": selected_candidate["occupancy"],
-        "distance_ft": selected_candidate["distance_ft"],
-    }
+    return None
 
 
 def select_route_vertical_layer(
@@ -239,12 +285,45 @@ def allocate_route_vertical_layer(
     *,
     route,
     flight_band,
+    flight_execution_id,
 ):
     lock_route_flight_band_allocation(
         connection,
         route_id=route["route_id"],
         flight_band_id=flight_band["flight_band_id"],
     )
+
+    route_ranges = select_flight_execution_route_ranges(
+        flight_execution_id
+    )
+
+    current_route_range = next(
+        (
+            route_range
+            for route_range in route_ranges
+            if str(route_range["route_id"]) == str(route["route_id"])
+        ),
+        None,
+    )
+
+    if current_route_range is None:
+        return None
+
+    entry_node_id = current_route_range["entry_node_id"]
+
+    if str(entry_node_id) == str(route["origin_route_node_id"]):
+        route_geometry = route["geometry"]
+
+    elif str(entry_node_id) == str(route["destination_route_node_id"]):
+        route_geometry = {
+            **route["geometry"],
+            "coordinates": list(
+                reversed(route["geometry"]["coordinates"])
+            ),
+        }
+
+    else:
+        return None
 
     if not route_has_available_capacity(
         connection,
@@ -271,34 +350,41 @@ def allocate_route_vertical_layer(
         active_occupancy
     )
 
-    available_layer = select_available_vertical_layer(
-        vertical_layers=vertical_layers,
-        active_assigned_layers=active_assigned_layers,
-    )
-
-    if available_layer is not None:
-        return available_layer
-
-    trailing_by_layer = build_layer_trailing_occupancy(
-        route_geometry=route["geometry"],
+    separation = build_layer_trailing_occupancy(
+        route_geometry=route_geometry,
         active_occupancy=active_occupancy,
+        route_id=route["route_id"],
+        entry_node_id=entry_node_id,
     )
 
     reusable_layer = select_reusable_vertical_layer(
-        trailing_by_layer=trailing_by_layer,
+        trailing_by_layer=separation["trailing_by_layer"],
+        blocked_layers=separation["blocked_layers"],
     )
 
-    if reusable_layer is None:
-        return None
-
-    clear_route_occupancy(
-        connection,
-        route_occupancy_state_id=reusable_layer[
-            "occupancy"
-        ]["route_occupancy_state_id"],
+    LOGGER.info(
+        "Route altitude allocation: execution=%s route=%s "
+        "active_layers=%s trailing_by_layer=%s "
+        "blocked_layers=%s reusable_layer=%s",
+        flight_execution_id,
+        route["route_id"],
+        sorted(active_assigned_layers),
+        separation["trailing_by_layer"],
+        sorted(separation["blocked_layers"]),
+        reusable_layer,
     )
 
-    return reusable_layer["layer"]
+    for layer in vertical_layers:
+        if layer not in active_assigned_layers:
+            return layer
+
+        if (
+            reusable_layer is not None
+            and reusable_layer["layer"] == layer
+        ):
+            return layer
+
+    return None
 
 
 def allocate_and_assign_route_vertical_layer(
@@ -312,6 +398,7 @@ def allocate_and_assign_route_vertical_layer(
             connection,
             route=route,
             flight_band=flight_band,
+            flight_execution_id=flight_execution_id,
         )
 
         if assigned_layer is None:

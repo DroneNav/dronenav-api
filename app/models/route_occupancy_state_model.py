@@ -66,6 +66,36 @@ def clear_route_occupancy(
     )
 
 
+def update_active_route_position(
+    connection,
+    *,
+    route_id,
+    flight_execution_id,
+    latitude,
+    longitude,
+    altitude_ft,
+):
+    connection.execute(
+        text("""
+            UPDATE route_occupancy_state
+            SET
+                last_latitude = :latitude,
+                last_longitude = :longitude,
+                last_altitude_ft = :altitude_ft
+            WHERE route_id = :route_id
+              AND flight_execution_id = :flight_execution_id
+              AND state = 'active'
+        """),
+        {
+            "route_id": route_id,
+            "flight_execution_id": flight_execution_id,
+            "latitude": latitude,
+            "longitude": longitude,
+            "altitude_ft": altitude_ft,
+        },
+    )
+
+
 def update_route_occupancy_state(
     connection,
     *,

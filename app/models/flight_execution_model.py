@@ -1317,6 +1317,8 @@ def select_flight_execution_route_ranges(
                 SELECT
                     path.sequence_number,
                     path.route_id,
+                    path.entry_node_id,
+                    path.exit_node_id,
                     path.start_mission_sequence,
                     path.end_mission_sequence,
                     path.segment_mission_sequences,
