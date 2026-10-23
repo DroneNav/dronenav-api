@@ -95,11 +95,52 @@ from app.navproxy.tooling.route_duration import (
 import subprocess
 import sys
 import os
+import fcntl
 
 import logging
 
 
 logger = logging.getLogger(__name__)
+
+
+def next_sitl_connection():
+    endpoints = [
+        endpoint.strip()
+        for endpoint in os.environ["DRONENAV_SITL_ENDPOINTS"].split(",")
+        if endpoint.strip()
+    ]
+
+    if not endpoints:
+        raise ValueError("No SITL endpoints configured.")
+
+    state_path = os.path.join(
+        os.path.dirname(
+            os.path.dirname(
+                os.path.dirname(os.path.abspath(__file__))
+            )
+        ),
+        "tmp",
+        "dronenav_sitl_sequence",
+    )
+
+    with open(state_path, "a+", encoding="utf-8") as state_file:
+        fcntl.flock(state_file, fcntl.LOCK_EX)
+        try:
+            state_file.seek(0)
+            current = state_file.read().strip()
+            sequence = int(current) if current else 0
+
+            connection = endpoints[sequence % len(endpoints)]
+
+            state_file.seek(0)
+            state_file.truncate()
+            state_file.write(str(sequence + 1))
+            state_file.flush()
+
+            return connection
+        finally:
+            fcntl.flock(state_file, fcntl.LOCK_UN)
+
 
 def create_flight_execution(data):
     if isinstance(data, list):
@@ -907,6 +948,7 @@ def launch_navproxy(
     flight_id,
     execution_mode="scheduled",
     navproxy_fc_mode=None,
+    connection_string=None,
 ):
     """
     Launch NAVProxy as a separate process.
@@ -929,6 +971,12 @@ def launch_navproxy(
 
     if navproxy_fc_mode is not None:
         child_env["NAVPROXY_FC_MODE"] = navproxy_fc_mode
+
+    if os.environ.get("DRONENAV_SITL_ENDPOINTS"):
+        connection_string = next_sitl_connection()
+
+    if connection_string is not None:
+        child_env["DRONENAV_MAVLINK_CONNECTION"] = connection_string
 
     with open(navproxy_log_path, "a", encoding="utf-8") as log_file:
         subprocess.Popen(

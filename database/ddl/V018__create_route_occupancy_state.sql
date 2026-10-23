@@ -30,6 +30,9 @@ CREATE TABLE route_occupancy_state (
     last_altitude_ft numeric,
     last_state_change_at timestamptz,
 
+    intersection_hold_route_node_id uuid,
+    intersection_hold_at timestamptz,
+
     assigned_relative_altitude_ft integer,
 
     CONSTRAINT route_occupancy_state_state_ck
@@ -38,6 +41,20 @@ CREATE TABLE route_occupancy_state (
                 'planned',
                 'active',
                 'exited'
+            )
+        ),
+
+    CONSTRAINT route_occupancy_state_intersection_hold_ck
+        CHECK (
+            (
+                intersection_hold_route_node_id IS NULL
+                AND intersection_hold_at IS NULL
+            )
+            OR
+            (
+                state = 'active'
+                AND intersection_hold_route_node_id IS NOT NULL
+                AND intersection_hold_at IS NOT NULL
             )
         ),
 
