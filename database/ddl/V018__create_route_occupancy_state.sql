@@ -32,6 +32,7 @@ CREATE TABLE route_occupancy_state (
 
     intersection_hold_route_node_id uuid,
     intersection_hold_at timestamptz,
+    intersection_hold_position integer,
 
     assigned_relative_altitude_ft integer,
 
@@ -55,7 +56,14 @@ CREATE TABLE route_occupancy_state (
                 state = 'active'
                 AND intersection_hold_route_node_id IS NOT NULL
                 AND intersection_hold_at IS NOT NULL
+                AND intersection_hold_position IS NOT NULL
             )
+        ),
+
+    CONSTRAINT route_occupancy_state_hold_position_ck
+        CHECK (
+            intersection_hold_position IS NULL
+            OR intersection_hold_position >= 1
         ),
 
     CONSTRAINT route_occupancy_state_lifecycle_ck
