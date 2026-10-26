@@ -34,18 +34,6 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 
-LOGGER.setLevel(logging.INFO)
-
-if not LOGGER.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(
-        logging.Formatter(
-            "%(asctime)s %(levelname)s %(name)s: %(message)s"
-        )
-    )
-    LOGGER.addHandler(handler)
-
-LOGGER.propagate = False
 
 
 def has_route_capacity(
@@ -362,7 +350,7 @@ def allocate_route_vertical_layer(
         blocked_layers=separation["blocked_layers"],
     )
 
-    LOGGER.info(
+    LOGGER.debug(
         "Route altitude allocation: execution=%s route=%s "
         "active_layers=%s trailing_by_layer=%s "
         "blocked_layers=%s reusable_layer=%s",

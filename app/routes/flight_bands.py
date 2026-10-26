@@ -27,7 +27,7 @@ License:
 GNU Affero General Public License v3.0 (AGPL-3.0-or-later)
 
 Purpose:
-Flight Band API business rules layer implementation source file.
+Flight Band API route layer implementation source file.
 
 Author:
 DroneNav Project Contributors
