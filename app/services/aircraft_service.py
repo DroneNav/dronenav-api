@@ -88,6 +88,7 @@ def validate_aircraft_values(data):
         "height_cm",
         "maximum_takeoff_weight_kg",
         "maximum_speed_ft_s",
+        "planned_deceleration_ft_s2",
     ]
 
     for field in numeric_fields:
@@ -95,6 +96,9 @@ def validate_aircraft_values(data):
             continue
 
         value = data[field]
+
+        if field == "planned_deceleration_ft_s2" and value is None:
+            continue
 
         if (
             isinstance(value, bool)
@@ -119,6 +123,10 @@ def validate_aircraft_values(data):
     if "operational_status" in data:
         if data["operational_status"] not in ("active", "inactive"):
             return "operational_status must be active or inactive"
+
+    if "deceleration_verified" in data:
+        if not isinstance(data["deceleration_verified"], bool):
+            return "deceleration_verified must be a boolean"
 
     return None
 
@@ -160,6 +168,8 @@ def validate_aircraft_patch(data):
         "height_cm",
         "maximum_takeoff_weight_kg",
         "maximum_speed_ft_s",
+        "planned_deceleration_ft_s2",
+        "deceleration_verified",
         "operational_status",
         "updated_by",
     }
@@ -189,6 +199,12 @@ def format_aircraft(row):
             row["maximum_takeoff_weight_kg"]
         ),
         "maximum_speed_ft_s": float(row["maximum_speed_ft_s"]),
+        "planned_deceleration_ft_s2": (
+            float(row["planned_deceleration_ft_s2"])
+            if row["planned_deceleration_ft_s2"] is not None
+            else None
+        ),
+        "deceleration_verified": row["deceleration_verified"],
         "operational_status": row["operational_status"],
         "created_at": (
             row["created_at"].isoformat()

@@ -62,6 +62,8 @@ def insert_aircraft_record(data):
                     height_cm,
                     maximum_takeoff_weight_kg,
                     maximum_speed_ft_s,
+                    planned_deceleration_ft_s2,
+                    deceleration_verified,
                     operational_status,
                     created_by
                 )
@@ -76,6 +78,8 @@ def insert_aircraft_record(data):
                     :height_cm,
                     :maximum_takeoff_weight_kg,
                     :maximum_speed_ft_s,
+                    :planned_deceleration_ft_s2,
+                    :deceleration_verified,
                     :operational_status,
                     :created_by
                 )
@@ -92,6 +96,8 @@ def insert_aircraft_record(data):
                 "height_cm": data["height_cm"],
                 "maximum_takeoff_weight_kg": data["maximum_takeoff_weight_kg"],
                 "maximum_speed_ft_s": data["maximum_speed_ft_s"],
+                "planned_deceleration_ft_s2": data.get("planned_deceleration_ft_s2"),
+                "deceleration_verified": data.get("deceleration_verified", False),
                 "operational_status": data.get("operational_status", "active"),
                 "created_by": data["created_by"],
             }
@@ -116,6 +122,8 @@ def select_aircraft_record(aircraft_id):
                     height_cm,
                     maximum_takeoff_weight_kg,
                     maximum_speed_ft_s,
+                    planned_deceleration_ft_s2,
+                    deceleration_verified,
                     operational_status,
                     created_at,
                     created_by,
@@ -146,6 +154,8 @@ def select_aircraft_records(aviator_id):
                     height_cm,
                     maximum_takeoff_weight_kg,
                     maximum_speed_ft_s,
+                    planned_deceleration_ft_s2,
+                    deceleration_verified,
                     operational_status,
                     created_at,
                     created_by,
@@ -176,6 +186,15 @@ def update_aircraft_record(aircraft_id, data):
                     height_cm = :height_cm,
                     maximum_takeoff_weight_kg = :maximum_takeoff_weight_kg,
                     maximum_speed_ft_s = :maximum_speed_ft_s,
+                    planned_deceleration_ft_s2 = CASE
+                        WHEN :planned_deceleration_ft_s2 IS NULL
+                        THEN planned_deceleration_ft_s2
+                        ELSE :planned_deceleration_ft_s2
+                    END,
+                    deceleration_verified = COALESCE(
+                        :deceleration_verified,
+                        deceleration_verified
+                    ),
                     operational_status = :operational_status,
                     updated_at = now(),
                     updated_by = :updated_by
@@ -193,6 +212,8 @@ def update_aircraft_record(aircraft_id, data):
                 "height_cm": data["height_cm"],
                 "maximum_takeoff_weight_kg": data["maximum_takeoff_weight_kg"],
                 "maximum_speed_ft_s": data["maximum_speed_ft_s"],
+                "planned_deceleration_ft_s2": data.get("planned_deceleration_ft_s2"),
+                "deceleration_verified": data.get("deceleration_verified"),
                 "operational_status": data.get("operational_status", "active"),
                 "updated_by": data["updated_by"],
             }
@@ -212,6 +233,8 @@ def patch_aircraft_record(aircraft_id, data):
         "height_cm",
         "maximum_takeoff_weight_kg",
         "maximum_speed_ft_s",
+        "planned_deceleration_ft_s2",
+        "deceleration_verified",
         "operational_status",
     ]
 

@@ -15,6 +15,9 @@ CREATE TABLE aircraft (
     maximum_takeoff_weight_kg NUMERIC(10,2) NOT NULL,
     maximum_speed_ft_s NUMERIC(8,2) NOT NULL,
 
+    planned_deceleration_ft_s2 NUMERIC(8,2),
+    deceleration_verified BOOLEAN NOT NULL DEFAULT FALSE,
+
     operational_status VARCHAR(20) NOT NULL DEFAULT 'active',
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -45,6 +48,12 @@ CREATE TABLE aircraft (
     CONSTRAINT chk_aircraft_operational_status
         CHECK (
             operational_status IN ('active', 'inactive')
+        ),
+
+    CONSTRAINT chk_aircraft_planned_deceleration
+        CHECK (
+            planned_deceleration_ft_s2 IS NULL
+            OR planned_deceleration_ft_s2 > 0
         )
 );
 
