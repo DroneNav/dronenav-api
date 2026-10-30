@@ -414,6 +414,7 @@ def _create_flight_execution_record(
         "authority_id": str(data["authority_id"]),
         "aviator_id": str(data["aviator_id"]),
         "aircraft_id": str(data["aircraft_id"]),
+        "flight_calibration": data.get("flight_calibration", False),
         "flight_class": data["flight_class"],
         "origin_site_id": str(data["origin_site_id"]),
         "destination_site_id": str(
@@ -1333,6 +1334,7 @@ def format_flight_execution(row):
         "aircraft_id": str(
             row["aircraft_id"]
         ),
+        "flight_calibration": row["flight_calibration"],
         "flight_class": row["flight_class"],
         "origin_site_id": str(
             row["origin_site_id"]

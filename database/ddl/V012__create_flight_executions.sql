@@ -26,6 +26,9 @@ CREATE TABLE flight_executions (
     -- Operational partition
     authority_id UUID NOT NULL,
 
+    -- Is this a calibration flight
+    flight_calibration BOOLEAN NOT NULL DEFAULT FALSE,
+
     -- Flight characteristics
     flight_class VARCHAR(50) NOT NULL,
 
