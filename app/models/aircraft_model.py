@@ -271,6 +271,14 @@ def patch_aircraft_record(aircraft_id, data):
 
 def delete_aircraft_record(aircraft_id):
     with engine.begin() as connection:
+        connection.execute(
+            text("""
+                DELETE FROM aircraft_calibration_profiles
+                WHERE aircraft_id = :aircraft_id
+            """),
+            {"aircraft_id": aircraft_id}
+        )
+
         result = connection.execute(
             text("""
                 DELETE FROM aircraft

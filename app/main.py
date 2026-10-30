@@ -64,6 +64,8 @@ from app.routes.flight_actual_path import flight_actual_path_bp
 from app.routes.tfrs import tfrs_bp
 from app.routes.aircraft import aircraft_bp
 
+import app.routes.aircraft_calibration_profiles
+
 
 app = Flask(__name__)
 
