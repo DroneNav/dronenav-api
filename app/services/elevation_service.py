@@ -64,7 +64,7 @@ def resolve_coordinate_elevation(
                 "wkid": 4326,
                 "includeDate": "False",
             },
-            timeout=10,
+            timeout=30,
         )
 
         response.raise_for_status()

@@ -418,6 +418,9 @@ def enrich_site_elevations(data):
         ]
 
     for index, elevation in enumerate(elevations):
+        if elevation is None:
+            continue
+
         site_attributes[index]["ground_elevation_ft"] = (
             elevation["ground_elevation_ft"]
         )

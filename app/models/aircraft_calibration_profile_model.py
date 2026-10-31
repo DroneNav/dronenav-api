@@ -102,7 +102,7 @@ def select_aircraft_calibration_profile_records(
 
     if cruise_speed_ft_s is not None:
         speed_filter = """
-            AND cruise_speed_ft_s = :cruise_speed_ft_s
+            AND ABS(cruise_speed_ft_s - :cruise_speed_ft_s) < 0.01
         """
         params["cruise_speed_ft_s"] = cruise_speed_ft_s
 
