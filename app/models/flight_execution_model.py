@@ -178,6 +178,17 @@ def insert_flight_execution_record(connection, data, planned_route_occupancy=Non
 
     record = dict(result.mappings().one())
 
+    aircraft_result = connection.execute(
+        text("""
+            SELECT aircraft_type
+            FROM aircraft
+            WHERE aircraft_id = :aircraft_id
+        """),
+        {"aircraft_id": record["aircraft_id"]},
+    )
+
+    record["aircraft_type"] = aircraft_result.scalar_one()
+
     _insert_flight_execution_routes(
         connection,
         record["flight_execution_id"],
@@ -216,8 +227,9 @@ def select_flight_execution(flight_execution_id):
                     root_flight_execution_id,
                     via_status,
                     authority_id,
-                    aviator_id,
-                    aircraft_id,
+                    fe.aviator_id,
+                    fe.aircraft_id,
+                    aircraft_type,
                     flight_calibration,
                     flight_class,
                     origin_site_id,
@@ -228,10 +240,12 @@ def select_flight_execution(flight_execution_id):
                     flight_termination_datetime,
                     operational_timezone,
                     execution_status,
-                    created_at,
-                    updated_at
-                FROM flight_executions
-                WHERE flight_execution_id = :flight_execution_id
+                    fe.created_at,
+                    fe.updated_at
+                FROM flight_executions fe
+                JOIN aircraft a
+                  ON a.aircraft_id = fe.aircraft_id
+               WHERE fe.flight_execution_id = :flight_execution_id
             """),
             {"flight_execution_id": flight_execution_id},
         )
@@ -265,8 +279,9 @@ def select_flight_execution_by_flight_plan(flight_plan_id, root=True):
                     root_flight_execution_id,
                     via_status,
                     authority_id,
-                    aviator_id,
-                    aircraft_id,
+                    fe.aviator_id,
+                    fe.aircraft_id,
+                    aircraft_type,
                     flight_calibration,
                     flight_class,
                     origin_site_id,
@@ -277,12 +292,14 @@ def select_flight_execution_by_flight_plan(flight_plan_id, root=True):
                     flight_termination_datetime,
                     operational_timezone,
                     execution_status,
-                    created_at,
-                    updated_at
-                FROM flight_executions
-                WHERE flight_plan_id = :flight_plan_id
+                    fe.created_at,
+                    fe.updated_at
+                FROM flight_executions fe
+                JOIN aircraft a
+                  ON a.aircraft_id = fe.aircraft_id
+               WHERE fe.flight_plan_id = :flight_plan_id
                 {root_filter}
-                ORDER BY flight_execution_id
+               ORDER BY fe.flight_execution_id
             """),
             {"flight_plan_id": flight_plan_id},
         )
@@ -343,8 +360,9 @@ def select_flight_executions(
             flight_execution_id,
             flight_plan_id,
             authority_id,
-            aviator_id,
-            aircraft_id,
+            fe.aviator_id,
+            fe.aircraft_id,
+            aircraft_type,
             flight_calibration,
             flight_class,
             origin_site_id,
@@ -356,21 +374,23 @@ def select_flight_executions(
             operational_timezone,
             execution_status,
             via_status,
-            created_at,
-            updated_at
-        FROM flight_executions
-        WHERE (
+            fe.created_at,
+            fe.updated_at
+        FROM flight_executions fe
+        JOIN aircraft a
+          ON a.aircraft_id = fe.aircraft_id
+       WHERE (
             :authority_id IS NULL
-            OR authority_id = :authority_id
+            OR fe.authority_id = :authority_id
         )
           AND (
             :execution_status IS NULL
-            OR execution_status = :execution_status
+            OR fe.execution_status = :execution_status
           )
           {departure_filter}
         ORDER BY
-            requested_departure_datetime NULLS FIRST,
-            created_at DESC
+            fe.requested_departure_datetime NULLS FIRST,
+            fe.created_at DESC
     """)
 
     with engine.connect() as connection:

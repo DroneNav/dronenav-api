@@ -1334,6 +1334,7 @@ def format_flight_execution(row):
         "aircraft_id": str(
             row["aircraft_id"]
         ),
+        "aircraft_type": row.get("aircraft_type"),
         "flight_calibration": row["flight_calibration"],
         "flight_class": row["flight_class"],
         "origin_site_id": str(
