@@ -78,6 +78,13 @@ from app.models.route_model import (
     insert_overlay_review,
 )
 
+from app.models.route_model import (
+    select_route_waypoint_for_update,
+    resolve_or_create_route_node,
+    insert_route_node_connection,
+)
+from app.config.database import engine
+
 from app.models.geospatial_model import (
     select_geometry_length_feet,
     select_route_holding_coordinate,
@@ -654,6 +661,37 @@ def format_context_route(route):
 def get_all_routes(survey_status):
     rows = select_routes(survey_status)
     return [format_route_summary(row) for row in rows]
+
+
+def amend_route_existing_waypoint(
+    route_id,
+    waypoint_index,
+):
+    with engine.begin() as connection:
+        longitude, latitude = (
+            select_route_waypoint_for_update(
+                connection,
+                route_id,
+                waypoint_index,
+            )
+        )
+
+        route_node_id, site_id = (
+            resolve_or_create_route_node(
+                connection,
+                longitude,
+                latitude,
+            )
+        )
+
+        result = insert_route_node_connection(
+            connection,
+            route_id,
+            route_node_id,
+            waypoint_index,
+        )
+
+        return result, None
 
 
 def update_route(route_id, data):

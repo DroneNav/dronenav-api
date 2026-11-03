@@ -53,6 +53,7 @@ from app.services.route_service import (
     get_all_routes,
     update_route,
     patch_route,
+    amend_route_existing_waypoint,
     delete_route,
     evaluate_route_segment_conformance,
     evaluate_route_segment_boundary_crossing,
@@ -186,6 +187,64 @@ def patch_route_route(route_id):
         }), status_code
 
     return jsonify(result)
+
+
+@routes_bp.route(
+    "/api/routes/<route_id>/amend",
+    methods=["POST", "OPTIONS"]
+)
+def amend_route_route(route_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({
+            "status": "error",
+            "message": "Invalid JSON payload."
+        }), 400
+
+    if data.get("amendment_type") != "existing_waypoint":
+        return jsonify({
+            "status": "error",
+            "message": "Unsupported Route amendment type."
+        }), 400
+
+    waypoint_index = data.get("waypoint_index")
+
+    if (
+        isinstance(waypoint_index, bool)
+        or not isinstance(waypoint_index, int)
+        or waypoint_index < 0
+    ):
+        return jsonify({
+            "status": "error",
+            "message": "Invalid waypoint index."
+        }), 400
+
+    try:
+        result, error = amend_route_existing_waypoint(
+            route_id,
+            waypoint_index,
+        )
+    except ValueError as exc:
+        return jsonify({
+            "status": "error",
+            "message": str(exc)
+        }), 400
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error
+        }), 400
+
+    return jsonify({
+        "status": "amended",
+        **result,
+    }), 200
 
 
 @routes_bp.route("/api/routes/<route_id>", methods=["DELETE", "OPTIONS"])

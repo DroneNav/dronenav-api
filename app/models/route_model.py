@@ -44,6 +44,7 @@ of the aircraft operator and applicable regulatory authorities.
 
 
 import json
+import math
 
 from sqlalchemy import text
 
@@ -54,7 +55,9 @@ from app.config.constants import (
     ROUTE_STATUS_INACTIVE,
     ROUTE_STATUS_ACTIVE,
     SURVEY_STATUS_APPROVED,
-    SURVEY_STATUS_NOT_SURVEYED
+    SURVEY_STATUS_NOT_SURVEYED,
+    MINIMUM_ENDPOINT_SEGMENT_LENGTH_FT,
+    MINIMUM_INTERMEDIATE_SEGMENT_LENGTH_FT,
 )
 
 from app.config.database import engine
@@ -255,7 +258,311 @@ def insert_route(data):
             }
         )
 
-        return str(result.scalar())
+        route_id = str(result.scalar())
+
+        connection.execute(
+            text("""
+                INSERT INTO route_node_connections (
+                    route_id,
+                    route_node_id,
+                    waypoint_index
+                )
+                VALUES
+                    (
+                        :route_id,
+                        :origin_route_node_id,
+                        0
+                    ),
+                    (
+                        :route_id,
+                        :destination_route_node_id,
+                        :destination_waypoint_index
+                    )
+            """),
+            {
+                "route_id": route_id,
+                "origin_route_node_id": origin_route_node_id,
+                "destination_route_node_id": destination_route_node_id,
+                "destination_waypoint_index": len(coordinates) - 1,
+            }
+        )
+
+        return route_id
+
+
+def insert_route_node_connection(
+    connection,
+    route_id,
+    route_node_id,
+    waypoint_index,
+):
+    result = connection.execute(
+        text("""
+            SELECT
+                ST_NPoints(r.geometry) AS waypoint_count,
+                ST_Distance(
+                    ST_PointN(
+                        r.geometry,
+                        :point_number
+                    )::geography,
+                    rn.geometry::geography
+                ) AS distance_meters
+            FROM routes r
+            CROSS JOIN route_nodes rn
+            WHERE r.route_id = :route_id
+              AND rn.route_node_id = :route_node_id
+              AND r.operational_status <> :deleted_status
+            FOR UPDATE OF r
+        """),
+        {
+            "route_id": route_id,
+            "route_node_id": route_node_id,
+            "point_number": waypoint_index + 1,
+            "deleted_status": ROUTE_STATUS_DELETED,
+        },
+    )
+
+    row = result.mappings().first()
+
+    if row is None:
+        raise ValueError(
+            "Route or Route Node not found."
+        )
+
+    if (
+        waypoint_index < 0
+        or waypoint_index >= row["waypoint_count"]
+    ):
+        raise ValueError(
+            "Waypoint index is outside the Route geometry."
+        )
+
+    if (
+        row["distance_meters"] is None
+        or row["distance_meters"] > 0.1
+    ):
+        raise ValueError(
+            "Route Node does not match the selected waypoint."
+        )
+
+    existing = connection.execute(
+        text("""
+            SELECT
+                route_node_id,
+                waypoint_index
+            FROM route_node_connections
+            WHERE route_id = :route_id
+              AND (
+                  route_node_id = :route_node_id
+                  OR waypoint_index = :waypoint_index
+              )
+        """),
+        {
+            "route_id": route_id,
+            "route_node_id": route_node_id,
+            "waypoint_index": waypoint_index,
+        },
+    ).mappings().first()
+
+    if existing is not None:
+        if (
+            str(existing["route_node_id"]) == str(route_node_id)
+            and existing["waypoint_index"] == waypoint_index
+        ):
+            return {
+                "route_id": str(route_id),
+                "route_node_id": str(route_node_id),
+                "waypoint_index": waypoint_index,
+                "already_connected": True,
+            }
+
+        raise ValueError(
+            "Route Node or waypoint is already connected elsewhere."
+        )
+
+    connection.execute(
+        text("""
+            INSERT INTO route_node_connections (
+                route_id,
+                route_node_id,
+                waypoint_index
+            )
+            VALUES (
+                :route_id,
+                :route_node_id,
+                :waypoint_index
+            )
+        """),
+        {
+            "route_id": route_id,
+            "route_node_id": route_node_id,
+            "waypoint_index": waypoint_index,
+        },
+    )
+
+    return {
+        "route_id": str(route_id),
+        "route_node_id": str(route_node_id),
+        "waypoint_index": waypoint_index,
+    }
+
+
+def validate_route_segment_split(
+    geometry,
+    segment_index,
+    longitude,
+    latitude,
+):
+    coordinates = geometry.get("coordinates", [])
+
+    if (
+        geometry.get("type") != "LineString"
+        or not isinstance(coordinates, list)
+        or len(coordinates) < 2
+    ):
+        raise ValueError("Invalid Route geometry.")
+
+    segment_count = len(coordinates) - 1
+
+    if (
+        isinstance(segment_index, bool)
+        or not isinstance(segment_index, int)
+        or segment_index < 0
+        or segment_index >= segment_count
+    ):
+        raise ValueError("Invalid segment index.")
+
+    for value, minimum, maximum in (
+        (longitude, -180, 180),
+        (latitude, -90, 90),
+    ):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or not minimum <= value <= maximum
+        ):
+            raise ValueError("Invalid insertion coordinate.")
+
+    start = coordinates[segment_index]
+    end = coordinates[segment_index + 1]
+
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                WITH segment AS (
+                    SELECT
+                        ST_SetSRID(
+                            ST_MakeLine(
+                                ST_MakePoint(:start_lon, :start_lat),
+                                ST_MakePoint(:end_lon, :end_lat)
+                            ),
+                            4326
+                        ) AS geom
+                ),
+                proposed AS (
+                    SELECT
+                        ST_SetSRID(
+                            ST_MakePoint(:longitude, :latitude),
+                            4326
+                        ) AS geom
+                ),
+                projected AS (
+                    SELECT
+                        ST_LineInterpolatePoint(
+                            segment.geom,
+                            ST_LineLocatePoint(
+                                segment.geom,
+                                proposed.geom
+                            )
+                        ) AS geom,
+                        segment.geom AS segment_geom,
+                        proposed.geom AS proposed_geom
+                    FROM segment, proposed
+                )
+                SELECT
+                    ST_Distance(
+                        proposed_geom::geography,
+                        geom::geography
+                    ) AS offset_meters,
+                    ST_Length(
+                        ST_MakeLine(
+                            ST_StartPoint(segment_geom),
+                            geom
+                        )::geography
+                    ) / 0.3048 AS first_length_ft,
+                    ST_Length(
+                        ST_MakeLine(
+                            geom,
+                            ST_EndPoint(segment_geom)
+                        )::geography
+                    ) / 0.3048 AS second_length_ft,
+                    ST_X(geom) AS longitude,
+                    ST_Y(geom) AS latitude
+                FROM projected
+            """),
+            {
+                "start_lon": start[0],
+                "start_lat": start[1],
+                "end_lon": end[0],
+                "end_lat": end[1],
+                "longitude": longitude,
+                "latitude": latitude,
+            },
+        )
+
+        row = result.mappings().first()
+
+    if row is None:
+        raise ValueError(
+            "Unable to validate segment split."
+        )
+
+    if row["offset_meters"] > 0.1:
+        raise ValueError(
+            "Insertion coordinate is not on the selected segment."
+        )
+
+    first_minimum = (
+        MINIMUM_ENDPOINT_SEGMENT_LENGTH_FT
+        if segment_index == 0
+        else MINIMUM_INTERMEDIATE_SEGMENT_LENGTH_FT
+    )
+
+    second_minimum = (
+        MINIMUM_ENDPOINT_SEGMENT_LENGTH_FT
+        if segment_index == segment_count - 1
+        else MINIMUM_INTERMEDIATE_SEGMENT_LENGTH_FT
+    )
+
+    first_length = row["first_length_ft"]
+    second_length = row["second_length_ft"]
+
+    if (
+        first_length <= first_minimum
+        if segment_index == 0
+        else first_length < first_minimum
+    ):
+        raise ValueError(
+            "First resulting segment is too short."
+        )
+
+    if (
+        second_length <= second_minimum
+        if segment_index == segment_count - 1
+        else second_length < second_minimum
+    ):
+        raise ValueError(
+            "Second resulting segment is too short."
+        )
+
+    return {
+        "segment_index": segment_index,
+        "longitude": row["longitude"],
+        "latitude": row["latitude"],
+        "first_length_ft": first_length,
+        "second_length_ft": second_length,
+    }
 
 
 def insert_overlay_review(data):
@@ -584,6 +891,56 @@ def select_coordinate_distance(data):
         )
 
         return result.mappings().first()
+
+
+def select_route_waypoint_for_update(
+    connection,
+    route_id,
+    waypoint_index,
+):
+    if (
+        isinstance(waypoint_index, bool)
+        or not isinstance(waypoint_index, int)
+        or waypoint_index < 0
+    ):
+        raise ValueError("Invalid waypoint index.")
+
+    result = connection.execute(
+        text("""
+            SELECT
+                ST_NPoints(geometry) AS waypoint_count,
+                ST_X(
+                    ST_PointN(geometry, :point_number)
+                ) AS longitude,
+                ST_Y(
+                    ST_PointN(geometry, :point_number)
+                ) AS latitude
+            FROM routes
+            WHERE route_id = :route_id
+              AND operational_status <> :deleted_status
+            FOR UPDATE
+        """),
+        {
+            "route_id": route_id,
+            "point_number": waypoint_index + 1,
+            "deleted_status": ROUTE_STATUS_DELETED,
+        },
+    )
+
+    row = result.mappings().first()
+
+    if row is None:
+        raise ValueError("Route not found.")
+
+    if waypoint_index >= row["waypoint_count"]:
+        raise ValueError(
+            "Waypoint index is outside the Route geometry."
+        )
+
+    return (
+        row["longitude"],
+        row["latitude"],
+    )
 
 
 def update_route_record(route_id, data):

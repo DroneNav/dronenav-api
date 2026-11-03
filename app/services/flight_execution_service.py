@@ -85,9 +85,6 @@ from app.services.timezone_service import (
 )
 
 from app.models.route_model import select_route
-from app.models.route_occupancy_state_model import (
-    insert_route_occupancy_state,
-)
 from app.navproxy.tooling.route_duration import (
     estimate_route_duration_seconds,
 )
@@ -454,6 +451,9 @@ def _create_flight_execution_record(
                 flight_band_id=matching_flight_band[
                     "flight_band_id"
                 ],
+                commanded_cruise_speed_ft_s=matching_flight_band[
+                    "commanded_cruise_speed_ft_s"
+                ],
                 aircraft_id=flight_execution_data[
                     "aircraft_id"
                 ],
@@ -700,11 +700,11 @@ def validate_flight_execution_submission(
 
     return errors
 
-
 def build_planned_route_occupancy(
     *,
     route_ids,
     flight_band_id,
+    commanded_cruise_speed_ft_s,
     aircraft_id,
     requested_departure_datetime,
 ):
@@ -721,7 +721,7 @@ def build_planned_route_occupancy(
         route = select_route(route_id)
 
         duration_seconds = (
-            estimate_route_duration_seconds(route)
+            estimate_route_duration_seconds(route, commanded_cruise_speed_ft_s)
         )
 
         planned_exit_time = (
@@ -1221,6 +1221,9 @@ def resume_via_flight_execution_service(
         route_ids=flight_execution["route_ids"],
         flight_band_id=matching_flight_band[
             "flight_band_id"
+        ],
+        commanded_cruise_speed_ft_s=matching_flight_band[
+            "commanded_cruise_speed_ft_s"
         ],
         aircraft_id=flight_execution["aircraft_id"],
         requested_departure_datetime=resume_datetime,
