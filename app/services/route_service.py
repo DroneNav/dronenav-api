@@ -72,6 +72,7 @@ from app.models.route_model import (
     select_route_segment_boundary_crossing,
     select_transition_point_containment,
     select_coordinate_distance,
+    split_route_segment_record,
     update_route_record,
     patch_route_record,
     soft_delete_route,
@@ -692,6 +693,22 @@ def amend_route_existing_waypoint(
         )
 
         return result, None
+
+
+def split_route_segment(
+    route_id,
+    segment_index,
+    longitude,
+    latitude,
+):
+    result = split_route_segment_record(
+        route_id=route_id,
+        segment_index=segment_index,
+        longitude=longitude,
+        latitude=latitude,
+    )
+
+    return result, None
 
 
 def update_route(route_id, data):

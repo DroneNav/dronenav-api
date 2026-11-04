@@ -54,6 +54,7 @@ from app.services.route_service import (
     update_route,
     patch_route,
     amend_route_existing_waypoint,
+    split_route_segment,
     delete_route,
     evaluate_route_segment_conformance,
     evaluate_route_segment_boundary_crossing,
@@ -193,7 +194,7 @@ def patch_route_route(route_id):
     "/api/routes/<route_id>/amend",
     methods=["POST", "OPTIONS"]
 )
-def amend_route_route(route_id):
+def amend_route_existing_waypoint_route(route_id):
 
     if request.method == "OPTIONS":
         return "", 204
@@ -239,6 +240,75 @@ def amend_route_route(route_id):
         return jsonify({
             "status": "error",
             "message": error
+        }), 400
+
+    return jsonify({
+        "status": "amended",
+        **result,
+    }), 200
+
+
+@routes_bp.route(
+    "/api/routes/<route_id>/split-segment",
+    methods=["POST", "OPTIONS"],
+)
+def split_route_segment_route(route_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({
+            "status": "error",
+            "message": "Invalid JSON request body.",
+        }), 400
+
+    segment_index = data.get("segment_index")
+    longitude = data.get("longitude")
+    latitude = data.get("latitude")
+
+    if (
+        isinstance(segment_index, bool)
+        or not isinstance(segment_index, int)
+        or segment_index < 0
+    ):
+        return jsonify({
+            "status": "error",
+            "message": "Invalid segment index.",
+        }), 400
+
+    if (
+        isinstance(longitude, bool)
+        or not isinstance(longitude, (int, float))
+        or isinstance(latitude, bool)
+        or not isinstance(latitude, (int, float))
+        or not -180 <= longitude <= 180
+        or not -90 <= latitude <= 90
+    ):
+        return jsonify({
+            "status": "error",
+            "message": "Invalid longitude or latitude.",
+        }), 400
+
+    try:
+        result, error = split_route_segment(
+            route_id,
+            segment_index,
+            longitude,
+            latitude,
+        )
+    except ValueError as exc:
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 400
+
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": error,
         }), 400
 
     return jsonify({

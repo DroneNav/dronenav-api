@@ -52,15 +52,21 @@ from app.config.constants import (
     DEFAULT_SRID,
     SITE_STATUS_DELETED,
     ROUTE_STATUS_DELETED,
-    ROUTE_STATUS_INACTIVE,
-    ROUTE_STATUS_ACTIVE,
     SURVEY_STATUS_APPROVED,
     SURVEY_STATUS_NOT_SURVEYED,
     MINIMUM_ENDPOINT_SEGMENT_LENGTH_FT,
     MINIMUM_INTERMEDIATE_SEGMENT_LENGTH_FT,
+    ROUTE_DIRECTION_FORWARD,
+    ROUTE_DIRECTION_REVERSE,
+    ROUTE_DIRECTION_BIDIRECTIONAL,
+    ROUTE_INTERSECTION_HOLDING_SETBACK_FT,
 )
 
 from app.config.database import engine
+
+from app.models.geospatial_model import (
+    select_route_holding_coordinate,
+)
 
 
 def resolve_or_create_route_node(
@@ -407,7 +413,38 @@ def insert_route_node_connection(
     }
 
 
+def select_route_for_segment_split(
+    connection,
+    route_id,
+):
+    result = connection.execute(
+        text("""
+            SELECT
+                ST_AsGeoJSON(geometry)::json AS geometry,
+                segment_attributes,
+                direction,
+                operational_status
+            FROM routes
+            WHERE route_id = :route_id
+              AND operational_status <> :deleted_status
+            FOR UPDATE
+        """),
+        {
+            "route_id": route_id,
+            "deleted_status": ROUTE_STATUS_DELETED,
+        },
+    )
+
+    row = result.mappings().first()
+
+    if row is None:
+        raise ValueError("Route not found.")
+
+    return row
+
+
 def validate_route_segment_split(
+    connection,
     geometry,
     segment_index,
     longitude,
@@ -447,71 +484,70 @@ def validate_route_segment_split(
     start = coordinates[segment_index]
     end = coordinates[segment_index + 1]
 
-    with engine.connect() as connection:
-        result = connection.execute(
-            text("""
-                WITH segment AS (
-                    SELECT
-                        ST_SetSRID(
-                            ST_MakeLine(
-                                ST_MakePoint(:start_lon, :start_lat),
-                                ST_MakePoint(:end_lon, :end_lat)
-                            ),
-                            4326
-                        ) AS geom
-                ),
-                proposed AS (
-                    SELECT
-                        ST_SetSRID(
-                            ST_MakePoint(:longitude, :latitude),
-                            4326
-                        ) AS geom
-                ),
-                projected AS (
-                    SELECT
-                        ST_LineInterpolatePoint(
-                            segment.geom,
-                            ST_LineLocatePoint(
-                                segment.geom,
-                                proposed.geom
-                            )
-                        ) AS geom,
-                        segment.geom AS segment_geom,
-                        proposed.geom AS proposed_geom
-                    FROM segment, proposed
-                )
+    result = connection.execute(
+        text("""
+            WITH segment AS (
                 SELECT
-                    ST_Distance(
-                        proposed_geom::geography,
-                        geom::geography
-                    ) AS offset_meters,
-                    ST_Length(
+                    ST_SetSRID(
                         ST_MakeLine(
-                            ST_StartPoint(segment_geom),
-                            geom
-                        )::geography
-                    ) / 0.3048 AS first_length_ft,
-                    ST_Length(
-                        ST_MakeLine(
-                            geom,
-                            ST_EndPoint(segment_geom)
-                        )::geography
-                    ) / 0.3048 AS second_length_ft,
-                    ST_X(geom) AS longitude,
-                    ST_Y(geom) AS latitude
-                FROM projected
-            """),
-            {
-                "start_lon": start[0],
-                "start_lat": start[1],
-                "end_lon": end[0],
-                "end_lat": end[1],
-                "longitude": longitude,
-                "latitude": latitude,
-            },
-        )
+                            ST_MakePoint(:start_lon, :start_lat),
+                            ST_MakePoint(:end_lon, :end_lat)
+                        ),
+                        4326
+                    ) AS geom
+            ),
+            proposed AS (
+                SELECT
+                    ST_SetSRID(
+                        ST_MakePoint(:longitude, :latitude),
+                        4326
+                    ) AS geom
+            ),
+            projected AS (
+                SELECT
+                    ST_LineInterpolatePoint(
+                        segment.geom,
+                        ST_LineLocatePoint(
+                            segment.geom,
+                            proposed.geom
+                        )
+                    ) AS geom,
+                    segment.geom AS segment_geom,
+                    proposed.geom AS proposed_geom
+                FROM segment, proposed
+            )
+            SELECT
+                ST_Distance(
+                    proposed_geom::geography,
+                    geom::geography
+                ) AS offset_meters,
+                ST_Length(
+                    ST_MakeLine(
+                        ST_StartPoint(segment_geom),
+                        geom
+                    )::geography
+                ) / 0.3048 AS first_length_ft,
+                ST_Length(
+                    ST_MakeLine(
+                        geom,
+                        ST_EndPoint(segment_geom)
+                    )::geography
+                ) / 0.3048 AS second_length_ft,
+                ST_X(geom) AS longitude,
+                ST_Y(geom) AS latitude
+            FROM projected
+        """),
+        {
+            "start_lon": start[0],
+            "start_lat": start[1],
+            "end_lon": end[0],
+            "end_lat": end[1],
+            "longitude": longitude,
+            "latitude": latitude,
+        },
+    )
 
-        row = result.mappings().first()
+    row = result.mappings().first()
 
     if row is None:
         raise ValueError(
@@ -563,6 +599,195 @@ def validate_route_segment_split(
         "first_length_ft": first_length,
         "second_length_ft": second_length,
     }
+
+
+def split_route_segment_record(
+    route_id,
+    segment_index,
+    longitude,
+    latitude,
+) -> dict[str, str | int | float]:
+    with engine.begin() as connection:
+        route = select_route_for_segment_split(
+            connection,
+            route_id,
+        )
+
+        split = validate_route_segment_split(
+            connection,
+            route["geometry"],
+            segment_index,
+            longitude,
+            latitude,
+        )
+
+        coordinates = route["geometry"]["coordinates"]
+        insertion_index = segment_index + 1
+
+        updated_coordinates = list(coordinates)
+
+        updated_coordinates.insert(
+            insertion_index,
+            [
+                split["longitude"],
+                split["latitude"],
+            ],
+        )
+
+        updated_geometry = {
+            "type": "LineString",
+            "coordinates": updated_coordinates,
+        }
+
+        attributes = route["segment_attributes"]
+
+        updated_attributes = [
+            dict(segment)
+            for segment in attributes
+        ]
+
+        for segment in updated_attributes:
+            segment.pop("forward_holding_coordinate", None)
+            segment.pop("reverse_holding_coordinate", None)
+
+        original_segment = updated_attributes[segment_index]
+
+        origin_side_segment = dict(original_segment)
+        destination_side_segment = dict(original_segment)
+
+        origin_side_segment.pop(
+            "ground_elevation_ft",
+            None,
+        )
+
+        updated_attributes[
+            segment_index:segment_index + 1
+        ] = [
+            origin_side_segment,
+            destination_side_segment,
+        ]
+
+        direction = route["direction"]
+
+        if direction in (
+            ROUTE_DIRECTION_FORWARD,
+            ROUTE_DIRECTION_BIDIRECTIONAL,
+        ):
+            holding_coordinate = select_route_holding_coordinate(
+                updated_coordinates[-1],
+                updated_coordinates[-2],
+                ROUTE_INTERSECTION_HOLDING_SETBACK_FT,
+                connection=connection,
+            )
+
+            if holding_coordinate is None:
+                raise ValueError(
+                    "Final Route segment is shorter than holding setback"
+                )
+
+            updated_attributes[-1][
+                "forward_holding_coordinate"
+            ] = holding_coordinate
+
+        if direction in (
+            ROUTE_DIRECTION_REVERSE,
+            ROUTE_DIRECTION_BIDIRECTIONAL,
+        ):
+            holding_coordinate = select_route_holding_coordinate(
+                updated_coordinates[0],
+                updated_coordinates[1],
+                ROUTE_INTERSECTION_HOLDING_SETBACK_FT,
+                connection=connection,
+            )
+
+            if holding_coordinate is None:
+                raise ValueError(
+                    "Initial Route segment is shorter than holding setback"
+                )
+
+            updated_attributes[0][
+                "reverse_holding_coordinate"
+            ] = holding_coordinate
+
+        connection.execute(
+            text("""
+                UPDATE routes
+                SET
+                    geometry = ST_SetSRID(
+                        ST_GeomFromGeoJSON(:geometry),
+                        :srid
+                    ),
+                    segment_attributes = CAST(
+                        :segment_attributes AS jsonb
+                    )
+                WHERE route_id = :route_id
+            """),
+            {
+                "route_id": route_id,
+                "geometry": json.dumps(updated_geometry),
+                "segment_attributes": json.dumps(
+                    updated_attributes
+                ),
+                "srid": DEFAULT_SRID,
+            },
+        )
+
+        existing_connections = connection.execute(
+            text("""
+                SELECT
+                    route_node_id,
+                    waypoint_index
+                FROM route_node_connections
+                WHERE route_id = :route_id
+                  AND waypoint_index >= :insertion_index
+                ORDER BY waypoint_index DESC
+            """),
+            {
+                "route_id": route_id,
+                "insertion_index": insertion_index,
+            },
+        ).mappings().all()
+
+        for existing_connection in existing_connections:
+            connection.execute(
+                text("""
+                    UPDATE route_node_connections
+                    SET waypoint_index = :new_index
+                    WHERE route_id = :route_id
+                      AND route_node_id = :route_node_id
+                """),
+                {
+                    "route_id": route_id,
+                    "route_node_id": existing_connection[
+                        "route_node_id"
+                    ],
+                    "new_index": existing_connection[
+                        "waypoint_index"
+                    ] + 1,
+                },
+            )
+
+        route_node_id, _ = resolve_or_create_route_node(
+            connection,
+            split["longitude"],
+            split["latitude"],
+        )
+
+        insert_route_node_connection(
+            connection,
+            route_id,
+            route_node_id,
+            insertion_index,
+        )
+
+        return {
+            "route_id": str(route_id),
+            "route_node_id": str(route_node_id),
+            "waypoint_index": insertion_index,
+            "segment_index": segment_index,
+            "longitude": split["longitude"],
+            "latitude": split["latitude"],
+        }
 
 
 def insert_overlay_review(data):
