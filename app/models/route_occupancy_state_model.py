@@ -506,3 +506,41 @@ def assign_route_occupancy_altitude(
     return result.scalars().all()
 
 
+def release_flight_execution_route_occupancy(
+    connection,
+    *,
+    flight_execution_id,
+    termination_datetime,
+):
+    deleted = connection.execute(
+        text("""
+            DELETE FROM route_occupancy_state
+            WHERE flight_execution_id = :flight_execution_id
+              AND state = 'planned'
+            RETURNING route_occupancy_state_id
+        """),
+        {
+            "flight_execution_id": flight_execution_id,
+        },
+    ).scalars().all()
+
+    exited = connection.execute(
+        text("""
+            UPDATE route_occupancy_state
+            SET
+                state = 'exited',
+                cleared = TRUE,
+                actual_exit_time = :termination_datetime,
+                last_state_change_at = :termination_datetime
+            WHERE flight_execution_id = :flight_execution_id
+              AND state = 'active'
+            RETURNING route_occupancy_state_id
+        """),
+        {
+            "flight_execution_id": flight_execution_id,
+            "termination_datetime": termination_datetime,
+        },
+    ).scalars().all()
+
+    return deleted + exited
+

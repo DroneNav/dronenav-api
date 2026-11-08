@@ -11,6 +11,7 @@ from app.models.route_occupancy_state_model import (
     assign_route_occupancy_altitude,
     count_active_route_occupancy,
     clear_route_occupancy,
+    release_flight_execution_route_occupancy,
 )
 
 from app.models.geospatial_model import (
@@ -436,6 +437,37 @@ def request_route_vertical_layer(
 
     return {
         "assigned_relative_altitude_ft": assigned_layer
+    }, 200
+
+
+def release_simulation_route_slots(
+    *,
+    flight_execution_id,
+):
+    """
+    Release all Route occupancies for a terminated
+    simulated Flight Execution.
+    """
+
+    from datetime import datetime, timezone
+
+    with engine.begin() as connection:
+        released_ids = release_flight_execution_route_occupancy(
+            connection,
+            flight_execution_id=flight_execution_id,
+            termination_datetime=datetime.now(timezone.utc),
+        )
+
+    LOGGER.info(
+        "Simulation Route slots released: "
+        "flight_execution_id=%s count=%s",
+        flight_execution_id,
+        len(released_ids),
+    )
+
+    return {
+        "flight_execution_id": str(flight_execution_id),
+        "released_count": len(released_ids),
     }, 200
 
 

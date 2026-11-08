@@ -42,6 +42,8 @@ operations. All operational use remains the responsibility
 of the aircraft operator and applicable regulatory authorities.
 """
 
+import os
+
 from flask import Blueprint, jsonify, request
 from flask_cors import CORS
 
@@ -60,6 +62,7 @@ from app.services.flight_execution_service import (
 
 from app.services.route_traffic_service import (
     request_route_vertical_layer,
+    release_simulation_route_slots,
 )
 
 from app.services.intersection_state_service import (
@@ -275,6 +278,30 @@ def request_route_slot_route(flight_execution_id):
     response, status_code = request_route_vertical_layer(
         route_id=route_id,
         flight_band_id=flight_band_id,
+        flight_execution_id=flight_execution_id,
+    )
+
+    return jsonify(response), status_code
+
+
+@flight_executions_bp.route(
+    "/api/flight-executions/<flight_execution_id>/route-slot/release",
+    methods=["POST", "OPTIONS"],
+)
+def release_route_slot_route(flight_execution_id):
+
+    if request.method == "OPTIONS":
+        return "", 204
+
+    if os.getenv("FLASK_ENV") != "development":
+        return jsonify({
+            "error": (
+                "Unconditional Route slot release is "
+                "restricted to development."
+            )
+        }), 403
+
+    response, status_code = release_simulation_route_slots(
         flight_execution_id=flight_execution_id,
     )
 
