@@ -191,14 +191,14 @@ def set_route_intersection_hold(
                 0
             ) + 1
             FROM route_occupancy_state
-            WHERE route_id = :route_id
+            WHERE intersection_hold_route_node_id = :route_node_id
               AND flight_band_id = :flight_band_id
               AND assigned_relative_altitude_ft =
                   :assigned_relative_altitude_ft
               AND state = 'active'
         """),
         {
-            "route_id": route_id,
+            "route_node_id": route_node_id,
             "flight_band_id": flight_band_id,
             "assigned_relative_altitude_ft": (
                 assigned_relative_altitude_ft
@@ -260,7 +260,8 @@ def clear_route_intersection_hold(
             UPDATE route_occupancy_state
             SET
                 intersection_hold_route_node_id = NULL,
-                intersection_hold_at = NULL
+                intersection_hold_at = NULL,
+                intersection_hold_position = NULL
             WHERE route_id = :route_id
               AND flight_execution_id = :flight_execution_id
               AND state = 'active'
@@ -282,40 +283,6 @@ def clear_route_intersection_hold(
 
     cleared_state_id = result.scalar_one_or_none()
 
-    if cleared_state_id is None:
-        return None
-
-    connection.execute(
-        text("""
-            UPDATE route_occupancy_state
-            SET intersection_hold_position = NULL
-            WHERE route_id = :route_id
-              AND flight_band_id = :flight_band_id
-              AND assigned_relative_altitude_ft =
-                  :assigned_relative_altitude_ft
-              AND intersection_hold_position IS NOT NULL
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM route_occupancy_state AS waiting
-                  WHERE waiting.route_id = :route_id
-                    AND waiting.flight_band_id = :flight_band_id
-                    AND waiting.assigned_relative_altitude_ft =
-                        :assigned_relative_altitude_ft
-                    AND waiting.state = 'active'
-                    AND waiting.intersection_hold_route_node_id =
-                        :route_node_id
-              )
-        """),
-        {
-            "route_id": route_id,
-            "route_node_id": route_node_id,
-            "flight_band_id": flight_band_id,
-            "assigned_relative_altitude_ft": (
-                assigned_relative_altitude_ft
-            ),
-        },
-    )
-
     return cleared_state_id
 
 
@@ -325,6 +292,7 @@ def select_next_intersection_hold(
     route_node_id,
     flight_band_id,
     assigned_relative_altitude_ft,
+    exclude_flight_execution_id=None,
 ):
     result = connection.execute(
         text("""
@@ -337,6 +305,10 @@ def select_next_intersection_hold(
                 intersection_hold_at
             FROM route_occupancy_state
             WHERE state = 'active'
+              AND (
+                  :exclude_flight_execution_id IS NULL
+                  OR flight_execution_id <> :exclude_flight_execution_id
+              )
               AND intersection_hold_route_node_id = :route_node_id
               AND flight_band_id = :flight_band_id
               AND assigned_relative_altitude_ft =
@@ -353,6 +325,7 @@ def select_next_intersection_hold(
             "assigned_relative_altitude_ft": (
                 assigned_relative_altitude_ft
             ),
+            "exclude_flight_execution_id": exclude_flight_execution_id,
         },
     )
 

@@ -59,7 +59,6 @@ from app.config.constants import (
     ROUTE_DIRECTION_FORWARD,
     ROUTE_DIRECTION_REVERSE,
     ROUTE_DIRECTION_BIDIRECTIONAL,
-    ROUTE_INTERSECTION_HOLDING_SETBACK_FT,
 )
 
 from app.config.database import engine
@@ -676,7 +675,7 @@ def split_route_segment_record(
             holding_coordinate = select_route_holding_coordinate(
                 updated_coordinates[-1],
                 updated_coordinates[-2],
-                ROUTE_INTERSECTION_HOLDING_SETBACK_FT,
+                updated_attributes[-1]["route_width_ft"],
                 connection=connection,
             )
 
@@ -696,7 +695,7 @@ def split_route_segment_record(
             holding_coordinate = select_route_holding_coordinate(
                 updated_coordinates[0],
                 updated_coordinates[1],
-                ROUTE_INTERSECTION_HOLDING_SETBACK_FT,
+                updated_attributes[0]["route_width_ft"],
                 connection=connection,
             )
 
@@ -1050,6 +1049,23 @@ def select_route_segment_boundary_crossing(data):
         return result.mappings().first()
 
 
+def select_route_node_connections(route_id):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    route_node_id,
+                    waypoint_index
+                FROM route_node_connections
+                WHERE route_id = :route_id
+                ORDER BY waypoint_index
+            """),
+            {"route_id": route_id},
+        )
+
+        return [dict(row) for row in result.mappings().all()]
+
+
 def select_transition_point_containment(data):
     """Determine whether a point is inside a derived transition circle."""
 
@@ -1326,6 +1342,32 @@ def count_routes_for_route_node(route_node_id):
             },
         )
 
+        return result.scalar_one()
+
+
+def count_incident_segments_for_route_node(route_node_id):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT COALESCE(
+                    SUM(
+                        CASE
+                            WHEN rnc.waypoint_index = 0
+                              OR rnc.waypoint_index =
+                                  ST_NPoints(r.geometry) - 1
+                            THEN 1
+                            ELSE 2
+                        END
+                    ),
+                    0
+                )
+                FROM route_node_connections AS rnc
+                JOIN routes AS r
+                  ON r.route_id = rnc.route_id
+                WHERE rnc.route_node_id = :route_node_id
+            """),
+            {"route_node_id": route_node_id},
+        )
         return result.scalar_one()
 
 

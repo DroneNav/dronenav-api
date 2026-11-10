@@ -55,7 +55,6 @@ from app.config.constants import (
     ROUTE_DIRECTION_FORWARD,
     ROUTE_DIRECTION_REVERSE,
     ROUTE_DIRECTION_BIDIRECTIONAL,
-    ROUTE_INTERSECTION_HOLDING_SETBACK_FT,
 )
 
 from app.models.overlay_package_model import (
@@ -77,6 +76,13 @@ from app.models.route_model import (
     patch_route_record,
     soft_delete_route,
     insert_overlay_review,
+)
+
+from app.models.route_model import (
+    count_incident_segments_for_route_node,
+)
+from app.models.droneport_model import (
+    select_droneport_by_route_node_id,
 )
 
 from app.models.route_model import (
@@ -792,7 +798,7 @@ def enrich_route_holding_coordinates(data):
         holding_coordinate = select_route_holding_coordinate(
             coordinates[-1],
             coordinates[-2],
-            ROUTE_INTERSECTION_HOLDING_SETBACK_FT,
+            segment_attributes[0]["route_width_ft"],
         )
 
         if holding_coordinate is None:
@@ -811,7 +817,7 @@ def enrich_route_holding_coordinates(data):
         holding_coordinate = select_route_holding_coordinate(
             coordinates[0],
             coordinates[1],
-            ROUTE_INTERSECTION_HOLDING_SETBACK_FT,
+            segment_attributes[0]["route_width_ft"],
         )
 
         if holding_coordinate is None:
@@ -827,5 +833,15 @@ def enrich_route_holding_coordinates(data):
 
 
 def is_managed_route_node(route_node_id):
-    return count_routes_for_route_node(route_node_id) > 2
+    incident_segments = count_incident_segments_for_route_node(
+        route_node_id
+    )
+
+    if incident_segments < 3:
+        return False
+
+    return (
+        select_droneport_by_route_node_id(route_node_id)
+        is not None
+    )
 

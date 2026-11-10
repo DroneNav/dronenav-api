@@ -47,6 +47,8 @@ translation of one immutable Drupal Flight Plan. NAVProxy is its
 exclusive consumer.
 """
 
+import json
+
 from sqlalchemy import bindparam, text
 
 from app.config.database import engine
@@ -1244,7 +1246,9 @@ def update_flight_execution_route_mission_ranges(
                         end_mission_sequence =
                             :end_mission_sequence,
                         segment_mission_sequences =
-                            :segment_mission_sequences
+                            :segment_mission_sequences,
+                        managed_intersections =
+                            CAST(:managed_intersections AS JSONB)
                     WHERE flight_execution_id = :flight_execution_id
                       AND sequence_number = :sequence_number
                 """),
@@ -1261,6 +1265,9 @@ def update_flight_execution_route_mission_ranges(
                     ),
                     "segment_mission_sequences": (
                         route_range["segment_mission_sequences"]
+                    ),
+                    "managed_intersections": json.dumps(
+                        route_range["managed_intersections"]
                     ),
                 },
             )
@@ -1280,6 +1287,7 @@ def select_flight_execution_route_ranges(
                         fer.start_mission_sequence,
                         fer.end_mission_sequence,
                         fer.segment_mission_sequences,
+                        fer.managed_intersections,
                         r.origin_route_node_id,
                         r.destination_route_node_id,
                         r.direction,
@@ -1316,6 +1324,7 @@ def select_flight_execution_route_ranges(
                         fer.start_mission_sequence,
                         fer.end_mission_sequence,
                         fer.segment_mission_sequences,
+                        fer.managed_intersections,
                         r.origin_route_node_id,
                         r.destination_route_node_id,
                         r.direction,
@@ -1349,6 +1358,7 @@ def select_flight_execution_route_ranges(
                     path.start_mission_sequence,
                     path.end_mission_sequence,
                     path.segment_mission_sequences,
+                    path.managed_intersections,
                     d.route_node_id AS intersection_route_node_id,
                     d.droneport_id AS intersection_droneport_id,
                     d.droneport_diameter_ft AS intersection_diameter_ft,

@@ -22,6 +22,7 @@ def reserve_intersection_slot(
     flight_execution_id,
     from_route_id,
     to_route_id,
+    return_status=False,
 ):
     lock_intersection_slot(
         connection,
@@ -52,7 +53,29 @@ def reserve_intersection_slot(
             assigned_relative_altitude_ft=assigned_relative_altitude_ft,
         )
 
+    if state["state"] == "reserved":
+        if (
+            str(state["flight_execution_id"])
+            == str(flight_execution_id)
+            and str(state["from_route_id"])
+            == str(from_route_id)
+            and str(state["to_route_id"])
+            == str(to_route_id)
+        ):
+            if return_status:
+                return state["intersection_state_id"], False
+
+            return state["intersection_state_id"]
+
+        if return_status:
+            return None, False
+
+        return None
+
     if state["state"] != "clear":
+        if return_status:
+            return None, False
+
         return None
 
     result = reserve_intersection_state(
@@ -71,6 +94,9 @@ def reserve_intersection_slot(
             flight_execution_id,
             assigned_relative_altitude_ft,
         )
+
+    if return_status:
+        return result, result is not None
 
     return result
 

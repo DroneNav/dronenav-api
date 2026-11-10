@@ -131,6 +131,9 @@ CREATE TABLE flight_execution_routes (
 
 );
 
+ALTER TABLE flight_execution_routes
+ADD COLUMN managed_intersections JSONB NOT NULL DEFAULT '[]'::jsonb;
+
 CREATE INDEX idx_flight_execution_authority
     ON flight_executions(authority_id);
 
