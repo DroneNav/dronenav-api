@@ -832,7 +832,7 @@ def enrich_route_holding_coordinates(data):
     return data
 
 
-def is_managed_route_node(route_node_id):
+def is_managed_intersection(route_node_id):
     incident_segments = count_incident_segments_for_route_node(
         route_node_id
     )

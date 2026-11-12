@@ -60,7 +60,7 @@ from app.services.route_service import (
     evaluate_route_segment_boundary_crossing,
     evaluate_transition_point_containment,
     get_coordinate_distance,
-    is_managed_route_node,
+    is_managed_intersection,
 )
 
 routes_bp = Blueprint("routes", __name__)
@@ -420,5 +420,5 @@ def get_managed_intersection_route(route_node_id):
 
     return jsonify({
         "route_node_id": route_node_id,
-        "managed": is_managed_route_node(route_node_id),
+        "managed": is_managed_intersection(route_node_id),
     })

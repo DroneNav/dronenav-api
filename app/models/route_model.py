@@ -927,6 +927,29 @@ def select_routes_by_site_id(site_id):
         return result.mappings().all()
 
 
+def select_routes_for_route_node(route_node_id):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    rnc.route_id,
+                    rnc.waypoint_index
+                FROM route_node_connections AS rnc
+                JOIN routes AS r
+                  ON r.route_id = rnc.route_id
+                WHERE rnc.route_node_id = :route_node_id
+                  AND r.operational_status <> :deleted_status
+                ORDER BY rnc.route_id, rnc.waypoint_index
+            """),
+            {
+                "route_node_id": route_node_id,
+                "deleted_status": ROUTE_STATUS_DELETED,
+            },
+        )
+
+        return [dict(row) for row in result.mappings().all()]
+
+
 def select_route_segment_conformance(data):
     with engine.connect() as connection:
         result = connection.execute(

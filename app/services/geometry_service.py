@@ -159,3 +159,42 @@ def build_offset_polyline(
     return offset_coordinates
 
 
+def calculate_turn_angle(
+  incoming_start: list[float],
+  vertex: list[float],
+  outgoing_end: list[float],
+) -> float:
+  """Calculate the direction change between two lane segments."""
+
+  latitude_radians = math.radians(vertex[1])
+
+  longitude_scale = math.cos(latitude_radians)
+
+  incoming_x = (
+    vertex[0] - incoming_start[0]
+  ) * longitude_scale
+  incoming_y = vertex[1] - incoming_start[1]
+
+  outgoing_x = (
+    outgoing_end[0] - vertex[0]
+  ) * longitude_scale
+  outgoing_y = outgoing_end[1] - vertex[1]
+
+  incoming_length = math.hypot(incoming_x, incoming_y)
+  outgoing_length = math.hypot(outgoing_x, outgoing_y)
+
+  if incoming_length == 0 or outgoing_length == 0:
+    raise ValueError("Turn contains a zero-length segment.")
+
+  cross = (
+    incoming_x * outgoing_y
+    - incoming_y * outgoing_x
+  )
+
+  dot = (
+    incoming_x * outgoing_x
+    + incoming_y * outgoing_y
+  )
+
+  return math.degrees(math.atan2(abs(cross), dot))
+
