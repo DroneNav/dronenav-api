@@ -93,6 +93,9 @@ CREATE TABLE flight_executions (
         REFERENCES flight_executions(flight_execution_id)
 );
 
+ALTER TABLE flight_executions
+ADD COLUMN active_route_segment_index INTEGER NOT NULL DEFAULT 0;
+
 CREATE TABLE flight_execution_routes (
 
     flight_execution_id UUID NOT NULL,

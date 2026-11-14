@@ -65,9 +65,15 @@ from app.routes.tfrs import tfrs_bp
 from app.routes.aircraft import aircraft_bp
 
 import app.routes.aircraft_calibration_profiles
+import os
 
 
 app = Flask(__name__)
+
+# Reset SITL round-robin sequence on API startup.
+if os.environ.get("DRONENAV_SITL_ENDPOINTS"):
+    with open("tmp/dronenav_sitl_sequence", "w") as file:
+        file.write("0")
 
 CORS(
     app,

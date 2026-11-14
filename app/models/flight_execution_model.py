@@ -448,6 +448,68 @@ def update_flight_execution_status(
         return dict(row) if row is not None else None
 
 
+def update_flight_execution_route_segment_index(
+    flight_execution_id,
+    segment_index,
+):
+    """Persist geographic Route segment progression."""
+
+    if (
+        isinstance(segment_index, bool)
+        or not isinstance(segment_index, int)
+        or segment_index < 0
+    ):
+        raise ValueError(
+            "segment_index must be a nonnegative integer."
+        )
+
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE flight_executions
+                SET
+                    active_route_segment_index = :segment_index
+                WHERE flight_execution_id = :flight_execution_id
+                  AND active_route_segment_index <= :segment_index
+                RETURNING
+                    flight_execution_id,
+                    active_route_segment_index
+            """),
+            {
+                "flight_execution_id": flight_execution_id,
+                "segment_index": segment_index,
+            },
+        )
+
+        row = result.mappings().first()
+        return dict(row) if row is not None else None
+
+
+def select_flight_execution_route_segment_index(
+    flight_execution_id,
+):
+    """Read the current geographic Route segment index."""
+
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT active_route_segment_index
+                FROM flight_executions
+                WHERE flight_execution_id = :flight_execution_id
+            """),
+            {
+                "flight_execution_id": flight_execution_id,
+            },
+        )
+
+        row = result.mappings().first()
+
+        if row is None:
+            return None
+
+        return row["active_route_segment_index"]
+
+
 def update_requested_departure_datetime(
     flight_execution_id,
     requested_departure_datetime,

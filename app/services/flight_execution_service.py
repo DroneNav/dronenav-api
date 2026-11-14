@@ -75,6 +75,7 @@ from app.models.flight_execution_model import (
     select_next_flight_execution,
     select_resumable_flight_execution_by_flight_plan,
     select_root_flight_execution_id,
+    update_flight_execution_route_segment_index,
 )
 from app.models.site_model import select_site
 from app.config.database import engine
@@ -1370,5 +1371,26 @@ def format_flight_execution(row):
         ],
         "via_status": row["via_status"],
     }
+
+
+def advance_flight_execution_route_segment(
+    flight_execution_id,
+    segment_index,
+):
+    """Persist NAVProxy's authoritative geographic segment progression."""
+
+    updated_execution = update_flight_execution_route_segment_index(
+        flight_execution_id,
+        segment_index,
+    )
+
+    if updated_execution is None:
+        raise RuntimeError(
+            "Flight Execution segment progression update failed: "
+            f"execution={flight_execution_id} "
+            f"segment_index={segment_index}"
+        )
+
+    return updated_execution
 
 

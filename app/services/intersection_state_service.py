@@ -8,6 +8,16 @@ from app.models.intersection_state_model import (
     select_intersection_state,
 )
 
+from app.models.route_model import (
+    select_route_maximum_aircraft_capacity,
+)
+
+from app.models.route_occupancy_state_model import (
+    count_route_committed_occupancy,
+    lock_route_flight_band_allocation,
+    select_oldest_destination_route_hold,
+)
+
 import logging
 
 
@@ -24,6 +34,25 @@ def reserve_intersection_slot(
     to_route_id,
     return_status=False,
 ):
+    maximum_aircraft_capacity = (
+        select_route_maximum_aircraft_capacity(
+            connection,
+            to_route_id,
+        )
+    )
+
+    if maximum_aircraft_capacity is None:
+        raise ValueError(
+            f"Destination Route not found: {to_route_id}"
+        )
+
+    if maximum_aircraft_capacity > 0:
+        lock_route_flight_band_allocation(
+            connection,
+            route_id=to_route_id,
+            flight_band_id=flight_band_id,
+        )
+
     lock_intersection_slot(
         connection,
         route_node_id=route_node_id,
@@ -77,6 +106,56 @@ def reserve_intersection_slot(
             return None, False
 
         return None
+
+    if maximum_aircraft_capacity > 0:
+        oldest_hold = select_oldest_destination_route_hold(
+            connection,
+            route_id=to_route_id,
+            flight_band_id=flight_band_id,
+        )
+
+        if (
+            oldest_hold is not None
+            and str(oldest_hold["flight_execution_id"])
+            != str(flight_execution_id)
+        ):
+            logger.info(
+                "Destination Route FIFO admission deferred: "
+                "route_id=%s flight_execution_id=%s "
+                "oldest_waiting_flight_execution_id=%s",
+                to_route_id,
+                flight_execution_id,
+                oldest_hold["flight_execution_id"],
+            )
+
+            if return_status:
+                return None, False
+
+            return None
+
+    if maximum_aircraft_capacity > 0:
+        committed_count = count_route_committed_occupancy(
+            connection,
+            route_id=to_route_id,
+            flight_band_id=flight_band_id,
+        )
+
+        if committed_count >= maximum_aircraft_capacity:
+            logger.info(
+                "Destination Route at capacity: "
+                "route_id=%s flight_band_id=%s "
+                "committed=%s maximum=%s",
+                to_route_id,
+                flight_band_id,
+                committed_count,
+                maximum_aircraft_capacity,
+            )
+
+            if return_status:
+                return None, False
+
+            return None
+
 
     result = reserve_intersection_state(
         connection,

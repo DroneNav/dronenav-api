@@ -50,6 +50,46 @@ def lock_intersection_slot(
     )
 
 
+def _flight_intersection_lock_key(
+    flight_execution_id,
+) -> int:
+    """Generate a dedicated advisory lock key for a Flight Execution."""
+
+    value = f"flight_intersection:{flight_execution_id}"
+
+    digest = hashlib.blake2b(
+        value.encode("utf-8"),
+        digest_size=8,
+    ).digest()
+
+    return int.from_bytes(
+        digest,
+        byteorder="big",
+        signed=True,
+    )
+
+
+def lock_flight_intersection(
+    connection,
+    *,
+    flight_execution_id,
+):
+    """Serialize intersection operations for a Flight Execution."""
+
+    lock_key = _flight_intersection_lock_key(
+        flight_execution_id
+    )
+
+    connection.execute(
+        text("""
+            SELECT pg_advisory_xact_lock(:lock_key)
+        """),
+        {
+            "lock_key": lock_key,
+        },
+    )
+
+
 def select_intersection_state(
     connection,
     *,
@@ -115,6 +155,33 @@ def select_flight_intersection_state(
     )
 
     return result.scalar_one_or_none()
+
+
+def select_active_flight_intersection(
+    connection,
+    *,
+    flight_execution_id,
+):
+    """Find an outstanding intersection owned by a Flight Execution."""
+
+    result = connection.execute(
+        text("""
+            SELECT
+                intersection_state_id,
+                route_node_id,
+                state
+            FROM intersection_states
+            WHERE flight_execution_id = :flight_execution_id
+              AND state IN ('reserved', 'occupied')
+            LIMIT 1
+        """),
+        {
+            "flight_execution_id": flight_execution_id,
+        },
+    )
+
+    row = result.mappings().first()
+    return dict(row) if row is not None else None
 
 
 def insert_intersection_state(

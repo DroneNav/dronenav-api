@@ -286,6 +286,89 @@ def clear_route_intersection_hold(
     return cleared_state_id
 
 
+def select_oldest_destination_route_hold(
+    connection,
+    *,
+    route_id,
+    flight_band_id,
+):
+    """Find the oldest HOLD waiting to enter a destination Route."""
+
+    result = connection.execute(
+        text("""
+            SELECT
+                occupancy.route_occupancy_state_id,
+                occupancy.route_id,
+                occupancy.flight_execution_id,
+                occupancy.flight_band_id,
+                occupancy.assigned_relative_altitude_ft,
+                occupancy.intersection_hold_route_node_id,
+                occupancy.intersection_hold_at
+            FROM route_occupancy_state occupancy
+            JOIN flight_execution_routes incoming
+              ON incoming.flight_execution_id =
+                  occupancy.flight_execution_id
+             AND incoming.route_id = occupancy.route_id
+            WHERE occupancy.state = 'active'
+              AND occupancy.flight_band_id = :flight_band_id
+              AND occupancy.intersection_hold_route_node_id IS NOT NULL
+              AND EXISTS (
+                  SELECT 1
+                  FROM jsonb_array_elements(
+                      incoming.managed_intersections
+                  ) AS intersection(value)
+                  WHERE intersection.value->>'route_node_id' =
+                      occupancy.intersection_hold_route_node_id::text
+                    AND intersection.value->>'to_route_id' =
+                      CAST(:route_id AS text)
+              )
+            ORDER BY
+                occupancy.intersection_hold_at ASC,
+                occupancy.route_occupancy_state_id ASC
+            LIMIT 1
+        """),
+        {
+            "route_id": route_id,
+            "flight_band_id": flight_band_id,
+        },
+    )
+
+    return result.mappings().one_or_none()
+
+
+def select_route_capacity_holds(
+    connection,
+    *,
+    flight_band_id,
+):
+    """Return waiting aircraft in FIFO order across intersections."""
+
+    result = connection.execute(
+        text("""
+            SELECT
+                route_occupancy_state_id,
+                route_id,
+                flight_execution_id,
+                flight_band_id,
+                assigned_relative_altitude_ft,
+                intersection_hold_route_node_id,
+                intersection_hold_at
+            FROM route_occupancy_state
+            WHERE state = 'active'
+              AND flight_band_id = :flight_band_id
+              AND intersection_hold_route_node_id IS NOT NULL
+            ORDER BY
+                intersection_hold_at ASC,
+                route_occupancy_state_id ASC
+        """),
+        {
+            "flight_band_id": flight_band_id,
+        },
+    )
+
+    return result.mappings().all()
+
+
 def select_next_intersection_hold(
     connection,
     *,
@@ -293,9 +376,12 @@ def select_next_intersection_hold(
     flight_band_id,
     assigned_relative_altitude_ft,
     exclude_flight_execution_id=None,
+    lock_row=True,
 ):
+    lock_clause = "FOR UPDATE" if lock_row else ""
+
     result = connection.execute(
-        text("""
+        text(f"""
             SELECT
                 route_occupancy_state_id,
                 route_id,
@@ -317,7 +403,7 @@ def select_next_intersection_hold(
                 intersection_hold_at ASC,
                 route_occupancy_state_id ASC
             LIMIT 1
-            FOR UPDATE
+            {lock_clause}
         """),
         {
             "route_node_id": route_node_id,
@@ -376,6 +462,40 @@ def count_active_route_occupancy(
             WHERE route_id = :route_id
               AND flight_band_id = :flight_band_id
               AND state = 'active'
+        """),
+        {
+            "route_id": route_id,
+            "flight_band_id": flight_band_id,
+        },
+    )
+
+    return result.scalar_one()
+
+
+def count_route_committed_occupancy(
+    connection,
+    *,
+    route_id,
+    flight_band_id,
+):
+    result = connection.execute(
+        text("""
+            SELECT COUNT(DISTINCT flight_execution_id)
+            FROM (
+                SELECT flight_execution_id
+                FROM route_occupancy_state
+                WHERE route_id = :route_id
+                  AND flight_band_id = :flight_band_id
+                  AND state = 'active'
+
+                UNION ALL
+
+                SELECT flight_execution_id
+                FROM intersection_states
+                WHERE to_route_id = :route_id
+                  AND flight_band_id = :flight_band_id
+                  AND state IN ('reserved', 'occupied')
+            ) AS committed
         """),
         {
             "route_id": route_id,

@@ -811,6 +811,26 @@ def insert_overlay_review(data):
         return str(result.scalar())
 
 
+def select_route_maximum_aircraft_capacity(
+    connection,
+    route_id,
+):
+    result = connection.execute(
+        text("""
+            SELECT maximum_aircraft_capacity
+            FROM routes
+            WHERE route_id = :route_id
+              AND operational_status <> :deleted_status
+        """),
+        {
+            "route_id": route_id,
+            "deleted_status": ROUTE_STATUS_DELETED,
+        },
+    )
+
+    return result.scalar_one_or_none()
+
+
 def select_route(route_id):
     with engine.connect() as connection:
         result = connection.execute(
