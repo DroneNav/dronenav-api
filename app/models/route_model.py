@@ -59,7 +59,10 @@ from app.config.constants import (
     ROUTE_DIRECTION_FORWARD,
     ROUTE_DIRECTION_REVERSE,
     ROUTE_DIRECTION_BIDIRECTIONAL,
+    MINIMUM_TURN_ANGLE_DEG,
+    MAXIMUM_TURN_ANGLE_DEG,
 )
+from app.services.geometry_service import calculate_turn_angle
 
 from app.config.database import engine
 
@@ -291,6 +294,58 @@ def insert_route(data):
                 "destination_waypoint_index": len(coordinates) - 1,
             }
         )
+
+        if (
+            data["direction"] == 2
+            and data["maximum_aircraft_capacity"] != 1
+        ):
+            for waypoint_index in range(
+                1,
+                len(coordinates) - 1,
+            ):
+                try:
+                    angle = calculate_turn_angle(
+                        coordinates[waypoint_index - 1],
+                        coordinates[waypoint_index],
+                        coordinates[waypoint_index + 1],
+                    )
+                except ValueError:
+                    continue
+
+                if not (
+                    MINIMUM_TURN_ANGLE_DEG
+                    <= angle
+                    <= MAXIMUM_TURN_ANGLE_DEG
+                ):
+                    continue
+
+                longitude, latitude = coordinates[waypoint_index]
+
+                route_node_id, _ = resolve_or_create_route_node(
+                    connection,
+                    longitude,
+                    latitude,
+                )
+
+                connection.execute(
+                    text("""
+                        INSERT INTO route_node_connections (
+                            route_id,
+                            route_node_id,
+                            waypoint_index
+                        )
+                        VALUES (
+                            :route_id,
+                            :route_node_id,
+                            :waypoint_index
+                        )
+                    """),
+                    {
+                        "route_id": route_id,
+                        "route_node_id": route_node_id,
+                        "waypoint_index": waypoint_index,
+                    },
+                )
 
         return route_id
 
