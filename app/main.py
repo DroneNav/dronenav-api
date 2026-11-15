@@ -63,8 +63,11 @@ from app.routes.flight_context import flight_context_bp
 from app.routes.flight_actual_path import flight_actual_path_bp
 from app.routes.tfrs import tfrs_bp
 from app.routes.aircraft import aircraft_bp
+from app.routes.residential_destination import residential_destinations_bp
 
-import app.routes.aircraft_calibration_profiles
+from app.routes import aircraft_calibration_profiles
+assert aircraft_calibration_profiles is not None
+
 import os
 
 
@@ -108,6 +111,7 @@ app.register_blueprint(flight_context_bp)
 app.register_blueprint(flight_actual_path_bp)
 app.register_blueprint(tfrs_bp)
 app.register_blueprint(aircraft_bp)
+app.register_blueprint(residential_destinations_bp)
 
 
 @app.after_request
