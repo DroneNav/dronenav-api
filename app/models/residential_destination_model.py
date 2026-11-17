@@ -13,6 +13,8 @@ def insert_residential_destination_record(data):
                     normalized_address,
                     latitude,
                     longitude,
+                    geocoded_latitude,
+                    geocoded_longitude,
                     geocode_verified,
                     verified_by,
                     verified_at
@@ -23,6 +25,8 @@ def insert_residential_destination_record(data):
                     :normalized_address,
                     :latitude,
                     :longitude,
+                    :geocoded_latitude,
+                    :geocoded_longitude,
                     :geocode_verified,
                     :verified_by,
                     :verified_at
@@ -35,6 +39,8 @@ def insert_residential_destination_record(data):
                 "normalized_address": data["normalized_address"],
                 "latitude": data["latitude"],
                 "longitude": data["longitude"],
+                "geocoded_latitude": data["geocoded_latitude"],
+                "geocoded_longitude": data["geocoded_longitude"],
                 "geocode_verified": False,
                 "verified_by": None,
                 "verified_at": None,
@@ -53,6 +59,8 @@ def select_residential_destination_record(destination_id):
                     site_id,
                     street_address,
                     normalized_address,
+                    geocoded_latitude,
+                    geocoded_longitude,
                     latitude,
                     longitude,
                     geocode_verified,
@@ -76,6 +84,8 @@ def select_residential_destination_records(site_id):
                     site_id,
                     street_address,
                     normalized_address,
+                    geocoded_latitude,
+                    geocoded_longitude,
                     latitude,
                     longitude,
                     geocode_verified,
@@ -96,6 +106,8 @@ def patch_residential_destination_record(destination_id, data):
     allowed_fields = [
         "street_address",
         "normalized_address",
+        "geocoded_latitude",
+        "geocoded_longitude",
         "latitude",
         "longitude",
     ]
@@ -142,11 +154,26 @@ def verify_residential_destination_record(
                 SET
                     latitude = :latitude,
                     longitude = :longitude,
-                    geocode_verified = TRUE,
-                    verified_by = :verified_by,
-                    verified_at = now()
+                    geocode_verified = (
+                        :latitude <> geocoded_latitude
+                        AND :longitude <> geocoded_longitude
+                    ),
+                    verified_by = CASE
+                        WHEN :latitude <> geocoded_latitude
+                         AND :longitude <> geocoded_longitude
+                        THEN :verified_by
+                        ELSE NULL
+                    END,
+                    verified_at = CASE
+                        WHEN :latitude <> geocoded_latitude
+                         AND :longitude <> geocoded_longitude
+                        THEN now()
+                        ELSE NULL
+                    END
                 WHERE destination_id = :destination_id
-                RETURNING destination_id
+                RETURNING
+                    destination_id,
+                    geocode_verified
             """),
             {
                 "destination_id": destination_id,

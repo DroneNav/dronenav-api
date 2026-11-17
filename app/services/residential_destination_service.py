@@ -64,6 +64,8 @@ def validate_residential_destination_values(data):
                 return f"{field} must be a non-empty string"
 
     coordinate_fields = {
+        "geocoded_latitude": (-90, 90),
+        "geocoded_longitude": (-180, 180),
         "latitude": (-90, 90),
         "longitude": (-180, 180),
     }
@@ -90,6 +92,8 @@ def validate_residential_destination_payload(data):
         "site_id",
         "street_address",
         "normalized_address",
+        "geocoded_latitude",
+        "geocoded_longitude",
         "latitude",
         "longitude",
     ]
@@ -119,6 +123,8 @@ def validate_residential_destination_patch(data):
     allowed_fields = {
         "street_address",
         "normalized_address",
+        "geocoded_latitude",
+        "geocoded_longitude",
         "latitude",
         "longitude",
     }
@@ -165,6 +171,16 @@ def format_residential_destination(row):
         "site_id": str(row["site_id"]),
         "street_address": row["street_address"],
         "normalized_address": row["normalized_address"],
+        "geocoded_latitude": (
+          float(row["geocoded_latitude"])
+          if row["geocoded_latitude"] is not None
+          else None
+        ),
+        "geocoded_longitude": (
+          float(row["geocoded_longitude"])
+          if row["geocoded_longitude"] is not None
+          else None
+        ),
         "latitude": float(row["latitude"]),
         "longitude": float(row["longitude"]),
         "geocode_verified": row["geocode_verified"],
@@ -239,8 +255,13 @@ def verify_residential_destination(destination_id, data):
         return None, "Residential destination not found"
 
     return {
-        "status": "verified",
+        "status": (
+            "verified"
+            if row["geocode_verified"]
+            else "unverified"
+        ),
         "destination_id": str(row["destination_id"]),
+        "geocode_verified": row["geocode_verified"],
     }, None
 
 

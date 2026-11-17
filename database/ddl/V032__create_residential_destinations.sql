@@ -10,6 +10,9 @@ CREATE TABLE residential_destinations (
     latitude NUMERIC NOT NULL,
     longitude NUMERIC NOT NULL,
 
+    geocoded_latitude NUMERIC,
+    geocoded_longitude NUMERIC,
+
     geocode_verified BOOLEAN NOT NULL DEFAULT FALSE,
     verified_by TEXT,
     verified_at TIMESTAMPTZ,
