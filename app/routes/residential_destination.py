@@ -47,7 +47,6 @@ from app.services.residential_destination_service import (
     get_residential_destination_by_id,
     get_residential_destinations_by_site,
     patch_residential_destination,
-    verify_residential_destination,
     delete_residential_destination,
 )
 
@@ -183,43 +182,6 @@ def patch_residential_destination_route(destination_id):
         return error_response("A JSON object is required", 400)
 
     result, error = patch_residential_destination(
-        destination_id,
-        data,
-    )
-
-    if error:
-        status_code = (
-            404 if error == "Residential destination not found" else 400
-        )
-        return error_response(error, status_code)
-
-    return jsonify(result)
-
-
-@residential_destinations_bp.route(
-    "/api/residential-destinations/<destination_id>/verify",
-    methods=["POST", "OPTIONS"],
-)
-def verify_residential_destination_route(destination_id):
-
-    if request.method == "OPTIONS":
-        return "", 204
-
-    if not valid_uuid(destination_id):
-        return error_response(
-            "destination_id must be a valid UUID",
-            400,
-        )
-
-    data = request.get_json(silent=True)
-
-    if not isinstance(data, dict):
-        return error_response("A JSON object is required", 400)
-
-    # Manual satellite-image review must precede this request.
-    # Authentication and authorization must be enforced before
-    # this endpoint is enabled for operational use.
-    result, error = verify_residential_destination(
         destination_id,
         data,
     )

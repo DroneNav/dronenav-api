@@ -45,15 +45,15 @@ from app.models.residential_destination_model import (
     select_residential_destination_record,
     select_residential_destination_records,
     patch_residential_destination_record,
-    verify_residential_destination_record,
     delete_residential_destination_record,
 )
+
+from app.services.site_service import evaluate_point_in_site
 
 
 def validate_residential_destination_values(data):
     text_fields = [
         "street_address",
-        "normalized_address",
     ]
 
     for field in text_fields:
@@ -64,8 +64,6 @@ def validate_residential_destination_values(data):
                 return f"{field} must be a non-empty string"
 
     coordinate_fields = {
-        "geocoded_latitude": (-90, 90),
-        "geocoded_longitude": (-180, 180),
         "latitude": (-90, 90),
         "longitude": (-180, 180),
     }
@@ -91,9 +89,6 @@ def validate_residential_destination_payload(data):
     required_fields = [
         "site_id",
         "street_address",
-        "normalized_address",
-        "geocoded_latitude",
-        "geocoded_longitude",
         "latitude",
         "longitude",
     ]
@@ -122,9 +117,6 @@ def validate_residential_destination_patch(data):
 
     allowed_fields = {
         "street_address",
-        "normalized_address",
-        "geocoded_latitude",
-        "geocoded_longitude",
         "latitude",
         "longitude",
     }
@@ -132,32 +124,6 @@ def validate_residential_destination_patch(data):
     for field in data:
         if field not in allowed_fields:
             return f"Invalid field for patch: {field}"
-
-    return validate_residential_destination_values(data)
-
-
-def validate_residential_destination_verification(data):
-    required_fields = [
-        "latitude",
-        "longitude",
-        "verified_by",
-    ]
-
-    for field in required_fields:
-        if field not in data or data[field] is None or data[field] == "":
-            return f"Missing required field: {field}"
-
-    if (
-        not isinstance(data["verified_by"], str)
-        or not data["verified_by"].strip()
-    ):
-        return "verified_by must be a non-empty string"
-
-    allowed_fields = set(required_fields)
-
-    for field in data:
-        if field not in allowed_fields:
-            return f"Invalid field for verification: {field}"
 
     return validate_residential_destination_values(data)
 
@@ -170,33 +136,34 @@ def format_residential_destination(row):
         "destination_id": str(row["destination_id"]),
         "site_id": str(row["site_id"]),
         "street_address": row["street_address"],
-        "normalized_address": row["normalized_address"],
-        "geocoded_latitude": (
-          float(row["geocoded_latitude"])
-          if row["geocoded_latitude"] is not None
-          else None
-        ),
-        "geocoded_longitude": (
-          float(row["geocoded_longitude"])
-          if row["geocoded_longitude"] is not None
-          else None
-        ),
         "latitude": float(row["latitude"]),
         "longitude": float(row["longitude"]),
-        "geocode_verified": row["geocode_verified"],
-        "verified_by": row["verified_by"],
-        "verified_at": (
-            row["verified_at"].isoformat()
-            if row["verified_at"] else None
-        ),
     }
 
 
 def create_residential_destination(data):
+
     error = validate_residential_destination_payload(data)
 
     if error:
         return None, error
+
+    containment, error = evaluate_point_in_site(
+        data["site_id"],
+        {
+            "latitude": data["latitude"],
+            "longitude": data["longitude"],
+        },
+    )
+
+    if error:
+        return None, error
+
+    if not (
+        containment["inside"]
+        or containment["on_boundary"]
+    ):
+        return None, "Residential destination must be within the Site boundary"
 
     destination_id = insert_residential_destination_record(data)
 
@@ -224,6 +191,31 @@ def patch_residential_destination(destination_id, data):
     if error:
         return None, error
 
+    existing = select_residential_destination_record(destination_id)
+
+    if existing is None:
+        return None, "Residential destination not found"
+
+    latitude = data.get("latitude", existing["latitude"])
+    longitude = data.get("longitude", existing["longitude"])
+
+    containment, error = evaluate_point_in_site(
+        str(existing["site_id"]),
+        {
+            "latitude": latitude,
+            "longitude": longitude,
+        },
+    )
+
+    if error:
+        return None, error
+
+    if not (
+        containment["inside"]
+        or containment["on_boundary"]
+    ):
+        return None, "Residential destination must be within the Site boundary"
+
     row = patch_residential_destination_record(
         destination_id,
         data,
@@ -235,33 +227,6 @@ def patch_residential_destination(destination_id, data):
     return {
         "status": "updated",
         "destination_id": str(row["destination_id"]),
-    }, None
-
-
-def verify_residential_destination(destination_id, data):
-    error = validate_residential_destination_verification(data)
-
-    if error:
-        return None, error
-
-    row = verify_residential_destination_record(
-        destination_id,
-        data["latitude"],
-        data["longitude"],
-        data["verified_by"],
-    )
-
-    if row is None:
-        return None, "Residential destination not found"
-
-    return {
-        "status": (
-            "verified"
-            if row["geocode_verified"]
-            else "unverified"
-        ),
-        "destination_id": str(row["destination_id"]),
-        "geocode_verified": row["geocode_verified"],
     }, None
 
 
