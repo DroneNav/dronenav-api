@@ -94,7 +94,11 @@ CREATE TABLE flight_executions (
 );
 
 ALTER TABLE flight_executions
-ADD COLUMN active_route_segment_index INTEGER NOT NULL DEFAULT 0;
+    ADD COLUMN active_route_segment_index INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE flight_executions
+    ADD COLUMN destination_type TEXT NOT NULL DEFAULT 'droneport',
+    ADD COLUMN drop_address_id UUID;
 
 CREATE TABLE flight_execution_routes (
 

@@ -418,6 +418,12 @@ def _create_flight_execution_record(
         "destination_site_id": str(
             data["destination_site_id"]
         ),
+        "destination_type": data["destination_type"],
+        "drop_address_id": (
+            str(data["drop_address_id"])
+            if data["drop_address_id"] is not None
+            else None
+        ),
         "departure_droneport_id": (
             str(data["departure_droneport_id"])
             if data["departure_droneport_id"] is not None
@@ -494,6 +500,8 @@ def validate_flight_execution_submission(
         "arrival_droneport_id",
         "flight_path_ids",
         "submitted_by",
+        "destination_type",
+        "drop_address_id",
     ]
 
     for field in required_fields:
@@ -507,6 +515,27 @@ def validate_flight_execution_submission(
     # Later validation accesses required dictionary keys directly.
     if errors:
         return errors
+
+    destination_type = data["destination_type"]
+    drop_address_id = data["drop_address_id"]
+
+    if destination_type not in ("droneport", "drop_address"):
+        errors.append({
+            "field": "destination_type",
+            "code": "invalid_destination_type",
+            "message": (
+                "destination_type must be droneport or drop_address."
+            ),
+        })
+
+    if destination_type == "drop_address" and not drop_address_id:
+        errors.append({
+            "field": "drop_address_id",
+            "code": "missing_required_field",
+            "message": (
+                "drop_address_id is required for Drop Address flights."
+            ),
+        })
 
     if data["flight_class"] not in VALID_FLIGHT_CLASSES:
         errors.append({
@@ -646,7 +675,7 @@ def validate_flight_execution_submission(
                 ),
             })
 
-        if arrival_droneport_id is None:
+        if arrival_droneport_id is None and destination_type == "droneport":
             errors.append({
                 "field": "arrival_droneport_id",
                 "code": "missing_scheduled_flight_field",

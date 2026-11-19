@@ -73,6 +73,7 @@ def validate_operational_geospatial_data(data):
     authority_id = str(data["authority_id"])
     origin_site_id = str(data["origin_site_id"])
     destination_site_id = str(data["destination_site_id"])
+    destination_type = data["destination_type"]
 
     origin_site = select_site(origin_site_id)
     destination_site = select_site(destination_site_id)
@@ -148,7 +149,7 @@ def validate_operational_geospatial_data(data):
             ),
         })
 
-    if is_cross_site and arrival_droneport_id is None:
+    if is_cross_site and arrival_droneport_id is None and destination_type == "droneport":
         errors.append({
             "field": "arrival_droneport_id",
             "code": "arrival_droneport_required",
@@ -174,8 +175,25 @@ def validate_operational_geospatial_data(data):
 
     # Continuity validation requires every Route and endpoint Site to
     # have loaded and passed the operational checks.
+
     if route_errors:
         return errors
+
+    if destination_type == "drop_address":
+        for index, route in enumerate(routes):
+            if route["direction"] != 2:
+                errors.append({
+                    "field": "flight_path_ids",
+                    "code": "route_not_bidirectional",
+                    "message": (
+                        f"Route at Flight Path position {index + 1} "
+                        "must be bidirectional for a "
+                        "Drop Address flight."
+                    ),
+                })
+
+        if errors:
+            return errors
 
     errors.extend(
         _validate_ordered_route_sequence(
@@ -188,12 +206,13 @@ def validate_operational_geospatial_data(data):
     if errors:
         return errors
 
-    errors.extend(
-        _validate_terminal_droneports(
-            departure_droneport_id=departure_droneport_id,
-            arrival_droneport_id=arrival_droneport_id,
+    if destination_type == "droneport":
+        errors.extend(
+            _validate_terminal_droneports(
+                departure_droneport_id=departure_droneport_id,
+                arrival_droneport_id=arrival_droneport_id,
+            )
         )
-    )
 
     return errors
 
@@ -413,7 +432,7 @@ def _validate_ordered_route_sequence(
     if not routes:
         return errors
 
-    if departure_droneport is None or arrival_droneport is None:
+    if departure_droneport is None:
         return errors
 
     current_route_node_id = str(
@@ -487,9 +506,8 @@ def _validate_ordered_route_sequence(
             })
             return errors
 
-    if (
-        current_route_node_id
-        != str(arrival_droneport["route_node_id"])
+    if ( arrival_droneport is not None
+         and current_route_node_id != str(arrival_droneport["route_node_id"])
     ):
         errors.append({
             "field": "flight_path_ids",
