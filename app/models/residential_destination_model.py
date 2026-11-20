@@ -11,13 +11,15 @@ def insert_residential_destination_record(data):
                     site_id,
                     street_address,
                     latitude,
-                    longitude
+                    longitude,
+                    ground_elevation_ft
                 )
                 VALUES (
                     :site_id,
                     :street_address,
                     :latitude,
-                    :longitude
+                    :longitude,
+                    :ground_elevation_ft
                 )
                 RETURNING destination_id
             """),
@@ -26,6 +28,9 @@ def insert_residential_destination_record(data):
                 "street_address": data["street_address"],
                 "latitude": data["latitude"],
                 "longitude": data["longitude"],
+                "ground_elevation_ft": data.get(
+                    "ground_elevation_ft"
+                ),
             }
         )
 
@@ -41,7 +46,8 @@ def select_residential_destination_record(destination_id):
                     site_id,
                     street_address,
                     latitude,
-                    longitude
+                    longitude,
+                    ground_elevation_ft
                 FROM residential_destinations
                 WHERE destination_id = :destination_id
             """),
@@ -60,7 +66,8 @@ def select_residential_destination_records(site_id):
                     site_id,
                     street_address,
                     latitude,
-                    longitude
+                    longitude,
+                    ground_elevation_ft
                 FROM residential_destinations
                 WHERE site_id = :site_id
                 ORDER BY street_address
@@ -77,6 +84,7 @@ def patch_residential_destination_record(destination_id, data):
         "street_address",
         "latitude",
         "longitude",
+        "ground_elevation_ft",
     ]
 
     set_clauses = []

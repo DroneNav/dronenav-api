@@ -9,6 +9,8 @@ CREATE TABLE residential_destinations (
     latitude NUMERIC NOT NULL,
     longitude NUMERIC NOT NULL,
 
+    ground_elevation_ft INTEGER,
+
     CONSTRAINT residential_destinations_site_address_unique
         UNIQUE (site_id, street_address),
 

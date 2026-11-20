@@ -48,6 +48,10 @@ from app.models.residential_destination_model import (
     delete_residential_destination_record,
 )
 
+from app.services.elevation_service import (
+    resolve_coordinate_elevations,
+)
+
 from app.services.site_service import evaluate_point_in_site
 
 
@@ -138,6 +142,7 @@ def format_residential_destination(row):
         "street_address": row["street_address"],
         "latitude": float(row["latitude"]),
         "longitude": float(row["longitude"]),
+        "ground_elevation_ft": row["ground_elevation_ft"],
     }
 
 
@@ -164,6 +169,8 @@ def create_residential_destination(data):
         or containment["on_boundary"]
     ):
         return None, "Residential destination must be within the Site boundary"
+
+    data = enrich_residential_destination_elevation(data)
 
     destination_id = insert_residential_destination_record(data)
 
@@ -216,6 +223,15 @@ def patch_residential_destination(destination_id, data):
     ):
         return None, "Residential destination must be within the Site boundary"
 
+    if (
+        latitude != existing["latitude"]
+        or longitude != existing["longitude"]
+    ):
+        data["latitude"] = latitude
+        data["longitude"] = longitude
+
+        data = enrich_residential_destination_elevation(data)
+
     row = patch_residential_destination_record(
         destination_id,
         data,
@@ -241,4 +257,18 @@ def delete_residential_destination(destination_id):
         "destination_id": str(row["destination_id"]),
     }, None
 
+
+def enrich_residential_destination_elevation(data):
+    coordinates = [
+        [data["longitude"], data["latitude"]]
+    ]
+
+    elevations = resolve_coordinate_elevations(coordinates)
+
+    if elevations and elevations[0] is not None:
+        data["ground_elevation_ft"] = round(
+            elevations[0]["ground_elevation_ft"]
+        )
+
+    return data
 
