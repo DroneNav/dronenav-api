@@ -169,8 +169,12 @@ def load_scheduled_flight_overlays(data):
     departure_droneport = select_droneport(
         str(data["departure_droneport_id"])
     )
-    arrival_droneport = select_droneport(
-        str(data["arrival_droneport_id"])
+    arrival_droneport_id = data.get("arrival_droneport_id")
+
+    arrival_droneport = (
+        select_droneport(str(arrival_droneport_id))
+        if arrival_droneport_id
+        else None
     )
 
     routes = [
@@ -184,8 +188,12 @@ def load_scheduled_flight_overlays(data):
             destination_site,
         ],
         "droneports": [
-            departure_droneport,
-            arrival_droneport,
+            droneport
+            for droneport in (
+                departure_droneport,
+                arrival_droneport,
+            )
+            if droneport is not None
         ],
         "routes": routes,
     }

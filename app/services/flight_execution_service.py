@@ -1376,6 +1376,12 @@ def format_flight_execution(row):
         "destination_site_id": str(
             row["destination_site_id"]
         ),
+        "destination_type": row["destination_type"],
+        "drop_address_id": (
+            str(row["drop_address_id"])
+            if row["drop_address_id"] is not None
+            else None
+        ),
         "departure_droneport_id": (
             str(row["departure_droneport_id"])
             if row["departure_droneport_id"]
