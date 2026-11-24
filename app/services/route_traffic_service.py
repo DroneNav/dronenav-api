@@ -153,7 +153,11 @@ def build_layer_trailing_occupancy(
             (
                 route_range
                 for route_range in occupancy_route_ranges
-                if str(route_range["route_id"]) == str(route_id)
+                if (
+                    str(route_range["route_id"]) == str(route_id)
+                    and route_range["sequence_number"]
+                    == occupancy["sequence_number"]
+                )
             ),
             None,
         )

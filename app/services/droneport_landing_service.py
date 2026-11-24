@@ -31,6 +31,8 @@ def assign_droneport_landing_space(
                 SELECT
                     fe.flight_execution_id,
                     fe.arrival_droneport_id,
+                    fe.destination_type,
+                    fe.departure_droneport_id,
                     f.flight_id
                 FROM flight_executions AS fe
                 JOIN flight AS f
@@ -51,6 +53,10 @@ def assign_droneport_landing_space(
             }, 404
 
         arrival_droneport_id = execution["arrival_droneport_id"]
+
+        if execution["destination_type"] == "drop_address":
+            arrival_droneport_id = execution["departure_droneport_id"]
+
         flight_id = execution["flight_id"]
 
         if arrival_droneport_id is None:
@@ -147,7 +153,8 @@ def assign_droneport_landing_space(
                     ls.landing_space_id,
                     ls.geometry,
                     ls.heading_degrees,
-                    ls.charging_capable
+                    ls.charging_capable,
+                    ls.created_at
                 ORDER BY
                     MAX(fl.occurred_at) ASC NULLS FIRST,
                     ls.created_at ASC

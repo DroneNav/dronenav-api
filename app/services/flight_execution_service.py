@@ -449,6 +449,12 @@ def _create_flight_execution_record(
         ],
     }
 
+    if flight_execution_data["destination_type"] == "drop_address":
+        outbound_route_ids = flight_execution_data["route_ids"]
+        flight_execution_data["route_ids"] = (
+            outbound_route_ids + list(reversed(outbound_route_ids))
+        )
+
     planned_route_occupancy = []
 
     if requested_departure_datetime is not None:
@@ -747,7 +753,7 @@ def build_planned_route_occupancy(
 
     occupancy_rows = []
 
-    for route_id in route_ids:
+    for sequence_number, route_id in enumerate(route_ids, start=1):
         route = select_route(route_id)
 
         duration_seconds = (
@@ -762,6 +768,7 @@ def build_planned_route_occupancy(
         occupancy_rows.append(
             {
                 "route_id": route_id,
+                "sequence_number": sequence_number,
                 "flight_band_id": flight_band_id,
                 "aircraft_id": aircraft_id,
                 "planned_entry_time": planned_entry_time,

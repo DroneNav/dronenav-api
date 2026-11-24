@@ -209,6 +209,7 @@ def insert_flight_execution_record(connection, data, planned_route_occupancy=Non
         insert_route_occupancy_state(
             connection,
             route_id=occupancy["route_id"],
+            sequence_number=occupancy["sequence_number"],
             flight_band_id=occupancy["flight_band_id"],
             flight_execution_id=record[
                 "flight_execution_id"
@@ -702,6 +703,7 @@ def resume_via_flight_execution(
             insert_route_occupancy_state(
                 connection,
                 route_id=occupancy["route_id"],
+                sequence_number=occupancy["sequence_number"],
                 flight_band_id=occupancy["flight_band_id"],
                 flight_execution_id=flight_execution_id,
                 aircraft_id=occupancy["aircraft_id"],
@@ -1313,7 +1315,7 @@ def update_flight_execution_route_mission_ranges(
 ):
     with engine.begin() as connection:
         for route_range in route_ranges:
-            connection.execute(
+            result = connection.execute(
                 text("""
                     UPDATE flight_execution_routes
                     SET
@@ -1347,6 +1349,13 @@ def update_flight_execution_route_mission_ranges(
                     ),
                 },
             )
+
+            if result.rowcount != 1:
+                raise RuntimeError(
+                    "Could not persist mission range for "
+                    f"Route occurrence {route_range['route_index'] + 1} "
+                    f"in Flight Execution {flight_execution_id}."
+                )
 
 
 def select_flight_execution_route_ranges(
@@ -1508,14 +1517,7 @@ def _normalize_route_ids(route_ids):
     if not isinstance(route_ids, (list, tuple)):
         raise ValueError("route_ids must be an ordered list")
 
-    normalized_route_ids = [str(route_id) for route_id in route_ids]
-
-    if len(normalized_route_ids) != len(set(normalized_route_ids)):
-        raise ValueError(
-            "route_ids must not contain duplicate Routes"
-        )
-
-    return normalized_route_ids
+    return [str(route_id) for route_id in route_ids]
 
 
 def _validate_execution_status(execution_status):

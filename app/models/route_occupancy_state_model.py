@@ -1,10 +1,10 @@
 from sqlalchemy import text
 
-
 def insert_route_occupancy_state(
     connection,
     *,
     route_id,
+    sequence_number,
     flight_band_id,
     flight_execution_id,
     aircraft_id,
@@ -15,6 +15,7 @@ def insert_route_occupancy_state(
         text("""
             INSERT INTO route_occupancy_state (
                 route_id,
+                sequence_number,
                 flight_band_id,
                 flight_execution_id,
                 aircraft_id,
@@ -24,6 +25,7 @@ def insert_route_occupancy_state(
             )
             VALUES (
                 :route_id,
+                :sequence_number,
                 :flight_band_id,
                 :flight_execution_id,
                 :aircraft_id,
@@ -36,6 +38,7 @@ def insert_route_occupancy_state(
         """),
         {
             "route_id": route_id,
+            "sequence_number": sequence_number,
             "flight_band_id": flight_band_id,
             "flight_execution_id": flight_execution_id,
             "aircraft_id": aircraft_id,
@@ -70,6 +73,7 @@ def update_active_route_position(
     connection,
     *,
     route_id,
+    sequence_number,
     flight_execution_id,
     latitude,
     longitude,
@@ -84,11 +88,13 @@ def update_active_route_position(
                 last_altitude_ft = :altitude_ft
             WHERE route_id = :route_id
               AND flight_execution_id = :flight_execution_id
+              AND sequence_number = :sequence_number
               AND state = 'active'
         """),
         {
             "route_id": route_id,
             "flight_execution_id": flight_execution_id,
+            "sequence_number": sequence_number,
             "latitude": latitude,
             "longitude": longitude,
             "altitude_ft": altitude_ft,
@@ -100,6 +106,7 @@ def update_route_occupancy_state(
     connection,
     *,
     route_id,
+    sequence_number,
     flight_execution_id,
     actual_entry_time=None,
     actual_exit_time=None,
@@ -150,6 +157,7 @@ def update_route_occupancy_state(
                 )
             WHERE route_id = :route_id
               AND flight_execution_id = :flight_execution_id
+              AND sequence_number = :sequence_number
               AND (
                   :state IS NULL
                   OR (
@@ -165,6 +173,7 @@ def update_route_occupancy_state(
         {
             "route_id": route_id,
             "flight_execution_id": flight_execution_id,
+            "sequence_number": sequence_number,
             "actual_entry_time": actual_entry_time,
             "actual_exit_time": actual_exit_time,
             "last_latitude": last_latitude,
@@ -179,6 +188,7 @@ def set_route_intersection_hold(
     connection,
     *,
     route_id,
+    sequence_number,
     flight_execution_id,
     route_node_id,
     flight_band_id,
@@ -221,6 +231,7 @@ def set_route_intersection_hold(
                 )
             WHERE route_id = :route_id
               AND flight_execution_id = :flight_execution_id
+              AND sequence_number = :sequence_number
               AND state = 'active'
               AND flight_band_id = :flight_band_id
               AND assigned_relative_altitude_ft =
@@ -234,6 +245,7 @@ def set_route_intersection_hold(
         {
             "hold_position": hold_position,
             "route_id": route_id,
+            "sequence_number": sequence_number,
             "flight_execution_id": flight_execution_id,
             "route_node_id": route_node_id,
             "flight_band_id": flight_band_id,
@@ -250,6 +262,7 @@ def clear_route_intersection_hold(
     connection,
     *,
     route_id,
+    sequence_number,
     flight_execution_id,
     route_node_id,
     flight_band_id,
@@ -264,6 +277,7 @@ def clear_route_intersection_hold(
                 intersection_hold_position = NULL
             WHERE route_id = :route_id
               AND flight_execution_id = :flight_execution_id
+              AND sequence_number = :sequence_number
               AND state = 'active'
               AND flight_band_id = :flight_band_id
               AND assigned_relative_altitude_ft = :assigned_relative_altitude_ft
@@ -273,6 +287,7 @@ def clear_route_intersection_hold(
         {
             "route_id": route_id,
             "flight_execution_id": flight_execution_id,
+            "sequence_number": sequence_number,
             "route_node_id": route_node_id,
             "flight_band_id": flight_band_id,
             "assigned_relative_altitude_ft": (
@@ -299,6 +314,7 @@ def select_oldest_destination_route_hold(
             SELECT
                 occupancy.route_occupancy_state_id,
                 occupancy.route_id,
+                occupancy.sequence_number,
                 occupancy.flight_execution_id,
                 occupancy.flight_band_id,
                 occupancy.assigned_relative_altitude_ft,
@@ -309,6 +325,7 @@ def select_oldest_destination_route_hold(
               ON incoming.flight_execution_id =
                   occupancy.flight_execution_id
              AND incoming.route_id = occupancy.route_id
+             AND incoming.sequence_number = occupancy.sequence_number
             WHERE occupancy.state = 'active'
               AND occupancy.flight_band_id = :flight_band_id
               AND occupancy.intersection_hold_route_node_id IS NOT NULL
@@ -348,6 +365,7 @@ def select_route_capacity_holds(
             SELECT
                 route_occupancy_state_id,
                 route_id,
+                sequence_number,
                 flight_execution_id,
                 flight_band_id,
                 assigned_relative_altitude_ft,
@@ -385,6 +403,7 @@ def select_next_intersection_hold(
             SELECT
                 route_occupancy_state_id,
                 route_id,
+                sequence_number,
                 flight_execution_id,
                 flight_band_id,
                 assigned_relative_altitude_ft,
@@ -422,6 +441,7 @@ def select_route_occupancy_state(
     connection,
     *,
     route_id,
+    sequence_number,
     flight_execution_id,
 ):
     result = connection.execute(
@@ -429,6 +449,7 @@ def select_route_occupancy_state(
             SELECT
                 route_occupancy_state_id,
                 route_id,
+                sequence_number,
                 flight_band_id,
                 flight_execution_id,
                 aircraft_id,
@@ -439,9 +460,11 @@ def select_route_occupancy_state(
             FROM route_occupancy_state
             WHERE route_id = :route_id
               AND flight_execution_id = :flight_execution_id
+              AND sequence_number = :sequence_number
         """),
         {
             "route_id": route_id,
+            "sequence_number": sequence_number,
             "flight_execution_id": flight_execution_id,
         },
     )
@@ -530,6 +553,7 @@ def select_active_route_occupancy(
         text("""
             SELECT
                 route_occupancy_state_id,
+                sequence_number,
                 flight_execution_id,
                 aircraft_id,
                 assigned_relative_altitude_ft,
@@ -624,7 +648,10 @@ def release_flight_execution_route_occupancy(
                 state = 'exited',
                 cleared = TRUE,
                 actual_exit_time = :termination_datetime,
-                last_state_change_at = :termination_datetime
+                last_state_change_at = :termination_datetime,
+                intersection_hold_route_node_id = NULL,
+                intersection_hold_at = NULL,
+                intersection_hold_position = NULL
             WHERE flight_execution_id = :flight_execution_id
               AND state = 'active'
             RETURNING route_occupancy_state_id
