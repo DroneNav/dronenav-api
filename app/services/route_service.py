@@ -51,6 +51,7 @@ from app.config.constants import (
     DEFAULT_ROUTE_BUFFERED,
     DEFAULT_ROUTE_STATUS,
     DEFAULT_SURVEY_STATUS,
+    ROUTE_STATUS_ACTIVE,
     MINIMUM_LONGITUDINAL_SEPARATION_FT,
     ROUTE_DIRECTION_FORWARD,
     ROUTE_DIRECTION_REVERSE,
@@ -758,13 +759,30 @@ def patch_route(route_id, data):
 def delete_route(route_id, deleted_by):
     row = soft_delete_route(route_id, deleted_by)
 
-    if row is None:
-        return None
+    if row is not None:
+        return {
+            "status": "deleted",
+            "route_id": str(row["route_id"]),
+        }, 200
+
+    route = select_route(route_id)
+
+    if route is None:
+        return {
+            "status": "error",
+            "message": "Route not found"
+        }, 404
+
+    if route["operational_status"] == ROUTE_STATUS_ACTIVE:
+        return {
+            "status": "error",
+            "message": "An Active Route must be deactivated before it can be deleted."
+        }, 409
 
     return {
-        "status": "deleted",
-        "route_id": str(row["route_id"]),
-    }
+        "status": "error",
+        "message": "Route could not be deleted."
+    }, 409
 
 
 def enrich_route_segment_elevations(data):

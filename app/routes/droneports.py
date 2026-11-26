@@ -182,15 +182,9 @@ def delete_droneport_route(droneport_id):
 
     deleted_by = request.args.get("deleted_by", "dronenav")
 
-    result = delete_droneport(droneport_id, deleted_by)
+    result, status_code = delete_droneport(droneport_id, deleted_by)
 
-    if result is None:
-        return jsonify({
-            "status": "error",
-            "message": "DronePort not found"
-        }), 404
-
-    return jsonify(result)
+    return jsonify(result), status_code
 
 
 @droneports_bp.route(

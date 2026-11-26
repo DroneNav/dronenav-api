@@ -310,11 +310,13 @@ def soft_delete_site(site_id, deleted_by):
                     deleted_at = now(),
                     deleted_by = :deleted_by
                 WHERE site_id = :site_id
+                  AND operational_status = :inactive_status
                 RETURNING site_id
             """),
             {
                 "site_id": site_id,
                 "status": SITE_STATUS_DELETED,
+                "inactive_status": SITE_STATUS_INACTIVE,
                 "deleted_by": deleted_by,
             }
         )

@@ -442,11 +442,13 @@ def soft_delete_droneport(droneport_id, deleted_by):
                     deleted_at = now(),
                     deleted_by = :deleted_by
                 WHERE droneport_id = :droneport_id
+                  AND operational_status = :inactive_status
                 RETURNING droneport_id
             """),
             {
                 "droneport_id": droneport_id,
                 "status": DRONEPORT_STATUS_DELETED,
+                "inactive_status": DRONEPORT_STATUS_INACTIVE,
                 "deleted_by": deleted_by,
             }
         )

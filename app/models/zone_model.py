@@ -313,11 +313,13 @@ def soft_delete_zone(zone_id, deleted_by):
                     deleted_at = now(),
                     deleted_by = :deleted_by
                 WHERE zone_id = :zone_id
+                  AND operational_status = :inactive_status
                 RETURNING zone_id
             """),
             {
                 "zone_id": zone_id,
                 "status": ZONE_STATUS_DELETED,
+                "inactive_status": ZONE_STATUS_INACTIVE,
                 "deleted_by": deleted_by,
             }
         )

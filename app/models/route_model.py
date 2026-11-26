@@ -51,6 +51,7 @@ from sqlalchemy import text
 from app.config.constants import (
     DEFAULT_SRID,
     SITE_STATUS_DELETED,
+    ROUTE_STATUS_INACTIVE,
     ROUTE_STATUS_DELETED,
     SURVEY_STATUS_APPROVED,
     SURVEY_STATUS_NOT_SURVEYED,
@@ -1365,11 +1366,13 @@ def soft_delete_route(route_id, deleted_by):
                     deleted_at = now(),
                     deleted_by = :deleted_by
                 WHERE route_id = :route_id
+                  AND operational_status = :inactive_status
                 RETURNING route_id
             """),
             {
                 "route_id": route_id,
                 "status": ROUTE_STATUS_DELETED,
+                "inactive_status": ROUTE_STATUS_INACTIVE,
                 "deleted_by": deleted_by,
             }
         )

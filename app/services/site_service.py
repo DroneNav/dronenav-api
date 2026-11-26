@@ -49,6 +49,7 @@ from app.config.constants import (
     DEFAULT_OPERATIONAL_STATUS,
     DEFAULT_SURVEY_STATUS,
     DEFAULT_REVIEW_STATUS,
+    SITE_STATUS_ACTIVE,
 )
 
 from app.models.site_model import (
@@ -328,13 +329,30 @@ def patch_timezone(site_id, timezone):
 def delete_site(site_id, deleted_by):
     row = soft_delete_site(site_id, deleted_by)
 
-    if row is None:
-        return None
+    if row is not None:
+        return {
+            "status": "deleted",
+            "site_id": str(row["site_id"]),
+        }, 200
+
+    site = select_site(site_id)
+
+    if site is None:
+        return {
+            "status": "error",
+            "message": "Site not found"
+        }, 404
+
+    if site["operational_status"] == SITE_STATUS_ACTIVE:
+        return {
+            "status": "error",
+            "message": "An Active Site must be deactivated before it can be deleted."
+        }, 409
 
     return {
-        "status": "deleted",
-        "site_id": str(row["site_id"]),
-    }
+        "status": "error",
+        "message": "Site could not be deleted."
+    }, 409
 
 
 def validate_site_point_containment_payload(data):

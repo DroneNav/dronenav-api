@@ -48,6 +48,7 @@ from app.config.constants import (
     DEFAULT_MAXIMUM_ALTITUDE_FT,
     DEFAULT_ZONE_STATUS,
     DEFAULT_SURVEY_STATUS,
+    ZONE_STATUS_ACTIVE,
 )
 
 from app.models.zone_model import (
@@ -299,13 +300,30 @@ def patch_zone(zone_id, data):
 def delete_zone(zone_id, deleted_by):
     row = soft_delete_zone(zone_id, deleted_by)
 
-    if row is None:
-        return None
+    if row is not None:
+        return {
+            "status": "deleted",
+            "zone_id": str(row["zone_id"]),
+        }, 200
+
+    zone = select_zone(zone_id)
+
+    if zone is None:
+        return {
+            "status": "error",
+            "message": "Zone not found"
+        }, 404
+
+    if zone["operational_status"] == ZONE_STATUS_ACTIVE:
+        return {
+            "status": "error",
+            "message": "An Active Zone must be deactivated before it can be deleted."
+        }, 409
 
     return {
-        "status": "deleted",
-        "zone_id": str(row["zone_id"]),
-    }
+        "status": "error",
+        "message": "Zone could not be deleted."
+    }, 409
 
 
 def validate_zone_point_containment_payload(data):

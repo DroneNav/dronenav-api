@@ -325,15 +325,9 @@ def delete_route_route(route_id):
 
     deleted_by = request.args.get("deleted_by", "dronenav")
 
-    result = delete_route(route_id, deleted_by)
+    result, status_code = delete_route(route_id, deleted_by)
 
-    if result is None:
-        return jsonify({
-            "status": "error",
-            "message": "Route not found"
-        }), 404
-
-    return jsonify(result)
+    return jsonify(result), status_code
 
 
 @routes_bp.route("/api/routes/segment-conformance", methods=["POST", "OPTIONS"])

@@ -47,6 +47,7 @@ from app.config.constants import (
     DEFAULT_DRONEPORT_STATUS,
     DEFAULT_SURVEY_STATUS,
     DEFAULT_DRONEPORT_DIAMETER_FT,
+    DRONEPORT_STATUS_ACTIVE,
 )
 
 from app.models.droneport_model import (
@@ -298,13 +299,30 @@ def patch_droneport(droneport_id, data):
 def delete_droneport(droneport_id, deleted_by):
     row = soft_delete_droneport(droneport_id, deleted_by)
 
-    if row is None:
-        return None
+    if row is not None:
+        return {
+            "status": "deleted",
+            "droneport_id": str(row["droneport_id"]),
+        }, 200
+
+    droneport = select_droneport(droneport_id)
+
+    if droneport is None:
+        return {
+            "status": "error",
+            "message": "DronePort not found"
+        }, 404
+
+    if droneport["operational_status"] == DRONEPORT_STATUS_ACTIVE:
+        return {
+            "status": "error",
+            "message": "An Active DronePort must be deactivated before it can be deleted."
+        }, 409
 
     return {
-        "status": "deleted",
-        "droneport_id": str(row["droneport_id"]),
-    }
+        "status": "error",
+        "message": "DronePort could not be deleted."
+    }, 409
 
 
 def validate_droneport_point_containment_payload(data):

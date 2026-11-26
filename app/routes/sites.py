@@ -220,15 +220,9 @@ def delete_site_route(site_id):
 
     deleted_by = request.args.get("deleted_by", "dronenav")
 
-    result = delete_site(site_id, deleted_by)
+    result, status_code = delete_site(site_id, deleted_by)
 
-    if result is None:
-        return jsonify({
-            "status": "error",
-            "message": "Site not found"
-        }), 404
-
-    return jsonify(result)
+    return jsonify(result), status_code
 
 
 @sites_bp.route(

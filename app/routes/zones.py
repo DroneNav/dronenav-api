@@ -189,15 +189,9 @@ def delete_zone_route(zone_id):
 
     deleted_by = request.args.get("deleted_by", "dronenav")
 
-    result = delete_zone(zone_id, deleted_by)
+    result, status_code = delete_zone(zone_id, deleted_by)
 
-    if result is None:
-        return jsonify({
-            "status": "error",
-            "message": "Zone not found"
-        }), 404
-
-    return jsonify(result)
+    return jsonify(result), status_code
 
 
 @zones_bp.route(
